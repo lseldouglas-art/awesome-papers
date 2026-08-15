@@ -1,0 +1,54 @@
+name: Bug report
+description: Report reproducible product or runtime behavior.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include credentials, private manuscripts, participant data, or access-controlled full text.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: v0.1.0 or commit SHA
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Project creation and query preview
+        - PubMed retrieval
+        - Agent execution and recovery
+        - Human gate or review
+        - Research artifacts and evidence boundaries
+        - Export authority
+        - User interface
+        - Installation or deployment
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Use synthetic or public data.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: boundary
+    attributes:
+      label: Scientific or authority impact
+      description: Could this incorrectly elevate, hide, approve, export, or invalidate research content?

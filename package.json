@@ -1,0 +1,31 @@
+{
+  "name": "research-workbench",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A local-first, auditable research workbench for evidence-bounded PubMed reviews.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.19"
+  },
+  "scripts": {
+    "dev": "node research-workbench-server.mjs",
+    "build": "vite build",
+    "start": "node research-workbench-server.mjs --production",
+    "test": "npm run test:core && npm run test:model && npm run test:api && npm run build",
+    "test:core": "node --test research-core/*.test.mjs research-core/fixtures/*.test.mjs",
+    "test:model": "node --test tests/research-agent-workbench-model.test.mjs",
+    "test:api": "node --test tests/research-workbench-api.e2e.test.mjs"
+  },
+  "dependencies": {
+    "@earendil-works/pi-agent-core": "0.84.1",
+    "@earendil-works/pi-ai": "0.84.1",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "typebox": "1.3.7"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
+    "vite": "^7.1.7"
+  }
+}

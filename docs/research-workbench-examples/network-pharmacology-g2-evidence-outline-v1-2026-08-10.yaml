@@ -1,0 +1,256 @@
+outline_manifest:
+  outline_id: NP-G2-OUTLINE-001
+  version: 1
+  stage: G2_protocol_formation
+  status: candidate_ready_for_human_decision
+  created_on: 2026-08-10
+  parent_stagepack_id: NP-G1-20260810-v8
+  scope: PubMed_only_methodological_orientation
+  evidence_count_basis: unique_source_ids_in_frozen_G1_purposive_evidence_map
+  warning: >-
+    支撑数表示当前 G1 代表性证据图中映射到该章节的唯一来源数，不是全领域论文数、
+    证据权重或路线占比；正式执行 Protocol 后必须由去重后的纳入研究家族更新。
+
+input_integrity:
+  frozen_method_library:
+    path: docs/research-workbench-examples/network-pharmacology-g1-pubmed-method-library-v1-2026-08-10.tsv
+    records: 51
+    study_families: 50
+    sha256: 15f425f37752c7180d7e247e0b9bd3e0d04bd2f26a383d794629c2f91d103e66
+  frozen_evidence_matrix:
+    path: docs/research-workbench-examples/network-pharmacology-g1-evidence-matrix-v1-2026-08-09.yaml
+    sources: 13
+    claims: 8
+    sha256: abe18c7cbe314671894458a605a556fc8fcecb7fa89af8da20fe3c469caf481f
+  G1_stagepack:
+    path: docs/research-workbench-examples/network-pharmacology-g1-stagepack-v8-2026-08-10.yaml
+    sha256: 3e99f1006ce7de256f21d83837ae3cedec043ce7917954553e3c4fb0bf58d83d
+
+G2_directional_sources:
+  - source_id: NP-G2-METH-001
+    citation: JBI Manual for Evidence Synthesis, Chapter 10, Scoping Reviews
+    url: https://jbi-global.atlassian.net/wiki/spaces/MANUAL/pages/355862497/10.%2BScoping%2Breviews
+    role: protocol_method
+    verified_points:
+      - protocol_should_be_a_priori_and_deviations_reported
+      - title_question_and_inclusion_criteria_should_be_congruent_with_PCC
+      - source_selection_should_use_two_or_more_independent_reviewers
+      - charting_form_should_be_piloted
+      - scoping_analysis_is_descriptive_mapping_not_effect_synthesis
+  - source_id: NP-G2-METH-002
+    citation: PRISMA extension for Scoping Reviews, official checklist page
+    url: https://www.prisma-statement.org/scoping
+    role: reporting_standard
+    verified_points:
+      - 20_essential_and_2_optional_reporting_items
+      - protocol_registration_search_selection_charting_and_limitations_are_explicit_items
+  - source_id: NP-G2-METH-003
+    citation: PRISMA-S, official PRISMA Search reporting guideline
+    url: https://www.prisma-statement.org/prisma-search
+    role: search_reporting_standard
+    verified_points:
+      - 16_search_reporting_items
+      - complete_strategies_sources_dates_and_record_management_should_be_reported
+  - source_id: NP-G2-FV-001
+    citation: >-
+      Li et al. Network pharmacology, experimental validation and pharmacokinetics integrated
+      strategy to reveal pharmacological mechanism of goutengsan on methamphetamine dependence.
+      Front Pharmacol. 2024. PMID 39669203.
+    url: https://pubmed.ncbi.nlm.nih.gov/39669203/
+    role: strong_partial_middle_out_calibration
+    extracted_points:
+      - formulation_components_identified_by_HPLC
+      - plasma_and_brain_tissue_exposure_reported_for_selected_ingredients_in_mice
+      - phenotypes_and_MAPK_expression_reported_in_rats_and_cells
+      - cross_species_exposure_effect_alignment_not_established_from_abstract
+      - no_direct_target_engagement_or_target_specific_rescue_reported_in_abstract
+    evidence_assignment:
+      exposure_component: measured_exposure_present
+      exposure_aligned_in_vivo_mechanism_E4: pending_full_text_cross_species_alignment
+      specific_MAPK_target_causality: E1_to_E2_only
+      overall_route: partial_middle_out
+  - source_id: NP-G2-FV-002
+    citation: >-
+      Li et al. Integrating Pharmacokinetics Study, Network Analysis, and Experimental Validation
+      to Uncover the Mechanism of Qiliqiangxin Capsule Against Chronic Heart Failure.
+      Front Pharmacol. 2019. PMID 31619994.
+    url: https://pubmed.ncbi.nlm.nih.gov/31619994/
+    role: exposure_linked_validation_calibration
+    extracted_points:
+      - pharmacokinetics_used_to_screen_active_components
+      - network_candidates_followed_by_human_cell_experiments
+      - abstract_does_not_establish_direct_target_engagement_or_human_effectiveness
+    evidence_assignment:
+      drug_side_exposure: PK_reported_component
+      disease_context: E2_pending_full_text
+      specific_target_causality: unknown_not_E3_without_full_text
+      overall_route: partial_middle_out
+
+outline_policy:
+  target_artifact: evidence_driven_scoping_review_outline
+  protocol_design: PubMed_restricted_methodological_scoping_review_with_nested_stratified_meta_research_audit
+  primary_evidence_channels:
+    M: full_method_and_normative_evidence_identification
+    A: stratified_random_application_practice_audit
+  nonexclusive_application_components: [E_drug_entity_or_exposure_signal, O_disease_context, C_binding_engagement_or_functional_mediation_signal]
+  case_enrichment_policy: exclude_from_all_A_channel_prevalence_and_period_denominators
+  chapter_requirements:
+    - explicit_review_question_link
+    - unique_support_source_count
+    - support_source_ids
+    - counterevidence_or_qualification
+    - highest_permitted_wording
+    - prohibited_inference
+    - expansion_or_downgrade_rule
+  missing_evidence_policy: merge_expand_search_or_downgrade_never_generate_to_fill
+  route_prevalence_allowed: false
+  annual_trend_inference_allowed: false
+  clinical_effectiveness_inference_allowed: false
+
+chapters:
+  - chapter_id: NP-G2-CH-01
+    title: 工具链成熟为何不等于机制成熟
+    purpose: 界定网络药理学可做候选压缩，但计算流程完整不代表因果或临床证据完整。
+    claim_ids: [NP-G1-CL-101, NP-G1-CL-107]
+    support_source_ids: [NP-G1-FT-001, NP-G1-FT-002, NP-G1-FT-003, NP-G1-FT-005]
+    unique_support_count: 4
+    counterevidence_or_qualification:
+      - NP-G1-FT-002显示优化的多尺度网络能产生优于简单重叠且可被实验跟进的候选
+      - NP-G1-FT-011显示明确单体结合功能扰动时可形成较强机制链
+    highest_permitted_wording: 网络药理学可有效生成和排序候选，但机制强度由独立实验证据决定。
+    prohibited_inference: 网络药理学整体无效；或工具链成熟已经证明临床有效。
+    readiness: ready_for_scoped_outline
+    expansion_or_downgrade_rule: 若A通道尚未提供实践基线，只能写方法能力与风险，不能写领域普遍程度。
+
+  - chapter_id: NP-G2-CH-02
+    title: 数据库、实体映射与网络算法怎样制造不稳定
+    purpose: 分解数据库覆盖、ID 映射、交并集、中心性和网络背景对结果的影响。
+    claim_ids: [NP-G1-CL-102, NP-G1-CL-104]
+    support_source_ids: [NP-G1-FT-001, NP-G1-FT-002, NP-G1-FT-003, NP-G1-FT-006]
+    unique_support_count: 4
+    counterevidence_or_qualification:
+      - NP-G1-FT-002只覆盖42种草药、36个成分，参考真值来自单一HERB库且阳性稀疏；支持该任务内的差异，不支持数据库普遍优劣
+      - NP-G1-FT-003限于WoS Core、开放获取、天然产物和2023-10-01至2024-06-30；代谢物、靶点、通路实际分母为465、880、917，不能外推全领域或2018—2026趋势
+    highest_permitted_wording: 数据库和算法选择可实质改变候选集合与性能，必须保存谱系并做敏感性分析。
+    prohibited_inference: 所有数据库结果都是随机的；或任一数据库天然优于其他数据库。
+    readiness: ready_with_scope_qualification
+    expansion_or_downgrade_rule: 若无独立同任务数据库或算法比较，结论降级到具体任务，不合成普遍优劣排序。
+
+  - chapter_id: NP-G2-CH-03
+    title: 可重复计算的最低报告要求
+    purpose: 建立来源、版本、日期、阈值、节点/边、参数、软件和环境的最小记录集。
+    claim_ids: [NP-G1-CL-101, NP-G1-CL-102]
+    support_source_ids: [NP-G1-FT-001, NP-G1-FT-002, NP-G1-FT-004, NP-G1-FT-005]
+    unique_support_count: 4
+    counterevidence_or_qualification:
+      - 计算重放、重对接和MD稳定性只提升计算可重复性，不自动提升生物学真实性
+      - SCM_0061_2021没有被解释为无条件强制所有研究公开原始数据与代码
+    highest_permitted_wording: 完整谱系和参数报告使分析可审计、可重建，但仍需独立生物学验证。
+    prohibited_inference: 可重复等于真实；或报告完整等于研究低偏倚。
+    readiness: ready_for_scoped_outline
+    expansion_or_downgrade_rule: 若仅有指南而无A通道实证审计，章节只呈现规范要求，不讨论实际采用率。
+
+  - chapter_id: NP-G2-CH-04
+    title: 从 docking 和 MD 到 target engagement：验证概念的分层
+    purpose: 把计算一致性、表达变化、功能扰动、直接结合和救援实验放入不同证据层。
+    claim_ids: [NP-G1-CL-103, NP-G1-CL-105]
+    support_source_ids:
+      - NP-G1-FT-004
+      - NP-G1-FT-005
+      - NP-G1-FT-006
+      - NP-G1-FT-011
+      - NP-G2-FV-001
+    unique_support_count: 5
+    counterevidence_or_qualification:
+      - NP-G1-FT-004的误用率只来自2024年Frontiers in Pharmacology的35篇论文，CASF-2016的285个复合物只界定blind docking性能边界，不能推成领域总体比例
+      - 正确位点、阳性对照、重对接和第二软件可减少 docking 假阳性，但仍不是直接结合实验
+      - 通路蛋白和表型同时变化可支持情境关联，但不能单独证明候选靶点介导表型
+    highest_permitted_wording: docking和MD用于候选优先级；完整X—Y—Z靶点因果主张需结合/细胞占有、Y特异扰动造成效应修饰或救援，以及浓度/暴露相容，各组件不可相互替代。
+    prohibited_inference: 分子对接验证了结合；MD稳定证明了靶点参与；表达变化证明了因果。
+    readiness: ready_for_scoped_outline
+    expansion_or_downgrade_rule: 若缺少真实binding或engagement及靶点特异扰动案例，拆成计算校准与待验证缺口，不写靶点因果层级已闭合。
+
+  - chapter_id: NP-G2-CH-05
+    title: 从单侧预测到暴露—疾病模块—因果检验的闭环
+    purpose: 用正例、部分正例和负校准案例定义 bottom-up、top-down、middle-out 及 partial middle-out。
+    claim_ids: [NP-G1-CL-105, NP-G1-CL-106, NP-G1-CL-107]
+    support_source_ids:
+      - NP-G1-FT-006
+      - NP-G1-FT-007
+      - NP-G1-FT-008
+      - NP-G1-FT-009
+      - NP-G1-FT-010
+      - NP-G1-FT-011
+      - NP-G2-FV-001
+      - NP-G2-FV-002
+    unique_support_count: 8
+    counterevidence_or_qualification:
+      - NP-G1-FT-006报告转录组靶点与网络预测靶点无重叠，是技术叠加不等于会合的负校准
+      - NP-G2-FV-001的暴露与表型跨物种，全文核验前只能视为部分闭环，不能写成E4对齐
+      - 当前样本尚未找到同时覆盖制剂实测、组织/人体PK、疾病模块、直接靶点扰动和人体结局的完整闭环
+    highest_permitted_wording: 多个研究已实现部分会合；完整闭环应同时约束药物可达性、疾病相关性和功能因果性。
+    prohibited_inference: middle_out已经成为主流；部分会合等于完整机制；动物闭环可直接外推人体疗效。
+    readiness: ready_as_framework_not_prevalence_claim
+    expansion_or_downgrade_rule: 若正式样本仍无暴露、疾病模块和功能介导同时满足的案例，保留partial框架并把完整闭环写成研究缺口。
+
+  - chapter_id: NP-G2-CH-06
+    title: 多组学、单细胞、AI 与 QSP 的真实增量和边界
+    purpose: 区分增加情境、改善候选排序、引入剂量时间预测与建立机制真值。
+    claim_ids: [NP-G1-CL-105, NP-G1-CL-108]
+    support_source_ids: [NP-G1-FT-002, NP-G1-FT-003, NP-G1-FT-012, NP-G1-FT-013]
+    unique_support_count: 4
+    counterevidence_or_qualification:
+      - 多组学或AI的技术标签本身不能消除输入偏倚、数据泄漏或情境错配
+      - QSP是相邻定量方向，当前证据不能证明它已成为传统网络药理学主流
+    highest_permitted_wording: 这些方法可增加情境或定量预测能力，但仍须版本化数据、外部验证和实验可证伪性。
+    prohibited_inference: AI自动解决数据库偏倚；多组学自动构成机制闭环；QSP已取代网络药理学。
+    readiness: ready_with_adjacent_field_boundary
+    expansion_or_downgrade_rule: 各技术分别要求任务内增量证据；证据不足者合并到相邻方法背景，不生成独立演进结论。
+
+  - chapter_id: NP-G2-CH-07
+    title: 面向下一代网络药理学的最小可辩护设计
+    purpose: 综合为数据谱系、比较基线、暴露、疾病模块、因果验证和开放复现的设计清单。
+    claim_ids: [NP-G1-CL-102, NP-G1-CL-103, NP-G1-CL-106, NP-G1-CL-107]
+    support_source_ids:
+      - NP-G1-FT-001
+      - NP-G1-FT-002
+      - NP-G1-FT-003
+      - NP-G1-FT-004
+      - NP-G1-FT-005
+      - NP-G2-FV-001
+    unique_support_count: 6
+    counterevidence_or_qualification:
+      - 最小可辩护设计是方法建议，不是经前瞻性试验验证的统一标准
+      - 不同研究目的允许停在不同证据层，但结论措辞必须与证据层一致
+    highest_permitted_wording: 研究设计应让每个关键结论都能回到版本化输入、可重建分析和匹配强度的实验检验。
+    prohibited_inference: 存在适用于所有疾病、药物与研究目的的单一最佳流程。
+    readiness: ready_as_methodological_recommendation
+    expansion_or_downgrade_rule: 在清单未经前瞻性验证前始终标为方法建议；不得升级成经验证统一标准。
+
+cross_chapter_gaps:
+  - gap_id: NP-G2-GAP-001
+    text: 当前仍是PubMed单库，无法支持跨库或双语穷尽性结论
+    action: keep_visible_or_reopen_G1_for_multidatabase_upgrade
+  - gap_id: NP-G2-GAP-002
+    text: G1的50个研究家族是方法候选库，不是应用研究的无偏总体
+    action: freeze_A_mother_universe_and_complete_stratified_random_full_text_audit_before_any_practice_denominator
+  - gap_id: NP-G2-GAP-003
+    text: 尚无完整闭环与E5人体证据的稳定样本
+    action: phrase_as_gap_and_do_not_generate_or_extrapolate
+  - gap_id: NP-G2-GAP-004
+    text: bottom_up_top_down_middle_out规则尚需双人校准
+    action: pilot_at_least_50_titles_abstracts_and_20_full_texts_and_report_raw_agreement_AC1_and_kappa
+  - gap_id: NP-G2-GAP-005
+    text: 2026年记录持续索引
+    action: update_search_before_registration_freeze_and_before_final_writeup
+
+gate_readiness:
+  evidence_driven_outline_mapped: true
+  each_chapter_has_support_count: true
+  each_chapter_has_counter_or_qualification: true
+  prohibited_inferences_explicit: true
+  PubMed_only_constraint_visible: true
+  route_prevalence_claim_blocked: true
+  clinical_effectiveness_claim_blocked: true
+  independent_methodologist_review: completed_and_revision_incorporated
+  independent_human_G2_approval: pending

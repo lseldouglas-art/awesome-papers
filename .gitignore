@@ -1,0 +1,11 @@
+node_modules/
+dist-research/
+.research-workbench-data/
+.vercel/
+.env
+.env.local
+.env.*.local
+.DS_Store
+coverage/
+npm-debug.log*
+*.tgz

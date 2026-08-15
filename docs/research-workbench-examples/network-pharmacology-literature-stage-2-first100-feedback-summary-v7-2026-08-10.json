@@ -1,0 +1,190 @@
+{
+  "run_date": "2026-08-10",
+  "database": "PubMed",
+  "strategy_version": "v7_final_candidate_after_manual_title_feedback",
+  "sort": "publication_date_descending",
+  "records_requested_per_path": 100,
+  "queries": {
+    "Q1_database_algorithm_instability": "(\"network pharmacology\"[Title/Abstract] OR \"network-based pharmacology\"[Title/Abstract]) AND (database*[Title] OR algorithm*[Title] OR reproducib*[Title] OR benchmark*[Title] OR methodolog*[Title] OR \"current status\"[Title] OR \"reporting quality\"[Title] OR \"quality of reporting\"[Title]) NOT (\"network meta-analysis\"[Title] OR bibliometric*[Title] OR scientometric*[Title])",
+    "Q2_reporting_reproducibility": "(\"network pharmacology\"[Title/Abstract] OR \"network-based pharmacology\"[Title/Abstract]) AND (guideline*[Title] OR reproducib*[Title] OR \"reporting standard*\"[Title] OR \"reporting quality\"[Title] OR \"quality of reporting\"[Title] OR \"methodological evaluation\"[Title] OR \"minimum information\"[Title] OR (\"best practice*\"[Title/Abstract] AND report*[Title/Abstract]) OR (workflow[Title] AND reproducib*[Title/Abstract])) NOT (\"network meta-analysis\"[Title] OR bibliometric*[Title] OR scientometric*[Title])",
+    "Q3_target_validation": "(\"network pharmacology\"[Title/Abstract] OR \"network-based pharmacology\"[Title/Abstract]) AND ((\"blind docking\"[Title/Abstract]) OR (docking[Title] AND (inappropriat*[Title/Abstract] OR misuse[Title/Abstract] OR limitation*[Title/Abstract] OR benchmark*[Title/Abstract])) OR \"direct binding\"[Title/Abstract] OR \"target engagement\"[Title/Abstract] OR \"target occupancy\"[Title/Abstract] OR \"surface plasmon resonance\"[Title/Abstract] OR \"biolayer interferometry\"[Title/Abstract] OR \"microscale thermophoresis\"[Title/Abstract] OR \"isothermal titration calorimetry\"[Title/Abstract] OR \"cellular thermal shift assay\"[Title/Abstract] OR CETSA[Title/Abstract] OR DARTS[Title/Abstract] OR knockdown[Title/Abstract] OR knockout[Title/Abstract] OR siRNA[Title/Abstract] OR shRNA[Title/Abstract] OR CRISPR[Title/Abstract] OR overexpress*[Title/Abstract] OR \"gene silencing\"[Title/Abstract]) NOT (\"network meta-analysis\"[Title] OR bibliometric*[Title] OR scientometric*[Title])",
+    "Q4_exposure_target_phenotype_chain": "(\"network pharmacology\"[Title/Abstract] OR \"network-based pharmacology\"[Title/Abstract]) AND (\"serum pharmacochemistry\"[Title/Abstract] OR ((\"plasma component*\"[Title/Abstract] OR \"blood-absorbed component*\"[Title/Abstract]) AND (HPLC[Title/Abstract] OR \"LC-MS\"[Title/Abstract] OR UPLC[Title/Abstract] OR UHPLC[Title/Abstract])) OR (\"tissue distribution\"[Title/Abstract] AND (measur*[Title/Abstract] OR HPLC[Title/Abstract] OR \"LC-MS\"[Title/Abstract] OR UPLC[Title/Abstract] OR UHPLC[Title/Abstract] OR Cmax[Title/Abstract] OR AUC[Title/Abstract])) OR (pharmacokinetic*[Title/Abstract] AND (Cmax[Title/Abstract] OR AUC[Title/Abstract] OR HPLC[Title/Abstract] OR \"LC-MS\"[Title/Abstract] OR UPLC[Title/Abstract] OR UHPLC[Title/Abstract]))) AND (\"target engagement\"[Title/Abstract] OR \"surface plasmon resonance\"[Title/Abstract] OR \"microscale thermophoresis\"[Title/Abstract] OR CETSA[Title/Abstract] OR DARTS[Title/Abstract] OR knockdown[Title/Abstract] OR knockout[Title/Abstract] OR siRNA[Title/Abstract] OR shRNA[Title/Abstract] OR CRISPR[Title/Abstract] OR overexpress*[Title/Abstract] OR \"gene silencing\"[Title/Abstract] OR \"rescue experiment\"[Title/Abstract] OR \"dose-response\"[Title/Abstract] OR \"concentration-response\"[Title/Abstract]) NOT (\"network meta-analysis\"[Title] OR bibliometric*[Title] OR scientometric*[Title])"
+  },
+  "total_hits": {
+    "Q1_database_algorithm_instability": 89,
+    "Q2_reporting_reproducibility": 4,
+    "Q3_target_validation": 1368,
+    "Q4_exposure_target_phenotype_chain": 13
+  },
+  "reviewed_records_per_path": {
+    "Q1_database_algorithm_instability": 89,
+    "Q2_reporting_reproducibility": 4,
+    "Q3_target_validation": 100,
+    "Q4_exposure_target_phenotype_chain": 13
+  },
+  "heuristic_grade_counts": {
+    "Q1_database_algorithm_instability": {
+      "B": 54,
+      "D": 9,
+      "A": 3,
+      "C": 23
+    },
+    "Q2_reporting_reproducibility": {
+      "B": 1,
+      "A": 2,
+      "D": 1
+    },
+    "Q3_target_validation": {
+      "A": 99,
+      "B": 1
+    },
+    "Q4_exposure_target_phenotype_chain": {
+      "A": 11,
+      "B": 2
+    }
+  },
+  "low_relevance_cause_counts": {
+    "Q1_database_algorithm_instability": {
+      "generic_limitation_or_sensitivity_word": 83,
+      "docking_or_MD_misread_as_empirical_validation": 24,
+      "network_pharmacology_phrase_not_substantive": 9,
+      "generic_in_vivo_in_vitro_or_validation_without_target_test": 18,
+      "predicted_ADME_or_PK_mimics_measured_exposure": 2
+    },
+    "Q2_reporting_reproducibility": {
+      "docking_or_MD_misread_as_empirical_validation": 2,
+      "generic_limitation_or_sensitivity_word": 1,
+      "network_pharmacology_phrase_not_substantive": 1,
+      "generic_in_vivo_in_vitro_or_validation_without_target_test": 1
+    },
+    "Q3_target_validation": {
+      "predicted_ADME_or_PK_mimics_measured_exposure": 3,
+      "generic_in_vivo_in_vitro_or_validation_without_target_test": 1,
+      "docking_or_MD_misread_as_empirical_validation": 1
+    }
+  },
+  "low_relevance_examples": {
+    "Q1_database_algorithm_instability": [
+      {
+        "pmid": "42216572",
+        "title": "Integrative Database-Driven In Silico and In Vitro Study of Anemarrhena asphodeloides Bunge Highlighting Hippeastrine as a Regulator of the HSP90/PI3K/Akt/mTOR Axis in Oral Squamous Cell Carcinoma.",
+        "grade": "D",
+        "causes": [
+          "network_pharmacology_phrase_not_substantive",
+          "generic_limitation_or_sensitivity_word"
+        ]
+      },
+      {
+        "pmid": "42097324",
+        "title": "Mixed exposure to brominated flame retardants adversely affects vaccine-induced antibody titers: Risk prioritization and benchmark dose modeling.",
+        "grade": "D",
+        "causes": [
+          "network_pharmacology_phrase_not_substantive"
+        ]
+      },
+      {
+        "pmid": "41800093",
+        "title": "Rethinking network analysis in ethnopharmacology: a multi-omics and AI roadmap to overcome conceptual and methodological biases.",
+        "grade": "D",
+        "causes": [
+          "network_pharmacology_phrase_not_substantive"
+        ]
+      },
+      {
+        "pmid": "41657773",
+        "title": "GRAYU: graph-based database integrating Ayurvedic formulations, medicinal plants, phytochemicals and diseases.",
+        "grade": "D",
+        "causes": [
+          "network_pharmacology_phrase_not_substantive",
+          "generic_in_vivo_in_vitro_or_validation_without_target_test",
+          "generic_limitation_or_sensitivity_word"
+        ]
+      },
+      {
+        "pmid": "41546862",
+        "title": "Elucidating the molecular mechanism of Bazhen decoction in the treatment of liver cancer: an integrated approach using network pharmacology, cancer databases, molecular docking, and experimental validation.",
+        "grade": "C",
+        "causes": [
+          "generic_in_vivo_in_vitro_or_validation_without_target_test",
+          "docking_or_MD_misread_as_empirical_validation",
+          "generic_limitation_or_sensitivity_word"
+        ]
+      },
+      {
+        "pmid": "41355494",
+        "title": "Optimisation of wheatgrass extraction using composite weighting-response surface methodology with phytochemical profiling and network pharmacology-based target prediction.",
+        "grade": "C",
+        "causes": [
+          "generic_limitation_or_sensitivity_word"
+        ]
+      },
+      {
+        "pmid": "39730024",
+        "title": "Evaluating current status of network pharmacology for herbal medicine focusing on identifying mechanisms and therapeutic effects.",
+        "grade": "C",
+        "causes": [
+          "generic_in_vivo_in_vitro_or_validation_without_target_test",
+          "generic_limitation_or_sensitivity_word"
+        ]
+      },
+      {
+        "pmid": "40235894",
+        "title": "Identification of key hub genes associated with anti-gastric cancer effects of lotus plumule based on machine learning algorithms.",
+        "grade": "D",
+        "causes": [
+          "network_pharmacology_phrase_not_substantive",
+          "docking_or_MD_misread_as_empirical_validation",
+          "generic_limitation_or_sensitivity_word"
+        ]
+      },
+      {
+        "pmid": "40017595",
+        "title": "Exploring skin adverse events and mechanisms of apalutamide using data mining algorithms and network pharmacology.",
+        "grade": "C",
+        "causes": [
+          "docking_or_MD_misread_as_empirical_validation",
+          "generic_limitation_or_sensitivity_word"
+        ]
+      },
+      {
+        "pmid": "39246014",
+        "title": "Establishing a link between the chemical composition and biological activities of Gladiolus italicus Mill. from the Turkish flora utilizing in vitro, in silico and network pharmacological methodologies.",
+        "grade": "C",
+        "causes": [
+          "generic_in_vivo_in_vitro_or_validation_without_target_test",
+          "generic_limitation_or_sensitivity_word"
+        ]
+      },
+      {
+        "pmid": "38558274",
+        "title": "Assessing the Chemical Profile and Biological Potentials of Tamarix aphylla (L.) H.Karst. and Tamarix senegalensis DC. by In Vitro, In Silico, and Network Methodologies.",
+        "grade": "C",
+        "causes": [
+          "generic_in_vivo_in_vitro_or_validation_without_target_test",
+          "docking_or_MD_misread_as_empirical_validation",
+          "generic_limitation_or_sensitivity_word"
+        ]
+      },
+      {
+        "pmid": "38738181",
+        "title": "A critical assessment of Traditional Chinese Medicine databases as a source for drug discovery.",
+        "grade": "D",
+        "causes": [
+          "network_pharmacology_phrase_not_substantive"
+        ]
+      }
+    ],
+    "Q2_reporting_reproducibility": [
+      {
+        "pmid": "41799384",
+        "title": "Pharmacological advances in multi-targeted strategies for type 2 diabetes mellitus: a systematic perspective based on traditional Chinese medicine.",
+        "grade": "D",
+        "causes": [
+          "network_pharmacology_phrase_not_substantive",
+          "generic_in_vivo_in_vitro_or_validation_without_target_test"
+        ]
+      }
+    ]
+  },
+  "warning": "Grades are reproducible machine preclassification for search feedback, not final inclusion decisions. Human abstract review remains required before the literature library is frozen."
+}

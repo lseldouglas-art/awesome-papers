@@ -1,0 +1,230 @@
+schema_manifest:
+  schema_id: NP-G2-CHART-001
+  version: 1
+  stage: G2_protocol_formation
+  status: candidate_ready_for_G2_pilot_baseline_freeze
+  created_on: 2026-08-10
+  parent_protocol: docs/research-workbench-examples/network-pharmacology-g2-protocol-v1-2026-08-10.md
+  unit_of_analysis: study_family
+  report_level_lineage_retained: true
+  pilot_requirement: at_least_10_maximally_heterogeneous_sources_by_two_reviewers
+  G2_freeze_meaning: freeze_this_hash_as_pilot_baseline_not_final_charting_form
+  post_pilot_rule: unchanged_schema_requires_promotion_receipt_or_changes_require_v2_and_protocol_amendment
+  formal_extraction_condition: post_pilot_schema_approved
+
+controlled_missing_values:
+  - reported_yes
+  - reported_no
+  - not_reported
+  - unclear
+  - not_applicable
+
+evidence_channels:
+  M: method_or_normative_evidence_census
+  A: stratified_random_application_practice_audit
+  case_enrichment: rare_mechanistic_case_excluded_from_A_denominators
+  contextual_standard: non_PubMed_or_pre_2018_background_excluded_from_primary_analysis
+
+fields:
+  lineage_and_sampling:
+    - {id: record_id, type: string, required: true}
+    - {id: family_id, type: string, required: true}
+    - {id: evidence_channel, type: enum, values: [M, A, case_enrichment, contextual_standard], required: true}
+    - {id: application_eligibility, type: enum, values: [eligible, ineligible, unresolved, not_applicable], required: true}
+    - {id: outcome_observation_status, type: enum, values: [determinable, full_text_not_obtained, outcome_not_reported, unclear, not_applicable], required: true}
+    - {id: nonobservation_reason, type: string, required: false}
+    - {id: discovery_query_id, type: string, required: true}
+    - {id: pmid, type: string, required: false}
+    - {id: doi, type: string, required: false}
+    - {id: report_version_role, type: enum, values: [only_version, preprint, journal_preferred, correction, update, retraction_notice, other], required: true}
+    - {id: retraction_or_correction_status, type: enum, values: [none_found, corrected, retracted, expression_of_concern, unclear], required: true}
+    - {id: publication_year, type: integer, required: true}
+    - {id: period_stratum, type: enum, values: [y2018_2020, y2021_2023, y2024_2025, y2026_partial, background], required: true}
+    - {id: population_family_count_in_stratum, type: integer, required: false}
+    - {id: sampled_family_count_in_stratum, type: integer, required: false}
+    - {id: inclusion_probability, type: number, required: false}
+    - {id: sampling_weight, type: number, required: false}
+    - {id: random_seed_manifest_ref, type: string, required: false}
+    - {id: language, type: string, required: true}
+    - {id: country_or_region, type: string, required: false}
+    - {id: full_text_status, type: enum, values: [obtained, abstract_only, not_obtained, translation_pending], required: true}
+    - {id: full_text_snapshot_ref, type: string, required: false}
+    - {id: screener_1, type: string, required: true}
+    - {id: screener_2, type: string, required: true}
+    - {id: extractor_1, type: string, required: true}
+    - {id: verifier_1, type: string, required: true}
+
+  study_characteristics:
+    - {id: source_type, type: enum, values: [method_comparison, guideline_or_consensus, critical_review, platform_or_workflow, original_application, clinical_study, other], required: true}
+    - {id: method_evidence_role, type: enum, values: [empirical_method_evidence, normative_evidence, platform_self_description, not_applicable], required: true}
+    - {id: study_design, type: string, required: true}
+    - {id: disease_or_context, type: string, required: false}
+    - {id: drug_product_or_compound, type: string, required: false}
+    - {id: drug_type, type: enum, values: [defined_compound, extract, herb, formula, conventional_drug, drug_combination, other, not_applicable], required: true}
+    - {id: biological_model, type: string, required: false}
+    - {id: sample_size, type: string, required: false}
+    - {id: dose_route_time, type: string, required: false}
+    - {id: comparator_or_control, type: string, required: false}
+    - {id: funding, type: string, required: false}
+    - {id: conflicts_of_interest, type: string, required: false}
+
+  data_lineage:
+    - id: data_sources
+      type: list_of_objects
+      required: true
+      object_fields: [name, version, access_date, species, entity_type, identifiers, evidence_provenance, inclusion_threshold, locator]
+    - {id: entity_normalization_method, type: string, required: false}
+    - {id: database_merge_rule, type: string, required: false}
+    - {id: database_intersection_or_union, type: string, required: false}
+    - {id: source_version_reported, type: controlled_missing_value, required: true}
+    - {id: access_date_reported, type: controlled_missing_value, required: true}
+    - {id: identifier_system_reported, type: controlled_missing_value, required: true}
+
+  network_and_algorithm:
+    - {id: node_definition, type: string, required: false}
+    - {id: edge_definition, type: string, required: false}
+    - {id: background_network, type: string, required: false}
+    - {id: algorithms_and_versions, type: list, required: false}
+    - {id: parameters_and_thresholds, type: list, required: false}
+    - {id: random_seed_reported, type: controlled_missing_value, required: true}
+    - {id: training_validation_test_split, type: string, required: false}
+    - {id: leakage_control, type: controlled_missing_value, required: true}
+    - {id: comparator_or_ground_truth, type: string, required: false}
+    - {id: comparison_fairness, type: enum, values: [low_concern, some_concern, high_concern, unclear, not_applicable], required: true}
+    - {id: multiple_testing_control, type: controlled_missing_value, required: true}
+    - {id: sensitivity_analysis, type: controlled_missing_value, required: true}
+
+  drug_side_E_components:
+    - {id: drug_entity_evidence_origin, type: enum, values: [predicted_only, empirically_measured, both, unclear, not_applicable], required: true}
+    - {id: formulation_quality_characterized, type: controlled_missing_value, required: true}
+    - {id: components_empirically_measured, type: controlled_missing_value, required: true}
+    - {id: component_measurement_method, type: string, required: false}
+    - {id: plasma_or_serum_exposure, type: controlled_missing_value, required: true}
+    - {id: tissue_distribution, type: controlled_missing_value, required: true}
+    - {id: exposure_evidence_type, type: list, required: false, examples: [predicted_ADME, predicted_PK, measured_plasma, measured_serum, measured_target_tissue, measured_PK]}
+    - {id: exposure_species_dose_route_time, type: string, required: false}
+    - {id: pharmacokinetic_parameters, type: string, required: false}
+    - {id: experimental_concentration_exposure_aligned, type: controlled_missing_value, required: true}
+    - {id: cross_species_or_cross_model_alignment, type: enum, values: [aligned, partially_aligned, not_aligned, unclear, not_applicable], required: true}
+    - {id: drug_side_locator, type: string, required: false}
+
+  disease_side_O_components:
+    - {id: disease_data_source, type: string, required: false}
+    - {id: patient_or_model_context, type: string, required: false}
+    - {id: tissue_or_cell_type, type: string, required: false}
+    - {id: omics_layer, type: list, required: false}
+    - {id: batch_and_confounding_control, type: controlled_missing_value, required: true}
+    - {id: disease_module_definition, type: string, required: false}
+    - {id: disease_module_independently_validated, type: controlled_missing_value, required: true}
+    - {id: disease_side_locator, type: string, required: false}
+
+  causal_and_validation_C_components:
+    - {id: author_validation_label, type: string, required: false}
+    - {id: docking_performed, type: controlled_missing_value, required: true}
+    - {id: docking_site_basis, type: string, required: false}
+    - {id: docking_box_and_parameters, type: string, required: false}
+    - {id: docking_positive_control_or_redocking, type: controlled_missing_value, required: true}
+    - {id: molecular_dynamics_performed, type: controlled_missing_value, required: true}
+    - {id: direct_binding_assay, type: string, required: false}
+    - {id: target_engagement_assay, type: string, required: false}
+    - {id: dose_or_concentration_response, type: controlled_missing_value, required: true}
+    - {id: genetic_perturbation, type: string, required: false}
+    - {id: pharmacological_blockade, type: string, required: false}
+    - {id: rescue_experiment, type: controlled_missing_value, required: true}
+    - {id: target_specific_effect_modification, type: controlled_missing_value, required: true}
+    - {id: orthogonal_or_independent_replication, type: controlled_missing_value, required: true}
+    - {id: randomization_and_blinding, type: string, required: false}
+    - {id: sample_size_justification, type: controlled_missing_value, required: true}
+    - {id: phenotypic_outcome, type: string, required: false}
+    - {id: human_evidence_type, type: string, required: false}
+    - {id: validation_locator, type: string, required: false}
+
+  reproducibility:
+    - {id: data_available, type: controlled_missing_value, required: true}
+    - {id: code_available, type: controlled_missing_value, required: true}
+    - {id: protocol_available, type: controlled_missing_value, required: true}
+    - {id: software_environment_reported, type: controlled_missing_value, required: true}
+    - {id: persistent_identifiers_available, type: controlled_missing_value, required: true}
+    - {id: independent_reproduction_reported, type: controlled_missing_value, required: true}
+
+  claims_and_evidence:
+    - {id: author_claim_verbatim_or_close_paraphrase, type: string, required: true}
+    - {id: author_claim_locator, type: string, required: true}
+    - {id: result_direction, type: enum, values: [positive, negative, null, mixed, not_reported, not_applicable], required: true}
+    - {id: allowed_review_wording, type: string, required: true}
+    - {id: counterevidence_or_limitation, type: string, required: false}
+    - {id: circular_validation, type: enum, values: [low_concern, some_concern, high_concern, unclear, not_applicable], required: true}
+    - {id: evidence_component_E0_association, type: controlled_missing_value, required: true}
+    - {id: evidence_component_E1_computation, type: controlled_missing_value, required: true}
+    - {id: evidence_component_E2_context, type: controlled_missing_value, required: true}
+    - {id: evidence_component_E3a_binding_or_cellular_engagement, type: controlled_missing_value, required: true}
+    - {id: evidence_component_E3b_target_specific_functional_mediation, type: controlled_missing_value, required: true}
+    - {id: evidence_component_E4_exposure_aligned_in_vivo, type: controlled_missing_value, required: true}
+    - {id: evidence_component_E5_human, type: controlled_missing_value, required: true}
+    - {id: overclaim_type, type: list, required: false}
+
+  credibility_domains:
+    common_values: [low_concern, some_concern, high_concern, unclear, not_applicable]
+    required_locator_for_each: true
+    fields:
+      - reference_standard_fit
+      - circularity_or_data_leakage
+      - benchmark_fairness
+      - thresholds_multiplicity_and_sensitivity
+      - independent_orthogonal_validation
+      - exposure_model_disease_match
+      - conclusion_evidence_congruence
+
+derived_fields:
+  derivation_order:
+    - research_starting_point
+    - drug_side_component_state
+    - disease_side_component_state
+    - convergence_point_state
+    - causal_test_state
+    - route_label
+  route_label_values:
+    - bottom_up
+    - top_down
+    - bidirectional
+    - strict_middle_out
+    - partial_middle_out
+    - mixed
+    - unclear
+  strict_middle_out_rule_in_vitro: >-
+    empirically_measured_drug_entity AND context_specific_disease_module AND
+    evidence_component_E3b_target_specific_functional_mediation equals reported_yes
+  strict_middle_out_rule_in_vivo: >-
+    measured_accessible_exposure_in_corresponding_species_dose_time_and_compartment AND
+    context_specific_disease_module AND
+    evidence_component_E3b_target_specific_functional_mediation equals reported_yes
+  E3b_minimum_rule: >-
+    target_specific_genetic_perturbation OR sufficiently_selective_pharmacological_blockade_with_controls
+    materially_modifies_the_drug_effect_on_the_relevant_phenotype; expression_change_or_generic_pathway_inhibition_is_insufficient
+  route_causality_distinction: >-
+    strict_middle_out_is_a_route_label_and_does_not_by_itself_satisfy_the_target_mediated_phenotype_claim_rule
+  target_mediated_phenotype_claim_rule: >-
+    direct_binding_or_cellular_target_engagement AND target_specific_effect_modification_or_rescue AND
+    concentration_or_in_vivo_exposure_congruence
+  derivation_warning: >-
+    路线是二次派生字段；抽取者先记录组件，不直接凭印象分组。
+    未完成双人全文编码和新的人类批准前，不输出路线加权占比。
+
+quality_controls:
+  no_total_quality_score: true
+  reporting_evidence_and_credibility_axes_separate: true
+  not_reported_is_not_not_performed: true
+  AI_may_prefill_but_not_verify: true
+  key_fields_require_human_locator_check: true
+  disagreements_require_consensus_or_third_reviewer: true
+
+analysis_specification:
+  estimand: period_specific_proportion_among_eligible_A_channel_application_families
+  estimator: Hajek_domain_proportion_with_stratum_weight_Nh_over_nh
+  variance: Taylor_linearization_with_stratification_and_finite_population_correction
+  confidence_interval: design_based_logit_95pct_t_interval_beta_interval_for_zero_or_one_event
+  period_difference: Taylor_linearized_absolute_contrast_with_95pct_t_interval
+  ineligible_records: retain_in_flow_exclude_from_domain_denominator
+  undetermined_outcomes: exclude_from_outcome_denominator_never_code_as_negative
+  missingness_outputs: weighted_missing_rate_and_all_missing_no_to_all_missing_yes_identification_bounds
+  sensitivity_trigger: response_propensity_weighting_if_key_outcome_missingness_exceeds_5pct_in_any_period

@@ -1,0 +1,9 @@
+node_modules
+dist-research
+.research-workbench-data
+.git
+.github
+.env*
+coverage
+npm-debug.log*
+docs/assets

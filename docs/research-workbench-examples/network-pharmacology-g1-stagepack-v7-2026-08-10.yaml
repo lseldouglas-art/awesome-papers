@@ -1,0 +1,44 @@
+stage_manifest:
+  stagepack_id: NP-G1-20260810-v7
+  stage: G1_search_and_evidence_orientation
+  status: waiting_for_cross_database_authentication
+  created_at: 2026-08-10T10:00:00+08:00
+  parent_stagepack_id: NP-G1-20260810-v6
+  supersedes: NP-G1-20260810-v6
+  change_reason: PubMed_method_candidate_library_frozen_and_external_authentication_blockers_resolved_to_user_handoff
+
+newly_completed:
+  - fetched_NCBI_ESummary_metadata_for_all_51_revised_method_query_records
+  - assigned_stable_record_ids_and_screen_states
+  - normalized_51_records_to_50_study_families
+  - preserved_preprint_to_journal_version_lineage
+  - generated_SHA256_frozen_PubMed_subset
+  - confirmed_Scopus_requires_Elsevier_sign_in
+  - confirmed_CNKI_redirects_to_blockPuzzle_captcha
+
+artifacts:
+  user_checkpoint: docs/research-workbench-examples/network-pharmacology-g1-completion-checkpoint-v1-2026-08-10.md
+  library_manifest: docs/research-workbench-examples/network-pharmacology-g1-library-manifest-v1-2026-08-10.yaml
+  record_snapshot: docs/research-workbench-examples/network-pharmacology-g1-pubmed-method-library-v1-2026-08-10.tsv
+  record_snapshot_sha256: 15f425f37752c7180d7e247e0b9bd3e0d04bd2f26a383d794629c2f91d103e66
+
+human_handoff:
+  required: true
+  actions:
+    - sign_in_to_Scopus_in_the_open_Chrome_tab
+    - complete_CNKI_blockPuzzle_verification_in_the_open_Chrome_tab
+  sensitive_data_requested_from_user: false
+  agent_will_not_request_or_handle_passwords: true
+
+resume_plan:
+  - execute_NP_SC_01_to_NP_SC_04
+  - execute_NP_CN_01_to_NP_CN_03
+  - review_latest_100_results_per_database_for_noise_and_sentinel_recall
+  - merge_by_DOI_PMID_normalized_title_and_version_relation
+  - freeze_multidatabase_library_manifest_and_final_G1_brief
+
+gate_decision:
+  formal_G1_complete: false
+  formal_G2_allowed: false
+  reason: cross_database_queries_not_executed_due_authentication_and_captcha
+

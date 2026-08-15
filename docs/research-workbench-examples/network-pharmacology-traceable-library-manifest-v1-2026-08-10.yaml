@@ -1,0 +1,179 @@
+manifest:
+  object_id: NP-LIT2-LIB-001
+  version: 1
+  status: frozen_for_evidence_extraction
+  frozen_on: 2026-08-10
+  date_precision: day
+  purpose: focused_candidate_sub_library_for_exposure_target_phenotype_evidence
+  review_question: which_study_designs_move_network_pharmacology_candidates_toward_testable_exposure_target_phenotype_mechanisms
+  record_count: 13
+  research_family_count: 13
+  database_scope: PubMed_only
+  screening_scope: title_abstract_reviewed_candidates
+  full_review_scope: full_text_where_legally_and_technically_available
+
+boundaries:
+  - This is a frozen candidate sub-library, not a set of accepted evidence.
+  - It does not replace the 51-record methodological orientation library.
+  - The 13 records cannot estimate field prevalence, route proportions, historical trends, or clinical efficacy.
+  - A PubMed abstract, Zotero record, docking result, pathway change, or expression change does not by itself establish target-mediated causality.
+  - Missing full text remains unknown and must not be filled from background knowledge.
+
+selection:
+  source_path_id: Q4_exposure_target_phenotype_chain
+  retrieval_date: 2026-08-10
+  search_strategy_version: v7_final_candidate_after_manual_title_feedback
+  inclusion_basis: measured_exposure_signal_and_direct_binding_or_target_perturbation_signal_in_title_or_abstract
+  interpretation: high_precision_candidate_enrichment_not_a_prevalence_denominator
+
+deduplication:
+  primary_key: PMID
+  secondary_keys:
+    - DOI
+    - normalized_title
+    - author_year
+    - preprint_journal_version_relation
+  result: 13_unique_PMIDs_13_unique_DOIs_no_version_family_duplicates_detected
+  family_policy: retain_report_lineage_but_count_one_preferred_publication_per_research_family
+
+source_snapshots:
+  - path: docs/research-workbench-examples/network-pharmacology-literature-stage-2-first100-feedback-v7-2026-08-10.tsv
+    sha256: e6066e93eaefa6a947fbc4b19a4d04d3cf9f52f1defef8d953024e233e06e6d0
+    role: frozen_retrieval_and_abstract_screening_snapshot
+  - path: docs/research-workbench-examples/network-pharmacology-literature-stage-2-first100-feedback-summary-v7-2026-08-10.json
+    sha256: ccf484951d431358304b0393241415e3bd82a2e2281726b47071cc1aef35a80c
+    role: frozen_query_and_count_snapshot
+  - path: docs/research-workbench-examples/network-pharmacology-literature-stage-2-human-review-note-v1-2026-08-10.md
+    sha256: 6805772d68b94f88e12ca0ded1bacfa97ca3a794e5f129591531d39468b7f254
+    role: human_abstract_review_record
+  - path: docs/research-workbench-examples/network-pharmacology-literature-stage-2-reader-report-v1-2026-08-10.md
+    sha256: dded6ca17b6b5806ef5a6522c59a77a1222385c38866070b2f19742ec68a409f
+    role: reader_facing_search_conclusion
+  - path: docs/research-workbench-examples/network-pharmacology-traceable-library-v1-2026-08-10.md
+    sha256: 84034321cdcc31c6e8b119794ba3ee326eda67b8252aa38cc4f0d98efa4add6d
+    role: reader_facing_candidate_library
+
+zotero:
+  library_name: 我的文库
+  collection_name: 网络药理学｜可追溯文献库（候选）
+  collection_key: DW5629VI
+  verified_item_count: 13
+  import_identifier: PMID
+  metadata_source: PubMed
+
+records:
+  - record_id: NP-ETP-001
+    pmid: "42173417"
+    doi: 10.1016/j.jep.2026.121784
+    zotero_item_key: 9QZRKDBM
+    screening_status: abstract_reviewed_candidate
+    fulltext_status: unavailable_from_Zotero_and_PMC
+    review_priority: standard
+  - record_id: NP-ETP-002
+    pmid: "41974236"
+    doi: 10.1016/j.jep.2026.121610
+    zotero_item_key: YW69Q954
+    screening_status: abstract_reviewed_candidate
+    fulltext_status: unavailable_from_Zotero_and_PMC
+    review_priority: standard
+  - record_id: NP-ETP-003
+    pmid: "41935649"
+    doi: 10.1016/j.jep.2026.121624
+    zotero_item_key: UWNW2HBG
+    screening_status: abstract_reviewed_candidate
+    fulltext_status: unavailable_from_Zotero_and_PMC
+    review_priority: first_pass
+  - record_id: NP-ETP-004
+    pmid: "41924844"
+    doi: 10.1016/j.bioorg.2026.109810
+    zotero_item_key: IC3D3FMN
+    screening_status: abstract_reviewed_candidate
+    fulltext_status: unavailable_from_Zotero_and_PMC
+    review_priority: standard
+  - record_id: NP-ETP-005
+    pmid: "42083411"
+    doi: 10.2174/0113862073440242260212070253
+    zotero_item_key: 7T9Z5JGG
+    screening_status: abstract_reviewed_candidate
+    fulltext_status: unavailable_from_Zotero_and_PMC
+    review_priority: standard
+  - record_id: NP-ETP-006
+    pmid: "41970211"
+    doi: 10.2147/DDDT.S592770
+    zotero_item_key: LJR4LKNS
+    pmcid: PMC13069957
+    screening_status: abstract_reviewed_candidate
+    fulltext_status: PMC_full_text_retrieved_for_review
+    fulltext_snapshot_sha256: 039d0f741b635a6c8839374f8e9914ad5684425bbb9a71126da2e74f2170eb65
+    review_priority: full_text_available
+  - record_id: NP-ETP-007
+    pmid: "41977470"
+    doi: 10.3390/ijms27073291
+    zotero_item_key: N9PPM5NY
+    pmcid: PMC13072949
+    screening_status: abstract_reviewed_candidate
+    fulltext_status: PMC_full_text_retrieved_for_review
+    fulltext_snapshot_sha256: 7b7356717ee8cf173b2912fc4fec655f556b97325f7ec13575088dbd098faee9
+    review_priority: first_pass
+  - record_id: NP-ETP-008
+    pmid: "41389885"
+    doi: 10.1016/j.jep.2025.120983
+    zotero_item_key: 9YJ3NFQG
+    screening_status: abstract_reviewed_candidate
+    fulltext_status: unavailable_from_Zotero_and_PMC
+    review_priority: standard
+  - record_id: NP-ETP-009
+    pmid: "41106101"
+    doi: 10.1016/j.phymed.2025.157375
+    zotero_item_key: TEKG5F92
+    screening_status: abstract_reviewed_candidate
+    fulltext_status: unavailable_from_Zotero_and_PMC
+    review_priority: first_pass
+  - record_id: NP-ETP-010
+    pmid: "40961540"
+    doi: 10.1016/j.phymed.2025.157251
+    zotero_item_key: 55PZ4ACJ
+    screening_status: abstract_reviewed_candidate
+    fulltext_status: unavailable_from_Zotero_and_PMC
+    review_priority: standard
+  - record_id: NP-ETP-011
+    pmid: "38663783"
+    doi: 10.1016/j.jep.2024.118258
+    zotero_item_key: FRTHREMX
+    screening_status: abstract_reviewed_candidate
+    fulltext_status: unavailable_from_Zotero_and_PMC
+    review_priority: standard
+  - record_id: NP-ETP-012
+    pmid: "38929100"
+    doi: 10.3390/antiox13060661
+    zotero_item_key: R9Q4235S
+    pmcid: PMC11201218
+    screening_status: abstract_reviewed_candidate
+    fulltext_status: PMC_full_text_retrieved_for_review
+    fulltext_snapshot_sha256: 0babaacb6470d3763f60de95be908c329c586fc87eefe6b947dfefdf79d09f1a
+    review_priority: first_pass
+  - record_id: NP-ETP-013
+    pmid: "34464700"
+    doi: 10.1016/j.jep.2021.114586
+    zotero_item_key: HTCZDD2A
+    screening_status: abstract_reviewed_candidate
+    fulltext_status: unavailable_from_Zotero_and_PMC
+    review_priority: standard
+
+next_step:
+  action: extract_evidence_with_access_level_preserved
+  full_text_records:
+    - "41970211"
+    - "41977470"
+    - "38929100"
+  abstract_only_records:
+    - "42173417"
+    - "41974236"
+    - "41935649"
+    - "41924844"
+    - "42083411"
+    - "41389885"
+    - "41106101"
+    - "40961540"
+    - "38663783"
+    - "34464700"

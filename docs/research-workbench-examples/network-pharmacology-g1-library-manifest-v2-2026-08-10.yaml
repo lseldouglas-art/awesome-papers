@@ -1,0 +1,62 @@
+library_manifest:
+  library_id: NP-G1-LIB-002
+  created_at: 2026-08-10T10:30:00+08:00
+  supersedes: NP-G1-LIB-001
+  status: frozen
+  approved_scope: PubMed_only_methodological_orientation
+  scope_change_authority: user
+  scope_change_quote: 忽略这两个
+  excluded_by_scope_decision:
+    - Scopus
+    - CNKI
+  evidence_grade: scoped_orientation_not_multidatabase_systematic_review
+
+source_runs:
+  mother_set:
+    query_id: NP-PM-01
+    count: 17528
+    use: field_scale_context_only
+  method_candidate_set:
+    query_id: NP-PM-02R
+    count: 51
+    records_file: network-pharmacology-g1-pubmed-method-library-v1-2026-08-10.tsv
+    sha256: 15f425f37752c7180d7e247e0b9bd3e0d04bd2f26a383d794629c2f91d103e66
+    normalized_study_families: 50
+  empirical_convergence_signal:
+    query_id: NP-PM-03
+    count: 2815
+    use: candidate_lane_not_route_prevalence
+  review_lane:
+    query_id: NP-PM-05
+    count: 263
+  adjacent_QSP_lane:
+    query_id: NP-PM-06
+    count: 280
+    use: conceptual_adjacent_lane_not_network_pharmacology_prevalence
+
+deduplication:
+  frozen_records: 51
+  frozen_study_families: 50
+  known_version_family:
+    family_id: FAM-NEO4COVID19
+    records: [PMID_33173863, PMID_35057621]
+    preferred_for_evidence: PMID_35057621
+
+allowed_conclusions:
+  - database_driven_bottom_up_workflow_is_the_dominant_visible_application_pattern_in_this_sample
+  - method_quality_and_critical_evaluation_are_sparse_relative_to_application_records
+  - computational_reproducibility_is_distinct_from_biological_validation
+  - database_algorithm_version_and_parameter_choices_require_explicit_lineage
+  - middle_out_evidence_closure_is_a_high_value_research_direction
+
+prohibited_conclusions:
+  - exhaustive_bilingual_coverage
+  - exact_route_prevalence_or_annual_share
+  - quantified_global_paradigm_shift
+  - clinical_effectiveness
+
+gate_decision:
+  G1_complete: true
+  G2_allowed: true
+  G2_scope_constraint: every_output_must_state_PubMed_only_methodological_orientation
+

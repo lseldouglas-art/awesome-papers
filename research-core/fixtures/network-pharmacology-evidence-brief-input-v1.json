@@ -1,0 +1,236 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "NP-LIT3-EVIDENCE-BRIEF-BUNDLE-DEMO-001",
+  "researchQuestion": "网络药理学研究是否已经把候选成分、真实暴露、靶点作用、靶点介导和动物疾病表型连接成可复核的连续机制证据链？",
+  "currentResearchPeriod": "文献调研：正在确认经过独立核查的证据边界",
+  "evidenceExcerpts": [
+    {
+      "schemaVersion": "1.0.0",
+      "id": "NP-LIT3-EVIDENCE-PMID-34464700",
+      "sourceId": "EvidenceRecord:PMID:34464700",
+      "claimId": "NP-LIT3-CONCLUSION-CARD-DEMO-001",
+      "locator": { "pmid": "34464700", "repositoryId": "docs/research-workbench-examples/network-pharmacology-evidence-record-PMID34464700-v1-2026-08-10.md" },
+      "accessLevel": "abstract_only",
+      "relation": "partially_supports",
+      "extractedFacts": ["摘要级证据记录没有提供足以确认成分暴露、靶点作用、靶点介导和动物表型连续对齐的材料。"],
+      "limitations": ["本轮只实际访问题名、题录和摘要，不能把摘要未报告写成研究没有实施。"],
+      "unknowns": ["摘要未报告的精确实验分组、参数、数值和阴性结果保持未知。"],
+      "sourceSnapshotHash": "294a41f4c04dc028ae66446e52c2de1e11f7e01a30a41e6714097cb6e646885f"
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "id": "NP-LIT3-EVIDENCE-PMID-38663783",
+      "sourceId": "EvidenceRecord:PMID:38663783",
+      "claimId": "NP-LIT3-CONCLUSION-CARD-DEMO-001",
+      "locator": { "pmid": "38663783", "repositoryId": "docs/research-workbench-examples/network-pharmacology-evidence-record-PMID38663783-v1-2026-08-10.md" },
+      "accessLevel": "abstract_only",
+      "relation": "partially_supports",
+      "extractedFacts": ["摘要报告整方的细胞和动物抗流感信号以及29种血清候选成分，但没有把某一入血成分与直接靶点作用及动物疗效连续连接。"],
+      "limitations": ["本轮只实际访问题名、题录和摘要，不能把摘要未报告写成研究没有实施。"],
+      "unknowns": ["29种血清候选成分的真实浓度、具体活性归因和直接靶点结合保持未知。"],
+      "sourceSnapshotHash": "a61e7c664c7700aea79b3f62f82eed340278041947f86d0ea1f6b6d346c60c44"
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "id": "NP-LIT3-EVIDENCE-PMID-38929100",
+      "sourceId": "EvidenceRecord:PMID:38929100",
+      "claimId": "NP-LIT3-CONCLUSION-CARD-DEMO-001",
+      "locator": { "pmid": "38929100", "repositoryId": "docs/research-workbench-examples/network-pharmacology-evidence-record-PMID38929100-v1-2026-08-10.md" },
+      "accessLevel": "full_text_and_supplement",
+      "relation": "partially_supports",
+      "extractedFacts": ["全文核查显示蛋白稳定性实验测试的是完整含药血清，STAT3敲低实验没有设置药物与敲低的关键组合，因此不能证明连翁颗粒效应依赖STAT3。"],
+      "limitations": ["全文中的多种实验分别提供线索，但没有完成同一成分、同一靶点和同一表型的连续因果验证。"],
+      "unknowns": [],
+      "sourceSnapshotHash": "090fc255c047d2d8594387c712c5a3531050a527ffcbe58e06b56acbd7cb34df"
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "id": "NP-LIT3-EVIDENCE-PMID-40961540",
+      "sourceId": "EvidenceRecord:PMID:40961540",
+      "claimId": "NP-LIT3-CONCLUSION-CARD-DEMO-001",
+      "locator": { "pmid": "40961540", "repositoryId": "docs/research-workbench-examples/network-pharmacology-evidence-record-PMID40961540-v1-2026-08-10.md" },
+      "accessLevel": "abstract_only",
+      "relation": "partially_supports",
+      "extractedFacts": ["摘要级证据记录保留了暴露或通路相关信号，但没有提供连续靶点介导动物机制所需的全部匹配证据。"],
+      "limitations": ["本轮只实际访问题名、题录和摘要，不能把摘要未报告写成研究没有实施。"],
+      "unknowns": ["摘要未报告的关键组合实验、体系对齐和精确数值保持未知。"],
+      "sourceSnapshotHash": "3e2ae7cef1035935f36bf26ec39b640dcf5ecba8709546801c3de178218c4ead"
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "id": "NP-LIT3-EVIDENCE-PMID-41106101",
+      "sourceId": "EvidenceRecord:PMID:41106101",
+      "claimId": "NP-LIT3-CONCLUSION-CARD-DEMO-001",
+      "locator": { "pmid": "41106101", "repositoryId": "docs/research-workbench-examples/network-pharmacology-evidence-record-PMID41106101-v1-2026-08-10.md" },
+      "accessLevel": "abstract_only",
+      "relation": "partially_supports",
+      "extractedFacts": ["摘要同时报告泽泻饮动物表型、循环成分和JAK2相关体外设计，但没有把某一种成分、JAK2作用和动物认知或屏障表型置于同一剂量时间框架。"],
+      "limitations": ["本轮只实际访问题名、题录和摘要，不能把摘要未报告写成研究没有实施。"],
+      "unknowns": ["具体入血成分、脑组织暴露、直接选择性结合以及动物靶点必要性保持未知。"],
+      "sourceSnapshotHash": "f09d012fe4d485f225e27302097b1ac90220d2ee48318310796c00c6b94fa6c3"
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "id": "NP-LIT3-EVIDENCE-PMID-41389885",
+      "sourceId": "EvidenceRecord:PMID:41389885",
+      "claimId": "NP-LIT3-CONCLUSION-CARD-DEMO-001",
+      "locator": { "pmid": "41389885", "repositoryId": "docs/research-workbench-examples/network-pharmacology-evidence-record-PMID41389885-v1-2026-08-10.md" },
+      "accessLevel": "abstract_only",
+      "relation": "partially_supports",
+      "extractedFacts": ["摘要报告22种入血原型成分、动物表型和体外相互作用线索，但不能据此确认疾病组织中的靶点占有或靶点依赖。"],
+      "limitations": ["本轮只实际访问题名、题录和摘要，不能把摘要未报告写成研究没有实施。"],
+      "unknowns": ["成分名称、真实浓度、组织分布、SPR细节和关键因果比较保持未知。"],
+      "sourceSnapshotHash": "ae88f6836d1f4f987410030b3d00604b30ab86812757f09a25951a2828543b7b"
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "id": "NP-LIT3-EVIDENCE-PMID-41924844",
+      "sourceId": "EvidenceRecord:PMID:41924844",
+      "claimId": "NP-LIT3-CONCLUSION-CARD-DEMO-001",
+      "locator": { "pmid": "41924844", "repositoryId": "docs/research-workbench-examples/network-pharmacology-evidence-record-PMID41924844-v1-2026-08-10.md" },
+      "accessLevel": "abstract_only",
+      "relation": "partially_supports",
+      "extractedFacts": ["摘要级证据记录没有提供足以确认成分暴露、靶点作用、靶点介导和动物表型连续对齐的材料。"],
+      "limitations": ["本轮只实际访问题名、题录和摘要，不能把摘要未报告写成研究没有实施。"],
+      "unknowns": ["摘要未报告的精确实验分组、参数、数值和阴性结果保持未知。"],
+      "sourceSnapshotHash": "0609092f5574d00ec578b10340f480d5d51793b1b5e13833a9b5cc92510ba0a4"
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "id": "NP-LIT3-EVIDENCE-PMID-41935649",
+      "sourceId": "EvidenceRecord:PMID:41935649",
+      "claimId": "NP-LIT3-CONCLUSION-CARD-DEMO-001",
+      "locator": { "pmid": "41935649", "repositoryId": "docs/research-workbench-examples/network-pharmacology-evidence-record-PMID41935649-v1-2026-08-10.md" },
+      "accessLevel": "abstract_only",
+      "relation": "partially_supports",
+      "extractedFacts": ["摘要级证据记录没有提供足以确认成分暴露、靶点作用、靶点介导和动物表型连续对齐的材料。"],
+      "limitations": ["本轮只实际访问题名、题录和摘要，不能把摘要未报告写成研究没有实施。"],
+      "unknowns": ["摘要未报告的精确实验分组、参数、数值和阴性结果保持未知。"],
+      "sourceSnapshotHash": "e4827dfec9daf83ff88b54e5830100231ebea131762ff35dd3210dbc41d6a445"
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "id": "NP-LIT3-EVIDENCE-PMID-41970211",
+      "sourceId": "EvidenceRecord:PMID:41970211",
+      "claimId": "NP-LIT3-CONCLUSION-CARD-DEMO-001",
+      "locator": { "pmid": "41970211", "repositoryId": "docs/research-workbench-examples/network-pharmacology-evidence-record-PMID41970211-v1-2026-08-10.md" },
+      "accessLevel": "full_text_and_supplement",
+      "relation": "partially_supports",
+      "extractedFacts": ["全文核查支持部分方剂成分可在大鼠血浆和肺组织检出，也观察到小鼠表型和单体细胞活性；具体靶点仍主要来自预测和对接，且暴露、动物和细胞位于不同体系。"],
+      "limitations": ["大鼠暴露、小鼠疾病表型和人细胞活性不能自动拼成一条连续机制证据链。"],
+      "unknowns": [],
+      "sourceSnapshotHash": "f6edc3e7291bb7ff9a338fc80a15d92c13b8fb8365f0a04fe549113f687b3233"
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "id": "NP-LIT3-EVIDENCE-PMID-41974236",
+      "sourceId": "EvidenceRecord:PMID:41974236",
+      "claimId": "NP-LIT3-CONCLUSION-CARD-DEMO-001",
+      "locator": { "pmid": "41974236", "repositoryId": "docs/research-workbench-examples/network-pharmacology-evidence-record-PMID41974236-v1-2026-08-10.md" },
+      "accessLevel": "abstract_only",
+      "relation": "partially_supports",
+      "extractedFacts": ["摘要支持疾病状态下循环成分谱差异和两个单体与AKT1的体外相互作用线索，但没有证明这些单体通过AKT1介导动物疗效。"],
+      "limitations": ["本轮只实际访问题名、题录和摘要，不能把摘要未报告写成研究没有实施。"],
+      "unknowns": ["真实血药浓度、单体动物药效、AKT1必要性和关键组合实验保持未知。"],
+      "sourceSnapshotHash": "a4407bdb3bfea2efcc87a677cbabb9d33be7931a5cdafe7bb7ad8b4dee4b40b4"
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "id": "NP-LIT3-EVIDENCE-PMID-41977470",
+      "sourceId": "EvidenceRecord:PMID:41977470",
+      "claimId": "NP-LIT3-CONCLUSION-CARD-DEMO-001",
+      "locator": { "pmid": "41977470", "repositoryId": "docs/research-workbench-examples/network-pharmacology-evidence-record-PMID41977470-v1-2026-08-10.md" },
+      "accessLevel": "full_text_and_supplement",
+      "relation": "partially_supports",
+      "extractedFacts": ["全文支持槲皮素与SLC15A2之间最强的部分证据链，但动物接受完整方剂且未干预SLC15A2，体内槲皮素浓度也未定量，因此不能解释方剂动物疗效。"],
+      "limitations": ["细胞敲低只有一种方法且缺少恢复实验；论文使用的PDB 6VK3结构编号与SLC15A2不符。"],
+      "unknowns": ["作者真实计算输入以及体内可达槲皮素浓度仍未确定。"],
+      "sourceSnapshotHash": "79b2966c8784820703423ea89bb6eb88020d4e94a48c4a354e89c7367e67c99a"
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "id": "NP-LIT3-EVIDENCE-PMID-42083411",
+      "sourceId": "EvidenceRecord:PMID:42083411",
+      "claimId": "NP-LIT3-CONCLUSION-CARD-DEMO-001",
+      "locator": { "pmid": "42083411", "repositoryId": "docs/research-workbench-examples/network-pharmacology-evidence-record-PMID42083411-v1-2026-08-10.md" },
+      "accessLevel": "abstract_only",
+      "relation": "partially_supports",
+      "extractedFacts": ["摘要级证据记录没有提供足以确认成分暴露、靶点作用、靶点介导和动物表型连续对齐的材料。"],
+      "limitations": ["本轮只实际访问题名、题录和摘要，不能把摘要未报告写成研究没有实施。"],
+      "unknowns": ["摘要未报告的精确实验分组、参数、数值和阴性结果保持未知。"],
+      "sourceSnapshotHash": "f061deb57503bb7bf885498a3d10ca4a3c9749ad4a60f5a489f82d950d345e7f"
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "id": "NP-LIT3-EVIDENCE-PMID-42173417",
+      "sourceId": "EvidenceRecord:PMID:42173417",
+      "claimId": "NP-LIT3-CONCLUSION-CARD-DEMO-001",
+      "locator": { "pmid": "42173417", "repositoryId": "docs/research-workbench-examples/network-pharmacology-evidence-record-PMID42173417-v1-2026-08-10.md" },
+      "accessLevel": "abstract_only",
+      "relation": "partially_supports",
+      "extractedFacts": ["出版方元数据标注开放获取，但本轮没有实际取得正文，因此证据判断仍严格停在摘要级。"],
+      "limitations": ["可获得性标签不等于本轮已经实际访问并核查全文。"],
+      "unknowns": ["摘要未报告的精确实验分组、参数、数值和阴性结果保持未知。"],
+      "sourceSnapshotHash": "0c9a9414f364b733d3cde4e14e31a172b5afd22a82c290b794310814de07e3e9"
+    }
+  ],
+  "conclusionCards": [
+    {
+      "schemaVersion": "1.0.0",
+      "id": "NP-LIT3-CONCLUSION-CARD-DEMO-001",
+      "questionId": "NP-NETWORK-PHARMACOLOGY-QUESTION-001",
+      "version": 1,
+      "claim": "在本轮13篇主动筛出的高相关候选中，尚不能确认任何一篇完成了从成分真实暴露、靶点作用、靶点介导到动物疾病表型的连续机制证明。",
+      "scope": "仅适用于本轮PubMed主动筛出的13篇高相关候选，不能代表整个网络药理学领域的研究比例。",
+      "producerId": "evidence-brief-synthesizer",
+      "confidence": "bounded",
+      "supportingEvidenceIds": [
+        "NP-LIT3-EVIDENCE-PMID-34464700",
+        "NP-LIT3-EVIDENCE-PMID-38663783",
+        "NP-LIT3-EVIDENCE-PMID-38929100",
+        "NP-LIT3-EVIDENCE-PMID-40961540",
+        "NP-LIT3-EVIDENCE-PMID-41106101",
+        "NP-LIT3-EVIDENCE-PMID-41389885",
+        "NP-LIT3-EVIDENCE-PMID-41924844",
+        "NP-LIT3-EVIDENCE-PMID-41935649",
+        "NP-LIT3-EVIDENCE-PMID-41970211",
+        "NP-LIT3-EVIDENCE-PMID-41974236",
+        "NP-LIT3-EVIDENCE-PMID-41977470",
+        "NP-LIT3-EVIDENCE-PMID-42083411",
+        "NP-LIT3-EVIDENCE-PMID-42173417"
+      ],
+      "counterEvidenceIds": [],
+      "uncertainties": [
+        "10篇仅实际访问摘要，摘要没有报告的信息保持未知。",
+        "13篇来自主动寻找高证据信号的检索，不是随机抽样。"
+      ],
+      "accessBoundary": "3篇实际取得并核查全文与补充材料，10篇严格停在摘要级。",
+      "nextQuestion": "哪些在匹配物种、剂量、时间和组织中的靶点干预实验，能够把部分证据链推进为连续机制证明？"
+    }
+  ],
+  "verificationReports": [
+    {
+      "schemaVersion": "1.0.0",
+      "id": "NP-LIT3-EVIDENCE-VERIFICATION-DEMO-001",
+      "conclusionCardIds": ["NP-LIT3-CONCLUSION-CARD-DEMO-001"],
+      "status": "verified",
+      "verdict": "pass",
+      "producerId": "evidence-brief-synthesizer",
+      "verifierId": "independent-evidence-verifier",
+      "limitations": [
+        "独立核查通过只表示结论与当前材料匹配，不等于研究者已经接受这份证据边界。",
+        "当前结论不能支持临床疗效、用药建议或领域比例估计。"
+      ]
+    }
+  ],
+  "boundaries": [
+    "大范围筛选默认以题名和摘要为主，全文不是摘要级筛选完成的前提。",
+    "摘要未报告不等于没有实施，所有未报告细节保持未知。",
+    "网络预测、分子对接、蛋白结合、细胞靶点作用和动物表型是不同证据环节，不能相互替代。"
+  ],
+  "nextStepOrUserDecision": {
+    "kind": "human_decision",
+    "prompt": "是否接受当前受限证据边界，结束在研究判断，或继续进入论证结构设计？"
+  },
+  "decisionReceipt": null
+}

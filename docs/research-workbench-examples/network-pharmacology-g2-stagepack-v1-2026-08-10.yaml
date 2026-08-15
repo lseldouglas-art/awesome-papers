@@ -1,0 +1,232 @@
+stage_manifest:
+  stagepack_id: NP-G2-20260810-v1
+  stage: G2_protocol_formation
+  version: 1
+  status: content_complete_awaiting_human_G2_decision
+  created_on: 2026-08-10
+  parent_stagepack_id: NP-G1-20260810-v8
+  completion_basis: protocol_content_complete_and_two_independent_agent_reviews_passed
+  mutation_policy: append_only_new_version_no_overwrite
+
+canonical_state_resolution:
+  authoritative_inputs:
+    - object_id: NP-G1-20260810-v8
+      path: docs/research-workbench-examples/network-pharmacology-g1-stagepack-v8-2026-08-10.yaml
+      sha256: 3e99f1006ce7de256f21d83837ae3cedec043ce7917954553e3c4fb0bf58d83d
+      state: G1_complete_and_G2_allowed
+    - object_id: NP-G1-LIB-002
+      path: docs/research-workbench-examples/network-pharmacology-g1-library-manifest-v2-2026-08-10.yaml
+      sha256: f1490595d7947251481eb22c08b7b5a1238925047d647573662a36a4fa0f721a
+      state: frozen_PubMed_method_candidate_library
+  historical_non_authoritative_snapshots:
+    - CAL-003
+    - network-pharmacology-g1-completion-checkpoint-v1
+  resolution_note: >-
+    CAL-003与旧checkpoint保留了用户批准忽略Scopus/CNKI之前的阻塞状态；
+    当前Gate只由G1 StagePack v8与LIB-002决定，不重新开启跨库要求。
+
+scope_contract:
+  review_scope: PubMed_only_methodological_orientation
+  review_type: PubMed_restricted_methodological_scoping_review_with_nested_stratified_meta_research_audit
+  publication_window:
+    complete_periods: 2018-01-01_to_2025-12-31
+    partial_snapshot: 2026-01-01_to_formal_last_search_date
+    pre_2018: contextual_background_only
+  analysis_unit: study_family
+  report_lineage_retained: true
+  contextual_standards_outside_PubMed: allowed_as_background_only
+
+frozen_G1_evidence_inputs:
+  method_library:
+    path: docs/research-workbench-examples/network-pharmacology-g1-pubmed-method-library-v1-2026-08-10.tsv
+    records: 51
+    study_families: 50
+    role: calibration_and_method_candidate_input_not_application_population
+    sha256: 15f425f37752c7180d7e247e0b9bd3e0d04bd2f26a383d794629c2f91d103e66
+  evidence_matrix:
+    path: docs/research-workbench-examples/network-pharmacology-g1-evidence-matrix-v1-2026-08-09.yaml
+    representative_sources: 13
+    claims: 8
+    role: purposive_methodological_claim_map_not_exhaustive_review_sample
+    sha256: abe18c7cbe314671894458a605a556fc8fcecb7fa89af8da20fe3c469caf481f
+
+G2_objects:
+  protocol:
+    object_id: NP-G2-PROTOCOL-001
+    path: docs/research-workbench-examples/network-pharmacology-g2-protocol-v1-2026-08-10.md
+    status: candidate_ready_for_human_G2_signoff
+    sha256: aa26ca24abc55029d24e967e6961158f5d56d7f4c0594c5b3431bb9330429880
+  evidence_driven_outline:
+    object_id: NP-G2-OUTLINE-001
+    path: docs/research-workbench-examples/network-pharmacology-g2-evidence-outline-v1-2026-08-10.yaml
+    chapters: 7
+    status: mapped_with_support_counts_counterevidence_and_downgrade_rules
+    sha256: 0752e80d39c35cd72c5b111442dbef8a0949bf2d97b89b98e01526b4adb045ae
+  pilot_charting_schema:
+    object_id: NP-G2-CHART-001
+    path: docs/research-workbench-examples/network-pharmacology-g2-charting-schema-v1-2026-08-10.yaml
+    status: candidate_ready_for_G2_pilot_baseline_freeze
+    sha256: aaff5851e4dbb0d7791c5361ade964b01e4cce3252fe6cf6a8e96c239e559806
+  independent_review:
+    object_id: NP-G2-REVIEW-001
+    path: docs/research-workbench-examples/network-pharmacology-g2-independent-review-v1-2026-08-10.yaml
+    status: passed
+    sha256: df27625c2ed97f6b5b7eff6615b469d3cd17ca2b352fc1a6a39a15e43c16b7f4
+  user_brief:
+    object_id: NP-G2-BRIEF-001
+    path: docs/research-workbench-examples/network-pharmacology-g2-user-brief-v1-2026-08-10.md
+    status: ready_for_G2_decision
+    sha256: b68796ff1adfbd55dcb5e643073c1784bb30bb5b1f45b2a2bbb9bddb0c947c7d
+
+protocol_logic:
+  evidence_channels:
+    M:
+      purpose: method_normative_database_algorithm_and_reproducibility_evidence_census
+      denominator: screened_M_method_evidence_families
+    A:
+      purpose: probability_sampled_application_practice_audit
+      mother_universe_pilot_records: 17528
+      strata:
+        y2018_2020: 200
+        y2021_2023: 200
+        y2024_2025: 200
+        y2026_partial: 100
+      nominal_total_families: 700
+      denominator: eligible_outcome_determinable_A_application_families_with_design_weights
+  nonexclusive_components:
+    E: drug_entity_or_exposure_signal_distinguishing_predicted_from_measured
+    O: disease_context_signal
+    C: binding_engagement_or_functional_mediation_signal
+  case_enrichment_rule: exclude_from_all_A_prevalence_period_and_route_denominators
+  route_derivation: extract_components_first_then_derive_route
+  strict_middle_out_rule: claim_context_appropriate_drug_anchor_plus_disease_module_plus_E3b_functional_mediation
+  full_target_causal_claim_rule: E3a_binding_or_engagement_plus_E3b_effect_modification_or_rescue_plus_concentration_or_exposure_congruence
+
+pilot_search_snapshot:
+  source: PubMed_NCBI_EUtilities
+  executed_on: 2026-08-10
+  status: feasibility_pilot_not_formal_frozen_search
+  counts:
+    A: 17528
+    M: 183
+    M2_high_sensitivity_adjacent: 15
+    E: 911
+    O: 2329
+    C: 2455
+    H_E_intersect_C: 108
+  interpretation:
+    - all_counts_overlap_and_must_not_be_summed
+    - query_hit_is_not_included_evidence
+    - M2_has_high_semantic_noise_and_only_one_clear_method_title_in_initial_audit
+    - E_contains_predicted_ADME_PK_noise
+    - C_contains_noncausal_rescue_and_dose_response_noise
+  freeze_prerequisites:
+    - PRESS_information_specialist_review
+    - sentinel_recall_check
+    - NCBI_query_translation_review
+    - actual_last_search_date_and_live_counts
+    - complete_export_fields_raw_responses_and_hashes
+
+charting_and_appraisal:
+  axes:
+    - reporting_completeness_without_total_score
+    - E0_E5_evidence_components_not_a_validated_scale
+    - domain_based_research_credibility_without_total_score
+  E3_split:
+    E3a: direct_binding_or_cellular_target_engagement
+    E3b: target_specific_functional_mediation
+  E4_rule: matched_species_dose_time_compartment_exposure_and_in_vivo_mechanistic_alignment
+  missing_values: [reported_yes, reported_no, not_reported, unclear, not_applicable]
+  not_reported_is_not_not_performed: true
+  pilot_requirement: at_least_10_maximally_heterogeneous_sources_by_two_human_reviewers
+  schema_version_policy: G2_approval_freezes_pilot_baseline_only_post_pilot_changes_require_v2_and_amendment
+
+screening_and_analysis:
+  human_calibration:
+    titles_abstracts_minimum: 50
+    full_texts_minimum: 20
+    statistics: [raw_agreement, Gwets_AC1, Cohens_kappa]
+    adjudication: consensus_then_third_human_reviewer
+  estimator:
+    target: period_specific_binary_feature_proportion_among_eligible_A_application_families
+    point: Hajek_domain_proportion
+    variance: Taylor_linearization_with_stratification_and_finite_population_correction
+    confidence_interval: design_based_logit_95pct_t_interval_beta_fallback_for_boundary_events
+    period_difference: Taylor_linearized_absolute_contrast_with_95pct_t_interval
+  missing_outcome_policy:
+    primary: outcome_determinable_families_only_never_code_missing_as_negative
+    mandatory_outputs: weighted_missing_rate_and_all_missing_no_to_all_missing_yes_bounds
+    sensitivity_trigger: response_propensity_weighting_if_over_5pct_in_any_period
+  y2026_policy: descriptive_partial_snapshot_excluded_from_complete_period_comparison
+
+prohibited_inferences:
+  - cross_database_or_cross_language_exhaustiveness
+  - global_network_pharmacology_route_prevalence
+  - route_prevalence_before_full_text_double_coding_and_new_human_decision
+  - direct_2026_to_complete_year_trend_comparison
+  - global_paradigm_shift_or_causal_time_trend
+  - guideline_presence_as_evidence_of_field_adoption
+  - database_association_hub_enrichment_docking_or_MD_as_target_engagement
+  - any_single_E3_component_as_complete_X_Y_Z_target_causality
+  - unaligned_cross_species_exposure_as_E4
+  - E0_E5_as_validated_quality_or_certainty_scale
+  - clinical_effectiveness_safety_or_treatment_recommendation
+  - not_reported_as_not_performed
+
+risk_register:
+  - risk_id: NP-G2-RISK-001
+    level: high
+    risk: PubMed_only_coverage_and_language_bias
+    mitigation: persistent_scope_label_and_reopen_G1_for_multidatabase_upgrade
+  - risk_id: NP-G2-RISK-002
+    level: high
+    risk: high_evidence_signal_spectrum_bias
+    mitigation: A_channel_probability_sample_is_the_only_practice_denominator
+  - risk_id: NP-G2-RISK-003
+    level: high
+    risk: validation_term_semantic_contamination
+    mitigation: action_level_E3a_E3b_charting_and_locator_verification
+  - risk_id: NP-G2-RISK-004
+    level: medium
+    risk: limited_precision_after_ineligibility_or_missing_full_text
+    mitigation: actual_domain_sample_design_based_CI_missingness_bounds_and_sensitivity_analysis
+  - risk_id: NP-G2-RISK-005
+    level: high
+    risk: AI_extraction_or_classification_error
+    mitigation: AI_prefill_only_with_human_locator_verification_and_independent_adjudication
+
+independent_verification:
+  methodologist:
+    initial_verdict: revision_required
+    final_verdict: pass
+  evidence_auditor:
+    initial_verdict: needs_revision_before_approval
+    final_verdict: pass
+  review_trace: NP-G2-REVIEW-001
+  limitation: agent_verification_does_not_substitute_for_human_PI_PRESS_or_two_human_reviewers
+
+gate_state:
+  G2_content_package_complete: true
+  protocol_consistency_check_passed: true
+  independent_agent_method_review_passed: true
+  independent_agent_evidence_review_passed: true
+  human_G2_approval: pending
+  formal_G2_complete: false
+  G3_allowed: false
+  formal_review_execution_allowed: false
+  blocking_conditions:
+    - human_G2_decision
+    - PRESS_review_before_formal_search_freeze
+    - OSF_or_equivalent_timestamp_registration_before_formal_screening
+    - two_human_reviewers_and_third_adjudicator_confirmed
+    - screening_calibration_completed
+    - charting_pilot_completed_and_schema_promoted_or_versioned
+
+decision_queue:
+  decision_id: NP-G2-DEC-PENDING-001
+  prompt: 是否批准G2 Protocol v1与PilotChartingSchema v1基线并进入G3签署交付
+  options:
+    approve: 批准 G2
+    amend: 修改 G2：具体修改
+    upgrade_scope: 升级多数据库
+  default_without_user_response: remain_pending_and_do_not_execute

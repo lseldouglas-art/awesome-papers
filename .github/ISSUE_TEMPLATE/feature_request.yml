@@ -1,0 +1,29 @@
+name: Feature request
+description: Propose a focused product or research-workflow improvement.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Researcher problem
+      description: Describe the problem before proposing a solution.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+    validations:
+      required: true
+  - type: textarea
+    id: authority
+    attributes:
+      label: Human decision and evidence boundary
+      description: Which decisions remain human, and what must the system refuse to infer?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

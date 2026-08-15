@@ -1,0 +1,43 @@
+stage_manifest:
+  stagepack_id: NP-G1-20260810-v8
+  stage: G1_search_and_evidence_orientation
+  status: complete
+  completed_at: 2026-08-10T10:30:00+08:00
+  parent_stagepack_id: NP-G1-20260810-v7
+  supersedes: NP-G1-20260810-v7
+  completion_basis: user_approved_PubMed_only_scope
+
+approved_decisions:
+  research_focus: transition_from_database_hypothesis_generation_to_reproducibility_and_evidence_closure
+  database_scope: PubMed_only
+  explicitly_ignored: [Scopus, CNKI]
+  evidence_grade: scoped_orientation
+  route_prevalence_quantification_allowed: false
+
+completed_objects:
+  - exact_versioned_search_protocol
+  - PubMed_search_runs_and_counts
+  - latest_100_noise_calibration_on_initial_method_query
+  - all_51_titles_screened_on_revised_method_query
+  - 19_method_or_platform_candidate_records_checked_at_abstract_or_metadata_level
+  - one_preprint_journal_version_family_normalized
+  - frozen_51_record_50_family_method_candidate_library
+  - claim_evidence_counterevidence_boundary
+  - final_user_brief_and_annotated_route_timeline
+
+artifacts:
+  user_brief: docs/research-workbench-examples/network-pharmacology-g1-final-user-brief-v3-2026-08-10.md
+  library_manifest: docs/research-workbench-examples/network-pharmacology-g1-library-manifest-v2-2026-08-10.yaml
+  record_snapshot: docs/research-workbench-examples/network-pharmacology-g1-pubmed-method-library-v1-2026-08-10.tsv
+  calibration: docs/research-workbench-examples/network-pharmacology-g1-search-calibration-v3-2026-08-10.yaml
+  reproducibility_pack: docs/research-workbench-examples/network-pharmacology-g1-reproducibility-pack-v1-2026-08-09.md
+
+gate_decision:
+  formal_G1_complete: true
+  G2_allowed: true
+  carry_forward_constraints:
+    - PubMed_only_scope_must_remain_visible
+    - no_route_share_without_full_text_coding
+    - docking_or_MD_must_not_be_labeled_as_target_engagement
+    - source_version_parameter_and_validation_type_must_remain_separate_fields
+

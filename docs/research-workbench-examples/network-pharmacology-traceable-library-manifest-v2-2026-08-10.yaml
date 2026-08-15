@@ -1,0 +1,100 @@
+manifest:
+  object_id: NP-LIT3-EVIDENCE-001
+  version: 2
+  status: evidence_mapping_complete_pending_researcher_boundary_confirmation
+  completed_on: 2026-08-10
+  date_precision: day
+  database_scope: PubMed_only
+  zotero_collection_name: 网络药理学｜可追溯文献库（候选）
+  zotero_collection_key: DW5629VI
+  record_count: 13
+  full_text_reviewed_count: 3
+  abstract_only_count: 10
+  independently_cross_checked_count: 13
+  confirmed_complete_exposure_target_mediation_animal_chain_count: 0
+
+scope_boundaries:
+  - The 13 records are deliberately enriched high-relevance candidates, not a random or prevalence sample.
+  - Results cannot estimate field-wide proportions, historical trends, clinical efficacy, or cross-language completeness.
+  - Ten records remain abstract-only in this run; unknown full-text findings were not imputed.
+  - Docking, molecular dynamics, enrichment, and expression changes are not treated as direct binding or target-mediated causality.
+  - Independent agent cross-checking does not replace formal dual-human full-text review.
+
+source_library:
+  manifest_path: docs/research-workbench-examples/network-pharmacology-traceable-library-manifest-v1-2026-08-10.yaml
+  role: frozen_13_record_candidate_library
+  zotero_verified_item_count: 13
+
+reader_outputs:
+  - path: docs/research-workbench-examples/network-pharmacology-literature-stage-3-evidence-brief-v1-2026-08-10.md
+    sha256: 8763c9ddb5a53bf2a311fcd3c3e94bd02607681496c472bbcb51c9c9db4be4a8
+    role: reader_facing_scientific_conclusion
+  - path: docs/research-workbench-examples/network-pharmacology-literature-stage-3-evidence-map-v1-2026-08-10.md
+    sha256: 54823e3858a5eb5f7e479fe30a2b23df7c776195b5f0c1d58e8eb71e8ad7c594
+    role: cross_paper_evidence_map
+  - path: docs/research-workbench-examples/network-pharmacology-literature-stage-3-independent-review-v1-2026-08-10.md
+    sha256: a4dcb2edfaf97e514e9522d56a60de43973e011cb96ee32c2e89a4cd43e9d5ce
+    role: independent_cross_check_and_revision_closure
+  - path: docs/research-workbench-examples/network-pharmacology-traceable-library-v1-2026-08-10.md
+    sha256: 84034321cdcc31c6e8b119794ba3ee326eda67b8252aa38cc4f0d98efa4add6d
+    role: zotero_candidate_library_crosswalk
+
+evidence_records:
+  - pmid: "34464700"
+    access_level: abstract_only
+    path: docs/research-workbench-examples/network-pharmacology-evidence-record-PMID34464700-v1-2026-08-10.md
+    sha256: 294a41f4c04dc028ae66446e52c2de1e11f7e01a30a41e6714097cb6e646885f
+  - pmid: "38663783"
+    access_level: abstract_only
+    path: docs/research-workbench-examples/network-pharmacology-evidence-record-PMID38663783-v1-2026-08-10.md
+    sha256: a61e7c664c7700aea79b3f62f82eed340278041947f86d0ea1f6b6d346c60c44
+  - pmid: "38929100"
+    access_level: full_text_and_supplement
+    path: docs/research-workbench-examples/network-pharmacology-evidence-record-PMID38929100-v1-2026-08-10.md
+    sha256: 090fc255c047d2d8594387c712c5a3531050a527ffcbe58e06b56acbd7cb34df
+  - pmid: "40961540"
+    access_level: abstract_only
+    path: docs/research-workbench-examples/network-pharmacology-evidence-record-PMID40961540-v1-2026-08-10.md
+    sha256: 3e2ae7cef1035935f36bf26ec39b640dcf5ecba8709546801c3de178218c4ead
+  - pmid: "41106101"
+    access_level: abstract_only
+    path: docs/research-workbench-examples/network-pharmacology-evidence-record-PMID41106101-v1-2026-08-10.md
+    sha256: 101507692512737405f1af2e40548ccbd478f7bcaa98eb52e75f0cd83ddeb149
+  - pmid: "41389885"
+    access_level: abstract_only
+    path: docs/research-workbench-examples/network-pharmacology-evidence-record-PMID41389885-v1-2026-08-10.md
+    sha256: ae88f6836d1f4f987410030b3d00604b30ab86812757f09a25951a2828543b7b
+  - pmid: "41924844"
+    access_level: abstract_only
+    path: docs/research-workbench-examples/network-pharmacology-evidence-record-PMID41924844-v1-2026-08-10.md
+    sha256: 1964d20e09280d8c9784e676621fed033caeb6f4c58e894a94c757106e2d076e
+  - pmid: "41935649"
+    access_level: abstract_only
+    path: docs/research-workbench-examples/network-pharmacology-evidence-record-PMID41935649-v1-2026-08-10.md
+    sha256: cdecb16a2f4a6f0587c8dd46732125c2f91caf55570dd0210dfbd367fe9f1951
+  - pmid: "41970211"
+    access_level: full_text_and_supplement
+    path: docs/research-workbench-examples/network-pharmacology-evidence-record-PMID41970211-v1-2026-08-10.md
+    sha256: f6edc3e7291bb7ff9a338fc80a15d92c13b8fb8365f0a04fe549113f687b3233
+  - pmid: "41974236"
+    access_level: abstract_only
+    path: docs/research-workbench-examples/network-pharmacology-evidence-record-PMID41974236-v1-2026-08-10.md
+    sha256: a911b8b1297745065d346eaca51661b76d62f05ebaf9ba7b5d21a52ab6d4fdb7
+  - pmid: "41977470"
+    access_level: full_text_and_supplement
+    path: docs/research-workbench-examples/network-pharmacology-evidence-record-PMID41977470-v1-2026-08-10.md
+    sha256: 79b2966c8784820703423ea89bb6eb88020d4e94a48c4a354e89c7367e67c99a
+  - pmid: "42083411"
+    access_level: abstract_only
+    path: docs/research-workbench-examples/network-pharmacology-evidence-record-PMID42083411-v1-2026-08-10.md
+    sha256: 8866342053678133318e8519426e4f00a4da0c277f4bc43642e21702556259a5
+  - pmid: "42173417"
+    access_level: abstract_only_official_OA_metadata_but_full_text_not_retrieved
+    path: docs/research-workbench-examples/network-pharmacology-evidence-record-PMID42173417-v1-2026-08-10.md
+    sha256: 41e8c7937f6de351428da07388fe1a749a6603092e59a59f526ed1c71c24c946
+
+next_boundary:
+  current_research_period: 文献调研阶段第三环节完成
+  completed_work: 跨论文证据地图与研究判断
+  next_action_after_human_confirmation: generate_evidence_driven_outline_with_per_section_source_counts
+  automatic_manuscript_writing_allowed: false

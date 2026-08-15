@@ -1,0 +1,69 @@
+library_manifest:
+  library_id: NP-G1-LIB-001
+  created_at: 2026-08-10T10:00:00+08:00
+  scope: PubMed_revised_method_query_candidate_library
+  status: frozen_pubmed_subset_not_cross_database_library
+  source_database: PubMed
+  source_interface: NCBI_EUtilities_ESearch_and_ESummary
+  search_run_date: 2026-08-09
+  metadata_fetch_date: 2026-08-10
+
+source_query:
+  query_id: NP-PM-02R
+  result_count: 51
+  query: |-
+    (("network pharmacology"[Title] OR "network-based pharmacology"[Title])
+    AND (reproducib*[Title] OR standard*[Title] OR guideline*[Title]
+    OR benchmark*[Title] OR "current status"[Title] OR database*[Title]
+    OR workflow*[Title] OR platform*[Title] OR "blind docking"[Title]
+    OR "evaluation method"[Title] OR "evaluation methods"[Title]))
+    AND ("2018/01/01"[Date - Publication] : "2026/08/09"[Date - Publication])
+
+snapshot:
+  record_file: network-pharmacology-g1-pubmed-method-library-v1-2026-08-10.tsv
+  sha256: 15f425f37752c7180d7e247e0b9bd3e0d04bd2f26a383d794629c2f91d103e66
+  records: 51
+  normalized_study_families: 50
+  classification_counts:
+    quality_or_critical: 7
+    platform_or_workflow: 12
+    application_or_other: 32
+  screen_state_counts:
+    abstract_screened: 17
+    metadata_only_no_abstract: 2
+    title_screened: 32
+
+deduplication:
+  method: PMID_exact_then_DOI_and_normalized_title_version_family
+  duplicate_version_families:
+    - family_id: FAM-NEO4COVID19
+      preferred_record: PMID_35057621
+      related_record: PMID_33173863
+      relation: journal_article_supersedes_preprint
+  records_removed_from_snapshot: 0
+  reason_for_retention: preserve_version_lineage_while_counting_one_study_family
+
+allowed_use:
+  - method_landscape_orientation
+  - seed_set_for_citation_chaining
+  - database_algorithm_reproducibility_and_validation_gap_analysis
+  - product_test_of_search_screen_dedup_and_freeze_objects
+
+prohibited_use:
+  - claim_of_exhaustive_global_or_bilingual_coverage
+  - route_prevalence_or_annual_paradigm_shift_estimation
+  - formal_systematic_review_library
+  - clinical_effectiveness_inference
+
+cross_database_status:
+  Scopus:
+    state: requires_user_authentication
+    observed_state: Elsevier_sign_in_page
+  CNKI:
+    state: requires_user_verification
+    observed_state: blockPuzzle_captcha_redirect
+
+formal_gate:
+  G1_complete: false
+  remaining_condition: execute_cross_database_queries_then_merge_deduplicate_and_freeze_multidatabase_manifest
+

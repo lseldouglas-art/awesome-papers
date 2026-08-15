@@ -1,0 +1,91 @@
+review_manifest:
+  review_id: NP-G2-REVIEW-001
+  version: 1
+  stage: G2_protocol_formation
+  status: completed
+  completed_on: 2026-08-10
+  review_type: independent_agent_method_and_evidence_review
+  reviewed_artifacts:
+    - docs/research-workbench-examples/network-pharmacology-g2-protocol-v1-2026-08-10.md
+    - docs/research-workbench-examples/network-pharmacology-g2-evidence-outline-v1-2026-08-10.yaml
+    - docs/research-workbench-examples/network-pharmacology-g2-charting-schema-v1-2026-08-10.yaml
+    - docs/research-workbench-examples/network-pharmacology-g2-user-brief-v1-2026-08-10.md
+
+methodology_review:
+  reviewer_role: independent_agent_methodologist
+  initial_verdict: revision_required
+  major_findings:
+    - high_evidence_only_sampling_would_create_spectrum_bias
+    - method_and_application_denominators_needed_separation
+    - credibility_appraisal_needed_beyond_reporting_and_evidence_components
+    - screening_and_charting_pilots_needed_larger_heterogeneous_samples
+    - canonical_G1_status_and_2026_partial_year_needed_explicit_resolution
+    - confidence_interval_estimator_and_missing_outcome_rules_needed_prespecification
+    - strict_middle_out_needed_an_executable_E3b_rule_and_separation_from_full_target_causality
+    - pilot_schema_and_final_charting_form_needed_distinct_freeze_points
+  resolutions:
+    - adopted_M_method_census_plus_A_stratified_random_application_audit
+    - excluded_E_O_C_enrichment_from_all_A_prevalence_denominators
+    - added_domain_based_credibility_axis_without_total_score
+    - set_calibration_to_at_least_50_titles_abstracts_20_full_texts_and_10_charting_sources
+    - designated_G1_v8_and_LIB_002_as_current_authority_and_2026_as_partial_snapshot
+    - prespecified_Hajek_domain_estimator_Taylor_variance_FPC_CI_and_missingness_bounds
+    - equated_strict_route_functional_test_to_operational_E3b_but_kept_full_X_Y_Z_claim_stricter
+    - froze_G2_schema_only_as_pilot_baseline_with_v2_amendment_required_after_changes
+  final_verdict: pass
+
+evidence_review:
+  reviewer_role: independent_agent_evidence_auditor
+  initial_verdict: needs_revision_before_approval
+  major_findings:
+    - binding_engagement_concentration_perturbation_and_rescue_had_been_overcollapsed_into_one_E3_label
+    - two_calibration_cases_had_been_overgraded_before_full_text_alignment_checks
+    - three_key_method_sources_needed_task_sample_and_time_window_limits
+    - M2_E_O_C_queries_needed_noise_labels_and_added_synonyms
+    - nominal_sample_precision_needed_recalculation_from_actual_eligible_observed_families
+    - strict_middle_out_drug_side_rule_needed_in_vitro_and_in_vivo_claim_specificity
+    - C_component_terminology_and_chapter_downgrade_rules_needed_cross_artifact_alignment
+  resolutions:
+    - split_E3a_binding_or_cellular_engagement_from_E3b_target_specific_functional_mediation
+    - downgraded_PMID_39669203_E4_to_pending_cross_species_full_text_alignment
+    - kept_PMID_31619994_target_causality_unknown_without_full_text
+    - recorded_FT_002_FT_003_FT_004_scope_and_external_validity_limits
+    - expanded_and_reran_E_O_C_H_pilots_and_labeled_all_as_high_sensitivity_signals
+    - made_actual_eligible_observed_sample_and_finite_population_correction_mandatory
+    - required_measured_entity_for_in_vitro_and_matched_accessible_exposure_for_in_vivo_routes
+    - added_expansion_or_downgrade_rule_to_every_outline_chapter
+  final_verdict: pass
+
+pilot_search_audit:
+  source: PubMed_NCBI_EUtilities
+  executed_on: 2026-08-10
+  status: executed_pilot_not_frozen_search
+  counts:
+    A_mother_universe: 17528
+    M_broad: 183
+    M2_high_sensitivity_adjacent: 15
+    E_drug_entity_or_exposure_signal: 911
+    O_disease_context_signal: 2329
+    C_binding_engagement_or_functional_mediation_signal: 2455
+    H_E_and_C_intersection: 108
+  sentinel_checks:
+    PMID_42229624_MST_recalled_by_C: true
+    PMID_39669203_recalled_by_H: false
+  warnings:
+    - counts_overlap_and_must_not_be_summed
+    - query_hits_are_not_included_evidence
+    - E_contains_predicted_ADME_or_PK_noise
+    - C_contains_semantically_unrelated_rescue_and_dose_response_noise
+    - counts_may_change_with_live_indexing_and_must_be_rerun_at_formal_last_search
+
+review_limitations:
+  - independent_agent_review_does_not_substitute_for_human_PI_G2_approval
+  - independent_agent_review_does_not_substitute_for_PRESS_information_specialist_review
+  - formal_screening_and_charting_still_require_two_human_reviewers_and_adjudication
+  - full_text_calibration_cases_remain_subject_to_locator_level_human_verification
+
+gate_recommendation:
+  G2_content_package: complete_and_scientifically_signable
+  independent_agent_review: passed
+  human_G2_decision: pending
+  formal_execution: blocked_pending_human_approval_PRESS_registration_and_human_calibration
