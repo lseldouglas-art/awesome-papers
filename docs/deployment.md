@@ -48,14 +48,27 @@ Back up the entire directory atomically. It contains project event chains, immut
 ## Docker
 
 ```bash
-docker build -t research-workbench:0.1.0 .
+docker build -t research-workbench:0.1.1 .
 docker run --rm -p 5177:5177 \
   -e RESEARCH_WORKBENCH_HOST=0.0.0.0 \
   -e RESEARCH_WORKBENCH_AUTH_USERNAME=researcher \
   -e RESEARCH_WORKBENCH_AUTH_PASSWORD='replace-me' \
   -v research-workbench-data:/app/.research-workbench-data \
-  research-workbench:0.1.0
+  research-workbench:0.1.1
 ```
+
+## Free disposable Render evaluation
+
+The repository includes [`render.yaml`](../render.yaml) for a password-protected evaluation instance. Render asks for `RESEARCH_WORKBENCH_AUTH_PASSWORD` before creating the service. The fixed evaluation username is `researcher`.
+
+This free topology is deliberately disposable:
+
+- it spins down after an idle period;
+- all projects and event data can disappear after spin-down, restart, or redeploy;
+- it is suitable only for interface and workflow evaluation;
+- never enter irreplaceable, confidential, or formal research records.
+
+For durable use, move to a paid service with a persistent disk mounted at `/var/data/research-workbench`, set `RESEARCH_WORKBENCH_DATA_DIR` to that path, and configure backups. Do not upgrade or attach paid resources until the account owner has approved the cost.
 
 ## Not supported yet
 

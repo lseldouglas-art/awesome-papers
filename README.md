@@ -118,6 +118,12 @@ RESEARCH_WORKBENCH_AUTH_PASSWORD=use-a-long-random-secret
 
 Use persistent storage for `RESEARCH_WORKBENCH_DATA_DIR`. See [docs/deployment.md](./docs/deployment.md).
 
+For a disposable, password-protected evaluation instance only:
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/lseldouglas-art/research-workbench)
+
+Render's free filesystem is ephemeral. Projects created there can disappear after idle shutdown, restart, or redeploy; do not use the free instance for real research records.
+
 ## Contributing
 
 Start with [CONTRIBUTING.md](./CONTRIBUTING.md). Changes to scientific authority, event transitions, artifact contracts, retrieval semantics, or human decision ownership require tests that demonstrate both the allowed path and the fail-closed path.

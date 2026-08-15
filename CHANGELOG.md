@@ -6,8 +6,18 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Planned
 
-- Private hosted evaluation and persistent deployment documentation.
 - External usability testing of the two-step project creation flow.
+
+## [0.1.1] - 2026-08-15
+
+### Added
+
+- A Render Blueprint for a password-protected, disposable free evaluation instance.
+- Explicit warnings that free-hosted project data is ephemeral and unsuitable for formal research records.
+
+### Changed
+
+- Citation metadata now uses the verified GitHub alias without inferring a personal name.
 
 ## [0.1.0] - 2026-08-15
 

@@ -2,12 +2,11 @@ cff-version: 1.2.0
 message: "If you use Research Workbench in a project, please cite this software release."
 title: "Research Workbench"
 type: software
-version: 0.1.0
+version: 0.1.1
 date-released: 2026-08-15
 authors:
-  - family-names: "Douglas"
-    given-names: "Lsel"
-    alias: "lseldouglas-art"
+  - alias: "lseldouglas-art"
+    website: "https://github.com/lseldouglas-art"
 repository-code: "https://github.com/lseldouglas-art/research-workbench"
 url: "https://github.com/lseldouglas-art/research-workbench"
 license: MIT

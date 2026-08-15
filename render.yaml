@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: research-workbench-lseldouglas-art
+    runtime: node
+    plan: free
+    autoDeploy: false
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/research/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.19.0
+      - key: RESEARCH_WORKBENCH_HOST
+        value: 0.0.0.0
+      - key: RESEARCH_WORKBENCH_DATA_DIR
+        value: /tmp/research-workbench-data
+      - key: RESEARCH_WORKBENCH_AUTH_USERNAME
+        value: researcher
+      - key: RESEARCH_WORKBENCH_AUTH_PASSWORD
+        sync: false
+      - key: NCBI_TOOL
+        value: research-workbench
