@@ -31,6 +31,7 @@ import {
   shouldRunLiveRetrieval,
 } from "./research-live-retrieval-v1.js";
 import { enforceCitationVerification } from "./citation-verification-v1.js";
+import { assertValidResearchDirectionSelection } from "./research-direction-selection-v1.js";
 import { assertValidManuscriptAuthorityChain } from "./manuscript-authority-v1.js";
 import { assertValidSearchMethodAuthorityChain } from "./research-search-method-authority-v1.js";
 import {
@@ -231,6 +232,68 @@ function normalizeProjectInput(input, machine) {
       );
     }
   }
+  let scopingDecision = null;
+  let scopingRounds = [];
+  if (input.scopingDecision !== undefined && input.scopingDecision !== null) {
+    scopingDecision = structuredClone(input.scopingDecision);
+    try {
+      assertValidResearchDirectionSelection(scopingDecision);
+    } catch (error) {
+      fail(error.code ?? "INVALID_RESEARCH_DIRECTION_SELECTION", error.message, error.details);
+    }
+    if (!Array.isArray(input.scopingRounds) || input.scopingRounds.length !== 2) {
+      fail(
+        "INVALID_SCOPING_ROUNDS",
+        "已选择研究方向的项目必须同时保留首轮与第二轮调查。",
+      );
+    }
+    scopingRounds = input.scopingRounds.map((round, index) => {
+      if (!round || typeof round !== "object" || round.round !== index + 1) {
+        fail("INVALID_SCOPING_ROUNDS", "调查轮次必须按首轮、第二轮连续记录。");
+      }
+      const previewSelection = structuredClone(round.previewSelection);
+      try {
+        assertValidQueryPreviewSelection(previewSelection);
+      } catch (error) {
+        fail(error.code ?? "INVALID_QUERY_PREVIEW_SELECTION", error.message, error.details);
+      }
+      if (
+        !hasText(round.question) ||
+        !hasText(round.query) ||
+        previewSelection.question.trim() !== round.question.trim() ||
+        previewSelection.query.trim() !== round.query.trim()
+      ) {
+        fail("INVALID_SCOPING_ROUNDS", "每轮调查必须绑定同一轮的研究问题、检索式与预检回执。");
+      }
+      return {
+        round: index + 1,
+        role: index === 0 ? "orientation" : "focused",
+        question: round.question.trim(),
+        query: round.query.trim(),
+        previewSelection,
+      };
+    });
+    const scopingMismatches = [
+      scopingRounds[0].previewSelection.planHash !== scopingDecision.sourcePreviewPlanHash
+        ? "first_round_plan" : null,
+      scopingRounds[0].question.normalize("NFKC") !== scopingDecision.sourceQuestion.normalize("NFKC")
+        ? "first_round_question" : null,
+      scopingRounds[1].question !== input.question.trim()
+        ? "second_round_question" : null,
+      scopingRounds[1].previewSelection.selectionHash !== queryPreviewSelection?.selectionHash
+        ? "second_round_preview" : null,
+      scopingDecision.narrowedBrief.question.trim().normalize("NFKC") !== input.question.trim().normalize("NFKC")
+        ? "narrowed_question" : null,
+    ].filter(Boolean);
+    if (scopingMismatches.length > 0) {
+      fail(
+        "SCOPING_DECISION_MISMATCH",
+        `方向决定、两轮调查与最终研究问题没有绑定到同一条选择链（${scopingMismatches.join("、")}）。`,
+      );
+    }
+  } else if (input.scopingRounds !== undefined && input.scopingRounds !== null) {
+    fail("SCOPING_DECISION_REQUIRED", "调查轮次不能脱离研究者方向决定单独写入。");
+  }
   const project = {
     id: input.id.trim(),
     title: input.title.trim(),
@@ -245,6 +308,8 @@ function normalizeProjectInput(input, machine) {
     retrievalRuns: queryPreviewSelection
       ? { previewSelection: queryPreviewSelection }
       : {},
+    scopingDecision,
+    scopingRounds,
     sourceMaterials: (input.sourceMaterials ?? []).map((material, index) =>
       normalizeSourceMaterial(material, index, input.id.trim()),
     ),
@@ -908,25 +973,48 @@ export class ResearchAgentServiceV1 {
     }
     const projects = [];
     for (const projectId of [...new Set(projectIds)].sort()) {
-      const result = await this.getProject(projectId);
-      projects.push({
-        id: projectId,
-        title: result.project.title,
-        question: result.project.question,
-        researchMode: result.project.researchMode ?? "guided_materials",
-        searchQuery: result.project.searchQuery ?? null,
-        liveRetrieval: result.project.liveRetrieval ?? null,
-        completionProfileId: result.state.completionProfileId,
-        revision: result.state.revision,
-        phase: result.projection.phase,
-        activity: result.projection.activity,
-        state: result.projection.state,
-        complete: result.projection.complete,
-        boundary: result.projection.boundary,
-        agentRunStatus: result.agentRunStatus.status,
-      });
+      try {
+        const result = await this.getProject(projectId);
+        projects.push({
+          id: projectId,
+          title: result.project.title,
+          question: result.project.question,
+          researchMode: result.project.researchMode ?? "guided_materials",
+          searchQuery: result.project.searchQuery ?? null,
+          liveRetrieval: result.project.liveRetrieval ?? null,
+          completionProfileId: result.state.completionProfileId,
+          revision: result.state.revision,
+          phase: result.projection.phase,
+          activity: result.projection.activity,
+          state: result.projection.state,
+          complete: result.projection.complete,
+          boundary: result.projection.boundary,
+          agentRunStatus: result.agentRunStatus.status,
+          loadable: true,
+        });
+      } catch (error) {
+        projects.push({
+          id: projectId,
+          title: "需要恢复的历史研究",
+          question: "历史运行在项目快照写入前中断；原事件记录仍保留。",
+          researchMode: "unknown",
+          completionProfileId: "evidence_brief",
+          revision: null,
+          phase: "question_formation",
+          activity: "历史记录恢复",
+          state: "failed",
+          complete: false,
+          boundary: null,
+          agentRunStatus: "unavailable",
+          loadable: false,
+          loadError: {
+            code: error?.code ?? "PROJECT_SNAPSHOT_INCOMPLETE",
+            message: error?.message ?? String(error),
+          },
+        });
+      }
     }
-    return projects;
+    return projects.sort((left, right) => Number(right.loadable) - Number(left.loadable));
   }
 
   async runUntilBoundary(projectId, { maxSteps = DEFAULT_MAX_STEPS, signal } = {}) {

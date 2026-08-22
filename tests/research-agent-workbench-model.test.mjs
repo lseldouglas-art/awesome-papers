@@ -2,11 +2,58 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  buildResearchWorkbenchCalibrationPayload,
+  buildResearchWorkbenchDirectionSelectionPayload,
+  buildResearchWorkbenchReviewPreviewPayload,
   buildResearchWorkbenchCreatePayload,
   normalizeResearchQuestionInput,
   researchQuestionCanPreview,
   researchWorkbenchRetrievalDisplay,
 } from "../src/research-agent-workbench-model.js";
+
+test("confirmed professional strategy becomes one bounded five-year review scan", () => {
+  const payload = buildResearchWorkbenchReviewPreviewPayload({
+    question: "  围术期睡眠与术后恢复有什么关系？ ",
+    queryPlan: {
+      candidates: [
+        { id: "matrix_core", label: "核心组合", strategy: "完整词群", query: "sleep AND recovery" },
+        { id: "matrix_free", label: "扩展组合", strategy: "放宽路径", query: "sleep" },
+      ],
+    },
+    selectedQueryId: "matrix_core",
+    calibrationHash: "c".repeat(64),
+  });
+  assert.equal(payload.question, "围术期睡眠与术后恢复有什么关系?");
+  assert.equal(payload.reviewScanCandidateId, "matrix_core");
+  assert.equal(payload.reviewWindowYears, 5);
+  assert.equal(payload.reviewSampleLimit, 20);
+  assert.equal(payload.calibrationHash, "c".repeat(64));
+  assert.deepEqual(payload.candidateQueries.map((candidate) => candidate.id), ["matrix_core", "matrix_free"]);
+});
+
+test("initial strategy confirmation binds the 100-record calibration to the plan fingerprint", () => {
+  const queryPlan = {
+    planHash: "a".repeat(64),
+    candidates: [
+      { id: "matrix_abc", query: "sleep AND recovery" },
+      { id: "matrix_ab", query: "sleep" },
+    ],
+  };
+  assert.deepEqual(buildResearchWorkbenchCalibrationPayload({
+    question: " 围术期睡眠与术后恢复？ ",
+    queryPlan,
+    selectedQueryId: "matrix_abc",
+  }), {
+    question: "围术期睡眠与术后恢复?",
+    initialPlanHash: "a".repeat(64),
+    selectedCandidateId: "matrix_abc",
+  });
+  assert.equal(buildResearchWorkbenchCalibrationPayload({
+    question: "围术期睡眠与术后恢复？",
+    queryPlan,
+    selectedQueryId: "missing",
+  }), null);
+});
 
 test("new research sends the exact preview plan and selected query candidate", () => {
   assert.deepEqual(
@@ -34,6 +81,39 @@ test("new research sends the exact preview plan and selected query candidate", (
       sourceMaterials: "PMID 12345678",
     },
   );
+});
+
+test("direction selection binds reasons to a candidate from the visible first-round report", () => {
+  const payload = buildResearchWorkbenchDirectionSelectionPayload({
+    queryPreview: {
+      planHash: "d".repeat(64),
+      reviewLandscape: {
+        synthesis: {
+          directionReport: {
+            directions: [
+              { id: "direction_biomarker", direction: "分子标志物" },
+              { id: "direction_local", direction: "局部治疗" },
+            ],
+          },
+        },
+      },
+    },
+    selectedDirectionId: "direction_biomarker",
+    selectionReason: " 更符合本轮可行性。 ",
+    deferredReason: " 其余方向暂缓比较。 ",
+  });
+  assert.deepEqual(payload, {
+    queryPlanHash: "d".repeat(64),
+    selectedDirectionId: "direction_biomarker",
+    selectionReason: "更符合本轮可行性。",
+    deferredReason: "其余方向暂缓比较。",
+  });
+  assert.equal(buildResearchWorkbenchDirectionSelectionPayload({
+    queryPreview: { planHash: "d".repeat(64), reviewLandscape: { synthesis: { directionReport: { directions: [] } } } },
+    selectedDirectionId: "invented",
+    selectionReason: "理由足够明确。",
+    deferredReason: "其他方向暂缓。",
+  }), null);
 });
 
 test("a visible Chinese research question enables preview without a hidden length trap", () => {

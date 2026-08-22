@@ -1,7 +1,7 @@
 import { sha256 } from "./event-engine-v1.js";
 
 const DEFAULT_PUBMED_LIMIT = 8;
-const MAX_PUBMED_LIMIT = 20;
+const MAX_PUBMED_LIMIT = 100;
 const DEFAULT_TIMEOUT_MS = 15_000;
 const DEFAULT_RETRY_COUNT = 2;
 const DEFAULT_MIN_INTERVAL_MS = 350;

@@ -9,6 +9,9 @@ import {
 
 import evidenceFirefly from "../assets/evidence-firefly-v1.png";
 import {
+  buildResearchWorkbenchCalibrationPayload,
+  buildResearchWorkbenchDirectionSelectionPayload,
+  buildResearchWorkbenchReviewPreviewPayload,
   buildResearchWorkbenchCreatePayload,
   normalizeResearchQuestionInput,
   researchQuestionCanPreview,
@@ -74,6 +77,13 @@ const COMPLETION_PROFILES = Object.freeze([
 
 const CATEGORY_PREVIEW_LIMIT = 4;
 const EVIDENCE_PREVIEW_LIMIT = 6;
+const SCOPING_DRAFT_STORAGE_KEY = "research-workbench:scoping-draft:v2";
+const RECOMMENDED_QUERY_CANDIDATE_IDS = new Set([
+  "single_comprehensive",
+  "matrix_ab",
+  "matrix_abc",
+  "matrix_all",
+]);
 
 const RESEARCH_RESULT_CATEGORIES = Object.freeze([
   {
@@ -456,6 +466,24 @@ class ResearchApiError extends Error {
 
 function asArray(value) {
   return Array.isArray(value) ? value : [];
+}
+
+function queryPlanExecutionLabel(status) {
+  if (status === "completed") return "专业检索策略已生成 · 已完成模型扩词";
+  if (status === "baseline_completed") return "专业检索策略初稿已生成";
+  if (status === "baseline_completed_after_model_failure") return "专业检索策略初稿已生成 · 模型扩词未完成";
+  return "检索策略状态待核对";
+}
+
+function queryPlanExecutionIsWarning(status) {
+  return status === "baseline_completed_after_model_failure" || !status;
+}
+
+function queryPlanReviewHint(status) {
+  if (status === "baseline_completed_after_model_failure") {
+    return "模型扩词未完成，当前保留了可审核的专业词群；请重点检查遗漏词项。";
+  }
+  return "请重点核对医学词项、排除项和字段限制；可在下方直接修订。";
 }
 
 function asCollection(value) {
@@ -932,6 +960,29 @@ async function copyText(value) {
 function normalizeApiBase(apiBase) {
   const base = typeof apiBase === "string" && apiBase.trim() ? apiBase.trim() : "/api/research";
   return base.endsWith("/") ? base.slice(0, -1) : base;
+}
+
+function loadScopingDraft() {
+  try {
+    const raw = globalThis.sessionStorage?.getItem(SCOPING_DRAFT_STORAGE_KEY);
+    if (!raw) return null;
+    const draft = JSON.parse(raw);
+    return draft && typeof draft === "object" ? draft : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveScopingDraft(draft) {
+  try {
+    if (!draft) {
+      globalThis.sessionStorage?.removeItem(SCOPING_DRAFT_STORAGE_KEY);
+      return;
+    }
+    globalThis.sessionStorage?.setItem(SCOPING_DRAFT_STORAGE_KEY, JSON.stringify(draft));
+  } catch {
+    // Private browsing or storage quotas must not block the research workflow.
+  }
 }
 
 function handleTabArrowNavigation(event) {
@@ -1499,12 +1550,53 @@ function LiveRetrievalSummary({ project }) {
           {sources.length > 3 ? <p className="rawb-live-retrieval__more">另有 {sources.length - 3} 条；{previewOnly ? "正式检索后才会进入科研成果。" : finalLibrary ? "进入“科研成果”后可逐条核对。" : "仅供当前检索校准，不等于最终纳入。"}</p> : null}
         </div>
       ) : null}
+      {previewOnly && preview.reviewLandscape ? (
+        <ReviewLandscapeReport landscape={preview.reviewLandscape} />
+      ) : null}
       <p className="rawb-live-retrieval__boundary"><strong>当前证据边界：</strong>{accessBoundary}</p>
       <p className="rawb-live-retrieval__decision-note"><strong>当前责任边界：</strong>{previewOnly
         ? "确认研究问题和范围是否值得继续；不等于把预检样本纳入文献库，也不等于批准研究结论。"
         : finalLibrary
           ? "这说明本轮文献范围已经按冻结协议保存；仍不等于每篇文献已纳入结论或完成全文核查。"
           : "这些记录只用于检索校准和方向判断；只有最终冻结步骤完成后，来源才进入本轮正式文献库。"}</p>
+    </section>
+  );
+}
+
+function ScopingDecisionLedger({ project }) {
+  const decision = project?.scopingDecision;
+  const rounds = asArray(project?.scopingRounds);
+  if (!decision || rounds.length < 2) return null;
+  return (
+    <section className="rawb-scoping-ledger" aria-labelledby="rawb-scoping-ledger-title">
+      <header>
+        <div>
+          <span>已记录的选题决定</span>
+          <h3 id="rawb-scoping-ledger-title">从宽主题到正式问题</h3>
+        </div>
+        <strong>两轮均已保留</strong>
+      </header>
+      <div className="rawb-scoping-ledger__rounds">
+        {rounds.map((round) => (
+          <article key={round.round}>
+            <span>第 {round.round} 轮 · {round.role === "orientation" ? "领域全景" : "聚焦验证"}</span>
+            <h4>{round.question}</h4>
+            <dl>
+              <div><dt>PubMed 命中</dt><dd>{round.total ?? "未知"}</dd></div>
+              <div><dt>校准读取</dt><dd>{round.calibration?.sampledCount ?? round.sampledCount ?? 0}</dd></div>
+              <div><dt>近五年综述</dt><dd>{round.reviewLandscape?.sampledCount ?? 0}</dd></div>
+            </dl>
+          </article>
+        ))}
+      </div>
+      <dl className="rawb-scoping-ledger__decision">
+        <div><dt>采用方向</dt><dd>{decision.selectedDirection?.direction}</dd></div>
+        <div><dt>采用理由</dt><dd>{decision.selectionReason}</dd></div>
+        <div><dt>其余方向</dt><dd>{asArray(decision.deferredDirections).length
+          ? decision.deferredDirections.map((item) => `${item.direction}：${item.reason}`).join("；")
+          : "没有其他候选方向。"}</dd></div>
+      </dl>
+      <p><strong>证据边界：</strong>{decision.narrowedBrief?.evidenceBoundary}</p>
     </section>
   );
 }
@@ -1631,7 +1723,7 @@ function TaskPanel({
                   value={revisedQuery}
                   onChange={(event) => setRevisedQuery(event.target.value)}
                   minLength={3}
-                  maxLength={2000}
+                  maxLength={5000}
                   rows={3}
                   required
                 />
@@ -1685,6 +1777,7 @@ function TaskPanel({
             </button>
           </form>
         ) : null}
+        <ScopingDecisionLedger project={project} />
         <LiveRetrievalSummary project={project} />
         <div className="rawb-task-details">
           <div>
@@ -2188,6 +2281,764 @@ function RecordsPanel({ project }) {
   );
 }
 
+function QueryStrategyCard({ candidate, selected, onSelect }) {
+  const badge = candidate.id === "selected_direction_focused"
+    ? "方向确认"
+    : candidate.id === "researcher_edited"
+    ? "人工修订"
+    : RECOMMENDED_QUERY_CANDIDATE_IDS.has(candidate.id)
+      ? "推荐"
+      : "备选";
+  return (
+    <label className={`rawb-query-strategy${selected ? " is-selected" : ""}`}>
+      <span className="rawb-query-strategy__top">
+        <input
+          type="radio"
+          name="query-strategy"
+          value={candidate.id}
+          checked={selected}
+          onChange={() => onSelect(candidate)}
+        />
+        <strong>{candidate.label}</strong>
+        <em>{badge}</em>
+      </span>
+      <p>{candidate.strategy}</p>
+      <code>{candidate.query}</code>
+    </label>
+  );
+}
+
+function QueryCalibrationReport({ calibration }) {
+  if (!calibration) return null;
+  const brief = calibration.stageBrief ?? {};
+  const feedback = calibration.feedback ?? {};
+  const revisionCompleted = calibration.revision?.status === "completed";
+  return (
+    <section className="rawb-query-calibration" aria-labelledby="rawb-query-calibration-title">
+      <header>
+        <div>
+          <span>前 100 篇反馈校准</span>
+          <h3 id="rawb-query-calibration-title">{brief.currentResearchPeriod ?? "检索式反馈校准"}</h3>
+        </div>
+        <strong>{revisionCompleted ? "已自动修订" : "等待人工修订"}</strong>
+      </header>
+      <div className="rawb-query-calibration__status">
+        <p><strong>{revisionCompleted ? "已完成第二轮自动修订" : "实时模型未执行"}</strong></p>
+        <p>{revisionCompleted
+          ? `模型：${calibration.revision.provider}/${calibration.revision.modelId}；最终语法由工作台重新编译。`
+          : "当前环境没有可用的实时模型，系统没有伪装生成修订词群；已保留原式、真实样本反馈和人工修改入口。"}</p>
+      </div>
+      <div className="rawb-query-calibration__signals">
+        <div><span>当前总命中</span><strong>{calibration.total ?? "未知"}</strong></div>
+        <div><span>实际读取</span><strong>{feedback.sampledCount ?? 0} / {calibration.requestedSampleLimit ?? 100}</strong></div>
+        <div><span>摘要可用</span><strong>{feedback.abstractAvailableCount ?? 0}</strong></div>
+        <div><span>待抽查噪声线索</span><strong>{feedback.potentialNoiseCount ?? 0}</strong></div>
+      </div>
+      {asArray(feedback.conceptCoverage).length ? (
+        <div className="rawb-query-calibration__coverage">
+          <h4>概念词群字面覆盖</h4>
+          <ul>{feedback.conceptCoverage.map((item) => (
+            <li key={item.conceptId}>
+              <span>{item.sourceTerm}</span>
+              <strong>{item.matchedCount} / {item.sampledCount}</strong>
+            </li>
+          ))}</ul>
+        </div>
+      ) : null}
+      {asArray(feedback.frequentTitleTerms).length ? (
+        <p className="rawb-query-calibration__terms"><strong>样本题名高频词：</strong>{feedback.frequentTitleTerms.map((item) => `${item.term}（${item.count}）`).join("、")}</p>
+      ) : null}
+      <details>
+        <summary>抽查前 12 条来源样本</summary>
+        <ol>{asArray(calibration.sources).map((source) => (
+          <li key={source.sourceId ?? source.pmid}>
+            <span>{source.accessLevel === "abstract_only" ? "题名+摘要" : "仅题名"}{source.year ? ` · ${source.year}` : ""}</span>
+            <strong>{source.title}</strong>
+            {source.abstractSnippet ? <p>{source.abstractSnippet}</p> : <p>摘要未返回；摘要层信息保持未知。</p>}
+          </li>
+        ))}</ol>
+      </details>
+      <footer>
+        <p><strong>依据与边界：</strong>{brief.evidenceBoundary}</p>
+        <p><strong>下一决定：</strong>{brief.nextDecision}</p>
+      </footer>
+    </section>
+  );
+}
+
+const REVIEW_METHOD_VISIBILITY_LABELS = Object.freeze({
+  more_complete: "摘要方法报告较完整",
+  partial: "摘要仅报告部分方法",
+  not_reported: "摘要未充分报告方法",
+  abstract_unavailable: "摘要未返回",
+});
+
+function ReviewEvidenceLinks({ sourceIds, sources }) {
+  const linked = asArray(sourceIds)
+    .map((sourceId) => asArray(sources).find((source) => source.sourceId === sourceId))
+    .filter(Boolean)
+    .slice(0, 6);
+  if (!linked.length) return null;
+  return (
+    <span className="rawb-review-evidence-links">
+      <span>依据</span>
+      {linked.map((source) => (
+        source.locator?.url
+          ? <a key={source.sourceId} href={source.locator.url} target="_blank" rel="noreferrer">PMID {source.pmid}</a>
+          : <em key={source.sourceId}>{source.pmid ? `PMID ${source.pmid}` : source.sourceId}</em>
+      ))}
+    </span>
+  );
+}
+
+const REVIEW_CHART_COLORS = Object.freeze([
+  "#2f6fbd",
+  "#3f9668",
+  "#e89a2d",
+  "#df6659",
+]);
+
+const REVIEW_DIRECTION_LABELS = Object.freeze({
+  early_detection_screening: "早筛与影像方向",
+  biomarkers_molecular: "分子标志物方向",
+  targeted_therapy: "靶向治疗方向",
+  immunotherapy: "免疫治疗方向",
+  perioperative_treatment: "围手术期方向",
+  local_treatment: "局部治疗方向",
+  advanced_metastatic: "晚期疾病管理方向",
+  resistance_microenvironment: "耐药与微环境方向",
+  toxicity_supportive: "支持治疗方向",
+  survivorship_quality_of_life: "生存质量方向",
+  ai_digital: "数字化工具方向",
+  prevention_epidemiology: "预防与流行病学方向",
+});
+
+function ReviewMetricIcon({ type }) {
+  if (type === "calendar") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M6 3v3M18 3v3M4 8h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z" />
+      </svg>
+    );
+  }
+  if (type === "layers") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m12 3 8 4-8 4-8-4 8-4Zm-8 9 8 4 8-4M4 17l8 4 8-4" />
+      </svg>
+    );
+  }
+  if (type === "check") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <path d="m8 12 2.5 2.5L16 9" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M7 3h8l4 4v14H7V3Z" />
+      <path d="M15 3v5h5M10 12h6M10 16h6" />
+    </svg>
+  );
+}
+
+function ReviewMetric({ icon, label, value, detail }) {
+  return (
+    <div className="rawb-review-atlas__metric">
+      <ReviewMetricIcon type={icon} />
+      <div>
+        <span>{label}</span>
+        <strong>{value}</strong>
+        {detail ? <small>{detail}</small> : null}
+      </div>
+    </div>
+  );
+}
+
+function ReviewTrendChart({ synthesis, sources }) {
+  const [activeThemeId, setActiveThemeId] = useState(null);
+  const chart = useMemo(() => {
+    const years = Array.from(new Set(
+      asArray(sources)
+        .map((source) => Number.parseInt(String(source.year), 10))
+        .filter(Number.isFinite),
+    )).sort((left, right) => left - right);
+    const themes = asArray(synthesis?.themeCoverage).slice(0, 4);
+    const series = themes.map((theme, index) => ({
+      ...theme,
+      color: REVIEW_CHART_COLORS[index],
+      values: years.map((year) => asArray(sources).filter((source) => (
+        Number.parseInt(String(source.year), 10) === year
+        && asArray(source.abstractAnalysis?.themeIds).includes(theme.id)
+      )).length),
+    }));
+    const maxValue = Math.max(1, ...series.flatMap((item) => item.values));
+    return { years, series, maxValue };
+  }, [sources, synthesis?.themeCoverage]);
+
+  const width = 600;
+  const height = 230;
+  const padding = { top: 18, right: 18, bottom: 34, left: 35 };
+  const innerWidth = width - padding.left - padding.right;
+  const innerHeight = height - padding.top - padding.bottom;
+  const xFor = (index) => padding.left + (chart.years.length <= 1 ? innerWidth / 2 : (innerWidth * index) / (chart.years.length - 1));
+  const yFor = (value) => padding.top + innerHeight - (value / chart.maxValue) * innerHeight;
+  const ticks = Array.from({ length: chart.maxValue + 1 }, (_, index) => index);
+
+  if (!chart.years.length || !chart.series.length) {
+    return <p className="rawb-review-insight__empty">当前样本不足以绘制年度主题轨迹。</p>;
+  }
+
+  return (
+    <figure className="rawb-review-trend-chart">
+      <div className="rawb-review-chart-legend" aria-label="选择趋势主题">
+        {chart.series.map((series) => {
+          const selected = activeThemeId === series.id;
+          return (
+            <button
+              key={series.id}
+              type="button"
+              className={selected ? "is-selected" : ""}
+              style={{ "--series-color": series.color }}
+              aria-pressed={selected}
+              onClick={() => setActiveThemeId((current) => current === series.id ? null : series.id)}
+            >
+              <i aria-hidden="true" />
+              {series.label}
+            </button>
+          );
+        })}
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-labelledby="rawb-review-trend-svg-title rawb-review-trend-svg-desc">
+        <title id="rawb-review-trend-svg-title">近五年主题信号年度变化</title>
+        <desc id="rawb-review-trend-svg-desc">每条折线表示该主题在当前按年份分层综述样本中的年度出现篇数。</desc>
+        {ticks.map((tick) => (
+          <g key={tick}>
+            <line
+              className="rawb-review-trend-chart__grid"
+              x1={padding.left}
+              x2={width - padding.right}
+              y1={yFor(tick)}
+              y2={yFor(tick)}
+            />
+            <text className="rawb-review-trend-chart__axis" x={padding.left - 10} y={yFor(tick) + 4} textAnchor="end">{tick}</text>
+          </g>
+        ))}
+        {chart.years.map((year, index) => (
+          <text key={year} className="rawb-review-trend-chart__axis" x={xFor(index)} y={height - 8} textAnchor="middle">{year}</text>
+        ))}
+        {chart.series.map((series) => {
+          const dimmed = activeThemeId && activeThemeId !== series.id;
+          const path = series.values.map((value, index) => `${index ? "L" : "M"} ${xFor(index)} ${yFor(value)}`).join(" ");
+          return (
+            <g key={series.id} className={dimmed ? "is-dimmed" : ""}>
+              <path className="rawb-review-trend-chart__line" d={path} style={{ stroke: series.color }} />
+              {series.values.map((value, index) => (
+                <g key={chart.years[index]}>
+                  <circle className="rawb-review-trend-chart__point" cx={xFor(index)} cy={yFor(value)} r="4.5" style={{ fill: series.color }}>
+                    <title>{series.label} · {chart.years[index]} · {value} 篇</title>
+                  </circle>
+                  {(!dimmed && (activeThemeId || value > 0)) ? (
+                    <text className="rawb-review-trend-chart__value" x={xFor(index)} y={yFor(value) - 9} textAnchor="middle">{value}</text>
+                  ) : null}
+                </g>
+              ))}
+            </g>
+          );
+        })}
+      </svg>
+      <figcaption>点击图例可聚焦单一主题；点位表示当前分层样本中的篇数，不是全领域发文量。</figcaption>
+    </figure>
+  );
+}
+
+function ReviewThemeCoverageChart({ synthesis, sources }) {
+  const themes = asArray(synthesis?.themeCoverage).slice(0, 6);
+  const total = Math.max(1, synthesis?.analyzedSourceCount ?? 0);
+  if (!themes.length) return <p className="rawb-review-insight__empty">当前题名摘要未形成稳定主题聚集。</p>;
+  return (
+    <figure className="rawb-review-bar-chart">
+      <ol>
+        {themes.map((theme, index) => (
+          <li key={theme.id}>
+            <span>{theme.label}</span>
+            <div className="rawb-review-bar-chart__track" aria-hidden="true">
+              <i style={{ width: `${Math.max(3, (theme.count / total) * 100)}%`, background: REVIEW_CHART_COLORS[index % REVIEW_CHART_COLORS.length] }} />
+            </div>
+            <strong>{theme.count} / {total}</strong>
+            <ReviewEvidenceLinks sourceIds={theme.sourceIds} sources={sources} />
+          </li>
+        ))}
+      </ol>
+      <figcaption>横条表示主题在 20 篇综述样本中的覆盖比例；一个摘要可以进入多个主题。</figcaption>
+    </figure>
+  );
+}
+
+function ReviewMethodProfile({ synthesis }) {
+  const visibility = synthesis?.methodVisibility ?? {};
+  const total = Math.max(1, visibility.assessedCount ?? synthesis?.abstractAvailableCount ?? 0);
+  const summary = [
+    { id: "complete", label: "方法报告较完整", count: visibility.moreCompleteCount ?? 0, color: "#3f9668" },
+    { id: "partial", label: "部分方法可见", count: visibility.partialCount ?? 0, color: "#2f6fbd" },
+    { id: "unknown", label: "摘要未充分报告", count: visibility.notReportedCount ?? 0, color: "#df6659" },
+  ];
+  return (
+    <figure className="rawb-review-method-profile">
+      <div className="rawb-review-method-profile__counts">
+        {summary.map((item) => (
+          <div key={item.id}>
+            <strong style={{ color: item.color }}>{item.count}</strong>
+            <span>{item.label}</span>
+          </div>
+        ))}
+      </div>
+      <div className="rawb-review-method-profile__stack" aria-label="摘要方法报告完整度分布">
+        {summary.filter((item) => item.count > 0).map((item) => (
+          <i
+            key={item.id}
+            style={{ width: `${(item.count / total) * 100}%`, background: item.color }}
+            title={`${item.label}：${item.count} 篇`}
+          />
+        ))}
+      </div>
+      <ol className="rawb-review-method-bars">
+        {asArray(synthesis?.methodSignals).slice(0, 6).map((signal) => (
+          <li key={signal.id}>
+            <span>{signal.label}</span>
+            <div aria-hidden="true"><i style={{ width: `${Math.max(3, (signal.count / total) * 100)}%` }} /></div>
+            <strong>{signal.count} / {total}</strong>
+          </li>
+        ))}
+      </ol>
+      <figcaption>{visibility.boundary}</figcaption>
+    </figure>
+  );
+}
+
+function ReviewGapDistribution({ synthesis, sources }) {
+  const gaps = asArray(synthesis?.gapClusters).slice(0, 4);
+  const [activeGapId, setActiveGapId] = useState(gaps[0]?.id ?? null);
+  const total = Math.max(1, gaps.reduce((sum, gap) => sum + gap.count, 0));
+  const radius = 48;
+  const circumference = 2 * Math.PI * radius;
+  let cursor = 0;
+  const segments = gaps.map((gap, index) => {
+    const length = (gap.count / total) * circumference;
+    const segment = { ...gap, color: REVIEW_CHART_COLORS[(index + 1) % REVIEW_CHART_COLORS.length], length, offset: cursor };
+    cursor += length;
+    return segment;
+  });
+  const activeGap = gaps.find((gap) => gap.id === activeGapId) ?? gaps[0];
+
+  if (!gaps.length) {
+    return <p className="rawb-review-insight__empty">当前可用摘要没有形成可追溯的缺口聚类。</p>;
+  }
+
+  return (
+    <figure className="rawb-review-gap-chart">
+      <div className="rawb-review-gap-chart__visual">
+        <svg viewBox="0 0 130 130" role="img" aria-label={`摘要明确缺口信号共 ${total} 条`}>
+          <circle className="rawb-review-gap-chart__base" cx="65" cy="65" r={radius} />
+          {segments.map((segment) => (
+            <circle
+              key={segment.id}
+              className="rawb-review-gap-chart__segment"
+              cx="65"
+              cy="65"
+              r={radius}
+              style={{ stroke: segment.color }}
+              strokeDasharray={`${segment.length} ${circumference - segment.length}`}
+              strokeDashoffset={-segment.offset}
+            >
+              <title>{segment.label}：{segment.count} 条</title>
+            </circle>
+          ))}
+          <text x="65" y="59" textAnchor="middle">{total} 条</text>
+          <text x="65" y="76" textAnchor="middle">明确缺口信号</text>
+        </svg>
+        <ol>
+          {segments.map((gap) => (
+            <li key={gap.id}>
+              <button
+                type="button"
+                className={activeGap?.id === gap.id ? "is-selected" : ""}
+                onClick={() => setActiveGapId(gap.id)}
+              >
+                <i style={{ background: gap.color }} aria-hidden="true" />
+                <span>{gap.label}</span>
+                <strong>{gap.count}</strong>
+              </button>
+            </li>
+          ))}
+        </ol>
+      </div>
+      {activeGap ? (
+        <div className="rawb-review-gap-chart__evidence">
+          <p>{activeGap.evidenceExcerpts?.[0]?.text ?? "摘要明确出现该缺口信号；请核对原摘要。"}</p>
+          <ReviewEvidenceLinks sourceIds={activeGap.sourceIds} sources={sources} />
+        </div>
+      ) : null}
+      <figcaption>环图统计摘要明确表达的缺口信号；同一篇综述可能贡献多个信号。</figcaption>
+    </figure>
+  );
+}
+
+function ReviewEvidencePath({ synthesis, sources }) {
+  const candidates = asArray(synthesis?.breakthroughCandidates).slice(0, 4);
+  const [activeCandidateId, setActiveCandidateId] = useState(candidates[0]?.id ?? null);
+  const themeById = new Map(asArray(synthesis?.themeCoverage).map((theme) => [theme.id, theme]));
+  const gapById = new Map(asArray(synthesis?.gapClusters).map((gap) => [gap.id, gap]));
+  const activeCandidate = candidates.find((candidate) => candidate.id === activeCandidateId) ?? candidates[0];
+
+  if (!candidates.length) {
+    return <p className="rawb-review-insight__empty">当前摘要证据还不足以生成可追溯的候选突破口。</p>;
+  }
+
+  return (
+    <div className="rawb-review-evidence-path">
+      <div className="rawb-review-evidence-path__head" aria-hidden="true">
+        <span>主题</span><span>摘要明确缺口</span><span>候选研究方向</span>
+      </div>
+      <ol>
+        {candidates.map((candidate, index) => {
+          const theme = themeById.get(candidate.themeId);
+          const gap = gapById.get(candidate.gapId);
+          const selected = candidate.id === activeCandidate?.id;
+          const color = REVIEW_CHART_COLORS[index % REVIEW_CHART_COLORS.length];
+          return (
+            <li key={candidate.id} style={{ "--path-color": color }}>
+              <span className="rawb-review-evidence-path__node">
+                <strong>{theme?.label ?? "主题待核"}</strong>
+                <small>{theme?.count ?? 0} 篇综述</small>
+              </span>
+              <i className="rawb-review-evidence-path__connector" aria-hidden="true" />
+              <span className="rawb-review-evidence-path__node">
+                <strong>{gap?.label ?? "缺口待核"}</strong>
+                <small>{gap?.count ?? 0} 条信号</small>
+              </span>
+              <i className="rawb-review-evidence-path__connector" aria-hidden="true" />
+              <button
+                type="button"
+                className={selected ? "rawb-review-evidence-path__node is-selected" : "rawb-review-evidence-path__node"}
+                aria-pressed={selected}
+                onClick={() => setActiveCandidateId(candidate.id)}
+              >
+                <strong>{REVIEW_DIRECTION_LABELS[candidate.themeId] ?? theme?.label ?? "候选方向"}</strong>
+                <small>查看问题与依据</small>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+      {activeCandidate ? (
+        <div className="rawb-review-evidence-path__detail" aria-live="polite">
+          <span>当前候选问题</span>
+          <strong>{activeCandidate.question}</strong>
+          <p>{activeCandidate.basis}</p>
+          <ReviewEvidenceLinks sourceIds={activeCandidate.sourceIds} sources={sources} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ReviewEvidenceAtlas({ landscape, synthesis, sources }) {
+  return (
+    <div className="rawb-review-atlas">
+      <div className="rawb-review-atlas__metrics">
+        <ReviewMetric icon="calendar" label="检索时段" value={`${landscape.reviewWindow?.from} — ${landscape.reviewWindow?.to}`} />
+        <ReviewMetric icon="document" label="已分析" value={`${synthesis.analyzedSourceCount} 篇`} />
+        <ReviewMetric icon="check" label="摘要可用" value={`${synthesis.abstractAvailableCount} 篇`} />
+        <ReviewMetric icon="layers" label="抽样方式" value="按年份分层" detail={landscape.samplingStrategy?.label?.replace("按年份分层 · ", "")} />
+      </div>
+
+      <div className="rawb-review-atlas__primary">
+        <section aria-labelledby="rawb-review-trends-title">
+          <div className="rawb-review-atlas__heading">
+            <h4 id="rawb-review-trends-title"><span>1</span>时间趋势：主题信号随年份变化</h4>
+            <p>当前分层样本的主题轨迹</p>
+          </div>
+          <ReviewTrendChart synthesis={synthesis} sources={sources} />
+        </section>
+        <section aria-labelledby="rawb-review-covered-title">
+          <div className="rawb-review-atlas__heading">
+            <h4 id="rawb-review-covered-title"><span>2</span>主题覆盖度排名</h4>
+            <p>按摘要明确涉及排序</p>
+          </div>
+          <ReviewThemeCoverageChart synthesis={synthesis} sources={sources} />
+        </section>
+        <section aria-labelledby="rawb-review-methods-title">
+          <div className="rawb-review-atlas__heading">
+            <h4 id="rawb-review-methods-title"><span>3</span>方法学报告完整性概览</h4>
+            <p>仅评价摘要层可见信号</p>
+          </div>
+          <ReviewMethodProfile synthesis={synthesis} />
+        </section>
+      </div>
+
+      <div className="rawb-review-atlas__secondary">
+        <section aria-labelledby="rawb-review-gaps-title">
+          <div className="rawb-review-atlas__heading">
+            <h4 id="rawb-review-gaps-title"><span>4</span>明确报告的证据缺口分布</h4>
+            <p>只有摘要明确表达才进入</p>
+          </div>
+          <ReviewGapDistribution synthesis={synthesis} sources={sources} />
+        </section>
+        <section aria-labelledby="rawb-review-breakthroughs-title">
+          <div className="rawb-review-atlas__heading">
+            <h4 id="rawb-review-breakthroughs-title"><span>5</span>证据路径：从主题到候选研究方向</h4>
+            <p>点击方向查看问题、依据与 PMID</p>
+          </div>
+          <ReviewEvidencePath synthesis={synthesis} sources={sources} />
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function ReviewDirectionReport({ report, sources }) {
+  const directions = asArray(report?.directions);
+  if (!report || !directions.length) return null;
+  return (
+    <section className="rawb-review-direction-report" aria-labelledby="rawb-review-direction-report-title">
+      <header>
+        <div>
+          <span>文字研判 · 从现象到解决方案</span>
+          <h4 id="rawb-review-direction-report-title">{report.title}</h4>
+        </div>
+        <p>{report.executiveSummary}</p>
+      </header>
+      <p className="rawb-review-direction-report__principle"><strong>方向选择原则：</strong>{report.solutionPrinciple}</p>
+      <ol className="rawb-review-direction-report__directions">
+        {directions.map((direction) => (
+          <li key={direction.id}>
+            <div className="rawb-review-direction-report__rank" aria-hidden="true">
+              {String(direction.rank).padStart(2, "0")}
+            </div>
+            <article>
+              <div className="rawb-review-direction-report__heading">
+                <div>
+                  <span>{direction.priorityLabel}</span>
+                  <h5>{direction.direction}</h5>
+                </div>
+                <ReviewEvidenceLinks sourceIds={direction.sourceIds} sources={sources} />
+              </div>
+              <p className="rawb-review-direction-report__why"><strong>为什么适合研究：</strong>{direction.whySuitable}</p>
+              <blockquote>
+                <span>推荐研究问题</span>
+                <p>{direction.recommendedQuestion}</p>
+              </blockquote>
+              <div className="rawb-review-direction-report__solution">
+                <div>
+                  <span>建议研究设计</span>
+                  <p>{direction.studyPlan?.studyDesign}</p>
+                </div>
+                <div>
+                  <span>人群与比较条件</span>
+                  <p>{direction.studyPlan?.populationAndComparison}</p>
+                </div>
+                <div>
+                  <span>核心结局</span>
+                  <p>{asArray(direction.studyPlan?.coreOutcomes).join("、")}</p>
+                </div>
+              </div>
+              <div className="rawb-review-direction-report__steps">
+                <strong>解决方案：如何把方向变成可执行研究</strong>
+                <ol>
+                  {asArray(direction.studyPlan?.executionSteps).map((step, index) => (
+                    <li key={step}><span>{index + 1}</span><p>{step}</p></li>
+                  ))}
+                </ol>
+              </div>
+              <p className="rawb-review-direction-report__gate"><strong>进入下一轮的门槛：</strong>{direction.studyPlan?.decisionGate}</p>
+              <p className="rawb-review-direction-report__boundary">{direction.boundary}</p>
+            </article>
+          </li>
+        ))}
+      </ol>
+      <footer>
+        <p><strong>下一决定：</strong>{report.nextDecision}</p>
+        <p><strong>建议边界：</strong>{report.boundary}</p>
+      </footer>
+    </section>
+  );
+}
+
+function DirectionSelectionPanel({
+  report,
+  decision,
+  busy,
+  onChange,
+  onSubmit,
+}) {
+  const directions = asArray(report?.directions);
+  if (!directions.length) return null;
+  const selected = directions.find((direction) => direction.id === decision.selectedDirectionId)
+    ?? directions[0];
+  return (
+    <section className="rawb-direction-decision" aria-labelledby="rawb-direction-decision-title">
+      <header>
+        <div>
+          <span>首轮调查的人类决定</span>
+          <h3 id="rawb-direction-decision-title">选择一个方向，进入第二轮收窄</h3>
+        </div>
+        <strong>不会覆盖首轮</strong>
+      </header>
+      <p className="rawb-direction-decision__intro">
+        这是科研决定，不是界面筛选。系统会保存采用理由与暂缓理由，再围绕收窄问题重跑检索校准和综述扫描。
+      </p>
+      <fieldset className="rawb-direction-decision__options">
+        <legend>本轮采用方向</legend>
+        {directions.map((direction) => (
+          <label
+            key={direction.id}
+            className={direction.id === selected.id ? "is-selected" : ""}
+          >
+            <input
+              type="radio"
+              name="research-direction"
+              checked={direction.id === selected.id}
+              onChange={() => onChange({ selectedDirectionId: direction.id })}
+            />
+            <span>
+              <strong>{direction.direction}</strong>
+              <small>{direction.recommendedQuestion}</small>
+            </span>
+          </label>
+        ))}
+      </fieldset>
+      <div className="rawb-direction-decision__question">
+        <span>建议的第二轮问题</span>
+        <strong>{selected.recommendedQuestion}</strong>
+        <p>{selected.whySuitable}</p>
+      </div>
+      <label htmlFor="rawb-direction-selection-reason">为什么本轮采用这个方向</label>
+      <textarea
+        id="rawb-direction-selection-reason"
+        value={decision.selectionReason}
+        onChange={(event) => onChange({ selectionReason: event.target.value })}
+        placeholder="写明科研价值、可行性、团队条件或当前最值得消除的不确定性。"
+        rows={3}
+        maxLength={2000}
+      />
+      {directions.length > 1 ? (
+        <>
+          <label htmlFor="rawb-direction-deferred-reason">其余方向为什么本轮暂缓</label>
+          <textarea
+            id="rawb-direction-deferred-reason"
+            value={decision.deferredReason}
+            onChange={(event) => onChange({ deferredReason: event.target.value })}
+            placeholder="例如：先作为备选，等待第二轮范围、文献量与可行性比较。"
+            rows={2}
+            maxLength={2000}
+          />
+        </>
+      ) : null}
+      <footer>
+        <p>边界：当前依据为 PubMed 题名与可用摘要；选择只启动第二轮验证，不证明方向新颖或可行。</p>
+        <button type="button" onClick={onSubmit} disabled={busy}>
+          {busy ? "正在记录决定并生成第二轮…" : "记录决定，进入第二轮调查"}
+        </button>
+      </footer>
+    </section>
+  );
+}
+
+function ReviewLandscapeReport({ landscape }) {
+  if (!landscape) return null;
+  const brief = landscape.stageBrief ?? {};
+  const synthesis = landscape.synthesis ?? null;
+  const sources = asArray(landscape.sources);
+  const statusLabel = landscape.status === "ready"
+    ? `已分析 ${synthesis?.analyzedSourceCount ?? landscape.sampledCount ?? 0} 篇`
+    : landscape.status === "zero_results"
+      ? "0 篇"
+      : "扫描失败";
+  return (
+    <section className={`rawb-review-landscape is-${landscape.status}`} aria-labelledby="rawb-review-landscape-title">
+      <header>
+        <div>
+          <span>第一个选题调查循环</span>
+          <h3 id="rawb-review-landscape-title">近五年综述 · 摘要级选题分析</h3>
+        </div>
+        <strong>{statusLabel}</strong>
+      </header>
+      {landscape.status === "ready" ? (
+        <>
+          {synthesis ? (
+            <>
+              <ReviewEvidenceAtlas landscape={landscape} synthesis={synthesis} sources={sources} />
+              <ReviewDirectionReport report={synthesis.directionReport} sources={sources} />
+
+              <details className="rawb-review-landscape__brief">
+                <summary>阅读文字版分析摘要</summary>
+                <ul>{asArray(brief.newFindings).map((finding) => <li key={finding}>{finding}</li>)}</ul>
+              </details>
+
+              <details className="rawb-review-landscape__sources rawb-review-landscape__analyses">
+                <summary>逐篇查看 {synthesis.analyzedSourceCount} 篇综述的摘要分析</summary>
+                <ol>
+                  {sources.map((source) => {
+                    const analysis = source.abstractAnalysis ?? {};
+                    return (
+                      <li key={source.sourceId ?? source.pmid}>
+                        <span>{source.year ?? "年份未知"} · {source.reviewType?.label ?? "类型待核"}{source.journal ? ` · ${source.journal}` : ""}</span>
+                        <strong>{source.title}</strong>
+                        <div className="rawb-review-source-tags">
+                          <em>{REVIEW_METHOD_VISIBILITY_LABELS[analysis.methodVisibility] ?? "摘要分析状态未知"}</em>
+                          {asArray(analysis.themeLabels).map((label) => <em key={label}>{label}</em>)}
+                        </div>
+                        {asArray(analysis.methodSignalLabels).length ? <p><b>摘要报告的方法：</b>{analysis.methodSignalLabels.join("、")}</p> : <p><b>摘要报告的方法：</b>摘要未充分报告，保持未知。</p>}
+                        {analysis.conclusionExcerpt ? <p><b>摘要结论信号：</b>{analysis.conclusionExcerpt}</p> : <p><b>摘要结论信号：</b>未从摘要中可靠定位。</p>}
+                        {analysis.gapExcerpt ? <p><b>摘要明确缺口：</b>{analysis.gapExcerpt}</p> : <p><b>摘要明确缺口：</b>未从摘要中可靠定位；不等于没有缺口。</p>}
+                        {source.abstractSnippet ? <details><summary>查看原摘要片段</summary><p>{source.abstractSnippet}</p></details> : null}
+                        <p className="rawb-review-source-boundary">{analysis.boundary ?? "仅基于题名摘要；未访问全文。"}</p>
+                        {source.locator?.url ? <a href={source.locator.url} target="_blank" rel="noreferrer">在 PubMed 核对 PMID {source.pmid}</a> : null}
+                      </li>
+                    );
+                  })}
+                </ol>
+              </details>
+
+              <details className="rawb-review-sampling-context">
+                <summary>查看样本构成与题名高频词</summary>
+                <div className="rawb-review-landscape__distributions">
+                  <section>
+                    <h4>样本年份</h4>
+                    <ul>{asArray(landscape.yearDistribution).map((item) => <li key={item.id}><span>{item.label}</span><strong>{item.count}</strong></li>)}</ul>
+                  </section>
+                  <section>
+                    <h4>综述类型</h4>
+                    <ul>{asArray(landscape.reviewTypeDistribution).map((item) => <li key={item.id}><span>{item.label}</span><strong>{item.count}</strong></li>)}</ul>
+                  </section>
+                </div>
+                {asArray(landscape.frequentTitleTerms).length ? (
+                  <div className="rawb-review-landscape__terms">
+                    <h4>当前样本题名高频词</h4>
+                    <p>{landscape.frequentTitleTerms.map((item) => `${item.term} · ${item.count}`).join("　")}</p>
+                  </div>
+                ) : null}
+              </details>
+            </>
+          ) : (
+            <details className="rawb-review-landscape__sources">
+              <summary>查看本轮读取的 {landscape.sampledCount} 篇综述题录</summary>
+              <ol>{sources.map((source) => <li key={source.sourceId ?? source.pmid}><strong>{source.title}</strong></li>)}</ol>
+            </details>
+          )}
+        </>
+      ) : landscape.error ? <p className="rawb-review-landscape__error">{landscape.error.message}</p> : null}
+      <footer>
+        <p><strong>依据与边界：</strong>{brief.evidenceBoundary}</p>
+        <p><strong>下一决定：</strong>{brief.nextDecision}</p>
+      </footer>
+    </section>
+  );
+}
+
 function LoadingWorkspace() {
   return (
     <div className="rawb-loading" role="status" aria-live="polite">
@@ -2213,6 +3064,7 @@ export function ResearchAgentWorkbench({
   const selectedProjectIdRef = useRef(initialProjectId);
   const requestSequenceRef = useRef(0);
   const createIdempotencyKeyRef = useRef("");
+  const initialScopingDraft = useMemo(() => loadScopingDraft(), []);
 
   const [runtime, setRuntime] = useState(null);
   const [runtimeLoading, setRuntimeLoading] = useState(true);
@@ -2226,20 +3078,29 @@ export function ResearchAgentWorkbench({
   const [actionFeedback, setActionFeedback] = useState("");
   const [busyAction, setBusyAction] = useState("");
   const [activeTab, setActiveTab] = useState("task");
-  const [createOpen, setCreateOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(initialScopingDraft?.createOpen === true);
   const [cancelArmed, setCancelArmed] = useState(false);
   const [bootstrapRevision, setBootstrapRevision] = useState(0);
-  const [createStep, setCreateStep] = useState("question");
-  const [queryPreview, setQueryPreview] = useState(null);
-  const [selectedQueryId, setSelectedQueryId] = useState("");
-  const [createForm, setCreateForm] = useState({
-    title: "",
-    question: "",
-    searchQuery: "",
-    completionProfileId: "evidence_brief",
-    constraints: "",
-    sourceMaterials: "",
+  const [createStep, setCreateStep] = useState(initialScopingDraft?.createStep ?? "question");
+  const [queryPlan, setQueryPlan] = useState(initialScopingDraft?.queryPlan ?? null);
+  const [queryCalibration, setQueryCalibration] = useState(initialScopingDraft?.queryCalibration ?? null);
+  const [queryPreview, setQueryPreview] = useState(initialScopingDraft?.queryPreview ?? null);
+  const [selectedQueryId, setSelectedQueryId] = useState(initialScopingDraft?.selectedQueryId ?? "");
+  const [scopingRound, setScopingRound] = useState(initialScopingDraft?.scopingRound === 2 ? 2 : 1);
+  const [directionSelection, setDirectionSelection] = useState(initialScopingDraft?.directionSelection ?? null);
+  const [directionDecision, setDirectionDecision] = useState(initialScopingDraft?.directionDecision ?? {
+    selectedDirectionId: "",
+    selectionReason: "",
+    deferredReason: "保留为备选，等待第二轮检索范围、文献量与可行性比较后再决定。",
   });
+  const [createForm, setCreateForm] = useState(initialScopingDraft?.createForm ?? {
+      title: "",
+      question: "",
+      searchQuery: "",
+      completionProfileId: "evidence_brief",
+      constraints: "",
+      sourceMaterials: "",
+    });
 
   const request = useCallback(async (path, { method = "GET", body, signal, idempotencyKey } = {}) => {
     if (typeof fetchImpl !== "function") {
@@ -2288,6 +3149,41 @@ export function ResearchAgentWorkbench({
     }
     return payload;
   }, [base, fetchImpl]);
+
+  useEffect(() => {
+    const hasDraft = createOpen && (
+      createStep !== "question" ||
+      createForm.question.trim().length > 0 ||
+      directionSelection
+    );
+    if (!hasDraft) {
+      saveScopingDraft(null);
+      return;
+    }
+    saveScopingDraft({
+      createOpen,
+      createStep,
+      queryPlan,
+      queryCalibration,
+      queryPreview,
+      selectedQueryId,
+      scopingRound,
+      directionSelection,
+      directionDecision,
+      createForm,
+    });
+  }, [
+    createForm,
+    createOpen,
+    createStep,
+    directionDecision,
+    directionSelection,
+    queryCalibration,
+    queryPlan,
+    queryPreview,
+    scopingRound,
+    selectedQueryId,
+  ]);
 
   const commitProject = useCallback((nextProject) => {
     if (!nextProject) return;
@@ -2344,7 +3240,9 @@ export function ResearchAgentWorkbench({
 
       const nextProjects = projectsFromPayload(projectsResult.value);
       setProjects(nextProjects);
-      const requestedId = initialProjectId || projectId(nextProjects[0]);
+      const requestedId = initialProjectId || projectId(
+        nextProjects.find((candidate) => candidate?.loadable !== false),
+      );
       if (!requestedId) {
         selectedProjectIdRef.current = null;
         setSelectedProjectId(null);
@@ -2502,9 +3400,19 @@ export function ResearchAgentWorkbench({
 
   const resetQueryPlanning = useCallback(() => {
     createIdempotencyKeyRef.current = "";
+    saveScopingDraft(null);
     setCreateStep("question");
+    setQueryPlan(null);
+    setQueryCalibration(null);
     setQueryPreview(null);
     setSelectedQueryId("");
+    setScopingRound(1);
+    setDirectionSelection(null);
+    setDirectionDecision({
+      selectedDirectionId: "",
+      selectionReason: "",
+      deferredReason: "保留为备选，等待第二轮检索范围、文献量与可行性比较后再决定。",
+    });
     setCreateForm((form) => ({ ...form, searchQuery: "" }));
   }, []);
 
@@ -2515,30 +3423,108 @@ export function ResearchAgentWorkbench({
       setError("请至少输入 4 个字说明想研究的问题。中文问题可以直接开始。");
       return;
     }
-    setBusyAction("query-preview");
+    setBusyAction("query-plan");
     setError("");
     try {
-      const preview = await request("/query-preview", {
+      const plan = await request("/query-plan", {
         method: "POST",
-        body: { question, sampleLimit: 3 },
+        body: { question },
       });
-      const candidates = asArray(preview?.candidates);
-      const selectable = candidates.find((candidate) => candidate?.status === "ready") ?? candidates[0];
+      const candidates = asArray(plan?.candidates);
+      const selectable = candidates[0];
       if (!selectable) throw new ResearchApiError("没有生成可检查的检索候选。", { code: "EMPTY_QUERY_PLAN" });
-      setQueryPreview(preview);
+      setQueryPlan(plan);
+      setQueryCalibration(null);
+      setQueryPreview(null);
       setSelectedQueryId(selectable.id);
       setCreateForm((form) => ({
         ...form,
         title: form.title.trim() || question.replace(/[？?。.!！]+$/g, "").slice(0, 42),
         searchQuery: selectable.query ?? "",
       }));
-      setCreateStep("calibration");
+      setCreateStep("strategy");
     } catch (previewError) {
-      setError(previewError?.message ?? "检索预演没有完成，请保留当前问题后重试。");
+      setError(previewError?.message ?? "专业检索策略没有生成，请保留当前问题后重试。");
     } finally {
       setBusyAction("");
     }
   }, [createForm.question, request]);
+
+  const handleConfirmQueryPlan = useCallback(async (event) => {
+    event.preventDefault();
+    const selected = asArray(queryPlan?.candidates).find((candidate) => candidate.id === selectedQueryId);
+    const query = createForm.searchQuery.trim();
+    const body = buildResearchWorkbenchCalibrationPayload({
+      question: createForm.question,
+      queryPlan,
+      selectedQueryId,
+      editedQuery: selected?.query === query ? null : query,
+    });
+    if (!body) {
+      setError("请先选择一个检索路径，并保留至少 3 个字符的 PubMed 检索式。");
+      return;
+    }
+    setBusyAction("query-calibration");
+    setError("");
+    try {
+      const calibration = await request("/query-calibration", { method: "POST", body });
+      const revised = asArray(calibration?.revisedPlan?.candidates)[0];
+      if (!revised) throw new ResearchApiError("前 100 篇反馈没有返回可确认的检索策略。", { code: "EMPTY_QUERY_CALIBRATION" });
+      setQueryCalibration(calibration);
+      setQueryPreview(null);
+      setSelectedQueryId(revised.id);
+      setCreateForm((form) => ({ ...form, searchQuery: revised.query ?? query }));
+      setCreateStep("calibration");
+    } catch (previewError) {
+      setError(previewError?.message ?? "前 100 篇反馈校准没有完成，请保留当前策略后重试。");
+    } finally {
+      setBusyAction("");
+    }
+  }, [createForm.question, createForm.searchQuery, queryPlan, request, selectedQueryId]);
+
+  const handleConfirmCalibration = useCallback(async (event) => {
+    event.preventDefault();
+    const revisedPlan = queryCalibration?.revisedPlan;
+    const selected = asArray(revisedPlan?.candidates).find((candidate) => candidate.id === selectedQueryId);
+    const query = createForm.searchQuery.trim();
+    const body = buildResearchWorkbenchReviewPreviewPayload({
+      question: createForm.question,
+      queryPlan: revisedPlan,
+      selectedQueryId,
+      editedQuery: selected?.query === query ? null : query,
+      calibrationHash: queryCalibration?.calibrationHash,
+    });
+    if (!body) {
+      setError("请先选择修订后的检索路径，并保留至少 3 个字符的 PubMed 检索式。");
+      return;
+    }
+    setBusyAction("query-preview");
+    setError("");
+    try {
+      const preview = await request("/query-preview", { method: "POST", body });
+      const confirmedId = preview?.reviewLandscape?.selectedCandidateId ?? body.reviewScanCandidateId;
+      const confirmed = asArray(preview?.candidates).find((candidate) => candidate.id === confirmedId)
+        ?? asArray(preview?.candidates)[0];
+      if (!confirmed) throw new ResearchApiError("近五年综述扫描没有返回可检查结果。", { code: "EMPTY_QUERY_PREVIEW" });
+      setQueryPreview(preview);
+      setSelectedQueryId(confirmed.id);
+      if (scopingRound === 1) {
+        const firstDirection = asArray(
+          preview?.reviewLandscape?.synthesis?.directionReport?.directions,
+        )[0];
+        setDirectionDecision((current) => ({
+          ...current,
+          selectedDirectionId: firstDirection?.id ?? "",
+        }));
+      }
+      setCreateForm((form) => ({ ...form, searchQuery: confirmed.query ?? query }));
+      setCreateStep("review");
+    } catch (previewError) {
+      setError(previewError?.message ?? "近五年综述扫描没有完成，请保留当前策略后重试。");
+    } finally {
+      setBusyAction("");
+    }
+  }, [createForm.question, createForm.searchQuery, queryCalibration, request, scopingRound, selectedQueryId]);
 
   const handleRecalibrateQueries = useCallback(async () => {
     const query = createForm.searchQuery.trim();
@@ -2570,17 +3556,90 @@ export function ResearchAgentWorkbench({
               query: alternate?.query ?? selected?.query ?? query,
             },
           ],
+          reviewScanCandidateId: "researcher_edited",
+          reviewWindowYears: 5,
+          reviewSampleLimit: 20,
         },
       });
       setQueryPreview(preview);
       setSelectedQueryId("researcher_edited");
+      if (scopingRound === 1) {
+        const firstDirection = asArray(
+          preview?.reviewLandscape?.synthesis?.directionReport?.directions,
+        )[0];
+        setDirectionDecision((current) => ({
+          ...current,
+          selectedDirectionId: firstDirection?.id ?? current.selectedDirectionId,
+        }));
+      }
       setCreateForm((form) => ({ ...form, searchQuery: preview.candidates[0].query }));
     } catch (previewError) {
       setError(previewError?.message ?? "修订检索式没有完成真实试检，请继续在本步修改。");
     } finally {
       setBusyAction("");
     }
-  }, [createForm.question, createForm.searchQuery, queryPreview, request, selectedQueryId]);
+  }, [createForm.question, createForm.searchQuery, queryPreview, request, scopingRound, selectedQueryId]);
+
+  const handleDirectionDecisionChange = useCallback((change) => {
+    setDirectionDecision((current) => ({ ...current, ...change }));
+  }, []);
+
+  const handleChooseDirection = useCallback(async () => {
+    const body = buildResearchWorkbenchDirectionSelectionPayload({
+      queryPreview,
+      ...directionDecision,
+    });
+    if (!body) {
+      setError("请选择一个方向，并分别写明采用理由与其余方向暂缓理由（至少 4 个字）。");
+      return;
+    }
+    setBusyAction("direction-selection");
+    setError("");
+    try {
+      const selection = await request("/direction-selection", { method: "POST", body });
+      const narrowedQuestion = normalizeResearchQuestionInput(selection?.narrowedBrief?.question);
+      if (!researchQuestionCanPreview(narrowedQuestion)) {
+        throw new ResearchApiError("方向决定已记录，但没有生成可执行的第二轮问题。", {
+          code: "EMPTY_NARROWED_QUESTION",
+        });
+      }
+      setDirectionSelection(selection);
+      setScopingRound(2);
+      setQueryPlan(null);
+      setQueryCalibration(null);
+      setQueryPreview(null);
+      setSelectedQueryId("");
+      setCreateForm((form) => ({
+        ...form,
+        question: narrowedQuestion,
+        searchQuery: "",
+        title: narrowedQuestion.replace(/[？?。.!！]+$/g, "").slice(0, 42),
+      }));
+      setCreateStep("question");
+
+      const plan = await request("/query-plan", {
+        method: "POST",
+        body: {
+          question: narrowedQuestion,
+          directionSelectionHash: selection.decisionHash,
+        },
+      });
+      const candidate = asArray(plan?.candidates)[0];
+      if (!candidate) {
+        throw new ResearchApiError("第二轮没有生成可检查的检索候选。", {
+          code: "EMPTY_QUERY_PLAN",
+        });
+      }
+      setQueryPlan(plan);
+      setSelectedQueryId(candidate.id);
+      setCreateForm((form) => ({ ...form, searchQuery: candidate.query ?? "" }));
+      setCreateStep("strategy");
+    } catch (selectionError) {
+      setError(selectionError?.message ?? "方向决定没有进入第二轮调查，请保留当前记录后重试。");
+    } finally {
+      setBusyAction("");
+    }
+  }, [directionDecision, queryPreview, request]);
 
   const handleCreate = useCallback(async (event) => {
     event.preventDefault();
@@ -2605,6 +3664,7 @@ export function ResearchAgentWorkbench({
           form: createForm,
           queryPreview,
           selectedQueryId,
+          directionSelection,
         }),
       });
       const created = projectFromPayload(payload);
@@ -2623,8 +3683,18 @@ export function ResearchAgentWorkbench({
       });
       createIdempotencyKeyRef.current = "";
       setCreateStep("question");
+      setQueryPlan(null);
+      setQueryCalibration(null);
       setQueryPreview(null);
       setSelectedQueryId("");
+      setScopingRound(1);
+      setDirectionSelection(null);
+      setDirectionDecision({
+        selectedDirectionId: "",
+        selectionReason: "",
+        deferredReason: "保留为备选，等待第二轮检索范围、文献量与可行性比较后再决定。",
+      });
+      saveScopingDraft(null);
       setCreateOpen(false);
       setActiveTab("task");
       if (created && projectId(created)) commitProject(created);
@@ -2653,7 +3723,7 @@ export function ResearchAgentWorkbench({
     } finally {
       setBusyAction("");
     }
-  }, [commitProject, createForm, loadProject, request, revealUserBrief]);
+  }, [commitProject, createForm, directionSelection, loadProject, queryPreview, request, revealUserBrief, selectedQueryId]);
 
   const handleRetrySearch = useCallback(async (searchQuery) => {
     const id = selectedProjectIdRef.current;
@@ -2900,19 +3970,22 @@ export function ResearchAgentWorkbench({
   const selectedCompletionProfile = COMPLETION_PROFILES.find(
     (candidate) => candidate.id === project?.completionProfileId,
   );
+  const queryPreviewMatches = asArray(queryPreview?.candidates).some((candidate) =>
+    candidate.id === selectedQueryId &&
+    candidate.status === "ready" &&
+    candidate.query === createForm.searchQuery.trim()
+  );
   const formValid =
+    scopingRound === 2 &&
+    Boolean(directionSelection?.decisionHash) &&
     createForm.title.trim().length >= 2 &&
     researchQuestionCanPreview(createForm.question) &&
     createForm.searchQuery.trim().length >= 3 &&
-    asArray(queryPreview?.candidates).some((candidate) =>
-      candidate.id === selectedQueryId &&
-      candidate.status === "ready" &&
-      candidate.query === createForm.searchQuery.trim()
-    );
+    queryPreviewMatches;
   const previewQuestionReady = researchQuestionCanPreview(createForm.question);
 
   return (
-    <div className={`research-agent-workbench${createOpen && createStep === "calibration" ? " is-planning-search" : ""}`}>
+    <div className={`research-agent-workbench${createOpen && createStep !== "question" ? " is-planning-search" : ""}`}>
       <a className="rawb-skip-link" href="#rawb-main">跳到当前研究</a>
       <header className="rawb-header">
         <div className="rawb-brand">
@@ -2933,17 +4006,36 @@ export function ResearchAgentWorkbench({
           <div className="rawb-project-rail__heading"><p>我的研究</p><span>{projects.length}</span></div>
           {createOpen ? (
             <form
-              className={`rawb-create-form${createStep === "calibration" ? " is-calibration" : ""}`}
-              onSubmit={createStep === "question" ? handlePreviewQueries : handleCreate}
-              aria-label={createStep === "question" ? "从研究问题开始" : "比较并确认 PubMed 检索"}
+              className={`rawb-create-form${createStep !== "question" ? " is-calibration" : ""}${createStep === "review" ? " is-review" : ""}`}
+              onSubmit={createStep === "question"
+                ? handlePreviewQueries
+                : createStep === "strategy"
+                  ? handleConfirmQueryPlan
+                  : createStep === "calibration"
+                    ? handleConfirmCalibration
+                    : scopingRound === 2
+                      ? handleCreate
+                      : (event) => event.preventDefault()}
+              aria-label={createStep === "question"
+                ? "从研究问题开始"
+                : createStep === "strategy"
+                  ? "确认专业 PubMed 检索策略"
+                  : createStep === "calibration"
+                    ? "确认前 100 篇反馈后的修订策略"
+                    : "近五年综述摘要分析汇报"}
             >
               <div className="rawb-create-form__heading">
-                <div><small>{createStep === "question" ? "第 1 步 / 2" : "第 2 步 / 2"}</small><strong>{createStep === "question" ? "先说研究问题" : "比较真实试检"}</strong></div>
+                <div>
+                  <small>第 {scopingRound} 轮 · {createStep === "question" ? "1" : createStep === "strategy" ? "2" : createStep === "calibration" ? "3" : "4"} / 4</small>
+                  <strong>{createStep === "question" ? (scopingRound === 1 ? "先说研究问题" : "确认收窄后的研究问题") : createStep === "strategy" ? "确认检索初稿" : createStep === "calibration" ? "确认前 100 篇反馈与修订" : "查看近五年综述分析"}</strong>
+                </div>
                 <button type="button" onClick={() => { setCreateOpen(false); resetQueryPlanning(); }}>关闭</button>
               </div>
               {createStep === "question" ? (
                 <>
-                  <p className="rawb-create-form__intro">不需要先会写英文检索式。系统会给出可比较的起始方案，真实试检后再由你选择。</p>
+                  <p className="rawb-create-form__intro">{scopingRound === 1
+                    ? "先别急着检索。系统会扩展 MeSH 主题词、专业自由词、常用亚型与适用的邻近表达；你确认后才访问 PubMed。"
+                    : `已选择“${directionSelection?.selectedDirection?.direction ?? "当前方向"}”。现在围绕收窄问题生成第二轮检索，首轮记录不会被覆盖。`}</p>
                   <label htmlFor="rawb-project-question">真正想研究的问题</label>
                   <textarea
                     ref={titleInputRef}
@@ -2957,41 +4049,118 @@ export function ResearchAgentWorkbench({
                   />
                   <p className={`rawb-create-form__readiness${previewQuestionReady ? " is-ready" : ""}`} aria-live="polite">
                     {previewQuestionReady
-                      ? "可以开始真实试检"
+                      ? "可以生成专业检索策略"
                       : "至少输入 4 个字，按钮就会启用"}
                   </p>
-                  <button className="rawb-create-submit" type="submit" disabled={busyAction === "query-preview"}>
-                    {busyAction === "query-preview" ? "正在真实试检…" : "生成并试检方案"}
+                  <button className="rawb-create-submit" type="submit" disabled={busyAction === "query-plan"}>
+                    {busyAction === "query-plan" ? "正在拆解概念与词群…" : "生成专业检索策略"}
                   </button>
-                  <p className="rawb-create-form__help">这一步只检索 PubMed 题录与可用摘要，不会创建项目，也不会替你通过人工决定。</p>
+                  <p className="rawb-create-form__help">这一步不联网、不建项，也不会替你确认研究问题或检索边界。</p>
+                </>
+              ) : createStep === "strategy" ? (
+                <>
+                  <div className="rawb-query-plan__question"><span>研究问题</span><strong>{createForm.question}</strong></div>
+                  <div className="rawb-query-plan__notice">
+                    <strong>{queryPlanExecutionLabel(queryPlan?.promptExecution?.status)}</strong>
+                    <p className={queryPlanExecutionIsWarning(queryPlan?.promptExecution?.status) ? "is-warning" : ""}>{queryPlanReviewHint(queryPlan?.promptExecution?.status)}</p>
+                  </div>
+                  {asArray(queryPlan?.conceptGroups).length ? (
+                    <section className="rawb-concept-matrix" aria-labelledby="rawb-concept-matrix-title">
+                      <h3 id="rawb-concept-matrix-title">核心概念与词群</h3>
+                      <ol>
+                        {queryPlan.conceptGroups.map((group) => (
+                          <li key={group.id}>
+                            <span>{group.roleLabel}</span>
+                            <strong>{group.sourceTerm}</strong>
+                            <p>{asArray(group.meshTerms).length ? `MeSH：${group.meshTerms.join(" / ")}；` : "MeSH：待专家核对；"}自由词：{asArray(group.freeTextTerms).join(" / ")}{asArray(group.wildcardTerms).length ? `；截词：${group.wildcardTerms.join(" / ")}` : ""}{asArray(group.proximityTerms).length ? `；邻近：${group.proximityTerms.map((item) => `${item.phrase}~${item.distance}`).join(" / ")}` : ""}{asArray(group.excludedAmbiguities).length ? `；未自动纳入：${group.excludedAmbiguities.join(" / ")}` : ""}</p>
+                          </li>
+                        ))}
+                      </ol>
+                    </section>
+                  ) : null}
+                  {asArray(queryPlan?.unknownChinese).length ? <p className="rawb-query-plan__warning">未可靠映射：{queryPlan.unknownChinese.join("、")}。系统没有擅自翻译，请补充专业英文词或在下方修订。</p> : null}
+                  <fieldset className="rawb-query-strategies">
+                    <legend>选择检索方案</legend>
+                    {asArray(queryPlan?.candidates).map((candidate) => (
+                      <QueryStrategyCard
+                        key={candidate.id}
+                        candidate={candidate}
+                        selected={candidate.id === selectedQueryId}
+                        onSelect={(selected) => {
+                          setSelectedQueryId(selected.id);
+                          setCreateForm((form) => ({ ...form, searchQuery: selected.query }));
+                        }}
+                      />
+                    ))}
+                  </fieldset>
+                  <label htmlFor="rawb-project-search-query">确认前可由专家修订检索式</label>
+                  <textarea
+                    id="rawb-project-search-query"
+                    value={createForm.searchQuery}
+                    onChange={(event) => setCreateForm((form) => ({ ...form, searchQuery: event.target.value }))}
+                    rows={3}
+                    maxLength={5000}
+                    required
+                  />
+                  <p className="rawb-query-plan__boundary">确认后先读取 PubMed 当前排序前 100 条题名与可用摘要，形成词群覆盖、潜在噪声与修订反馈；此时还不会扫描近五年综述，也不会创建项目。{queryPlan?.accessBoundary}</p>
+                  <div className="rawb-query-plan__actions">
+                    <button type="button" onClick={resetQueryPlanning}>返回改问题</button>
+                    <button type="submit" disabled={busyAction === "query-calibration" || createForm.searchQuery.trim().length < 3}>{busyAction === "query-calibration" ? "正在读取前 100 篇…" : "确认初稿并读取前 100 篇"}</button>
+                  </div>
+                  <p className="rawb-create-form__help">这是人工确认点：点击后才会把当前检索式发送到 PubMed；仍不会创建项目。</p>
+                </>
+              ) : createStep === "calibration" ? (
+                <>
+                  <div className="rawb-query-plan__question"><span>研究问题</span><strong>{createForm.question}</strong></div>
+                  <QueryCalibrationReport calibration={queryCalibration} />
+                  <fieldset className="rawb-query-strategies">
+                    <legend>{queryCalibration?.revision?.status === "completed" ? "选择自动修订方案" : "选择保留方案或手动修订"}</legend>
+                    {asArray(queryCalibration?.revisedPlan?.candidates).map((candidate) => (
+                      <QueryStrategyCard
+                        key={candidate.id}
+                        candidate={candidate}
+                        selected={candidate.id === selectedQueryId}
+                        onSelect={(selected) => {
+                          setSelectedQueryId(selected.id);
+                          setCreateForm((form) => ({ ...form, searchQuery: selected.query }));
+                        }}
+                      />
+                    ))}
+                  </fieldset>
+                  <label htmlFor="rawb-project-search-query">确认前可由专家继续修订检索式</label>
+                  <textarea
+                    id="rawb-project-search-query"
+                    value={createForm.searchQuery}
+                    onChange={(event) => setCreateForm((form) => ({ ...form, searchQuery: event.target.value }))}
+                    rows={4}
+                    maxLength={5000}
+                    required
+                  />
+                  <p className="rawb-query-plan__boundary">{queryCalibration?.accessBoundary} 确认后才会使用当前式扫描 {queryCalibration?.revisedPlan?.reviewWindow?.from}—{queryCalibration?.revisedPlan?.reviewWindow?.to} 的 PubMed 综述。</p>
+                  <div className="rawb-query-plan__actions">
+                    <button type="button" onClick={() => {
+                      const fallback = asArray(queryPlan?.candidates)[0];
+                      setQueryCalibration(null);
+                      setSelectedQueryId(fallback?.id ?? "");
+                      setCreateForm((form) => ({ ...form, searchQuery: fallback?.query ?? form.searchQuery }));
+                      setCreateStep("strategy");
+                    }}>返回初稿</button>
+                    <button type="submit" disabled={busyAction === "query-preview" || createForm.searchQuery.trim().length < 3}>{busyAction === "query-preview" ? "正在读取并分析综述摘要…" : "确认修订式并分析近五年综述"}</button>
+                  </div>
+                  <p className="rawb-create-form__help">这是第二个人工确认点；任何手动改动都会作为新式重新执行基础抽查和综述扫描。</p>
                 </>
               ) : (
                 <>
                   <div className="rawb-query-plan__question"><span>研究问题</span><strong>{createForm.question}</strong></div>
-                  <div className="rawb-query-plan__notice">
-                    <strong>词汇映射只是可检查的起点</strong>
-                    <p>{queryPreview?.planner?.claim}</p>
-                    {asArray(queryPreview?.mappings).length ? <p>已识别：{asArray(queryPreview.mappings).map((item) => `${item.sourceTerm} → ${asArray(item.mappedTerms).join(" / ")}`).join("；")}</p> : null}
-                    {asArray(queryPreview?.unknownChinese).length ? <p className="is-warning">未可靠映射：{asArray(queryPreview.unknownChinese).join("、")}。系统没有擅自补写英文含义，请你重点检查。</p> : null}
-                  </div>
+                  <ReviewLandscapeReport landscape={queryPreview?.reviewLandscape} />
                   <fieldset className="rawb-query-candidates">
-                    <legend>选择一个已真实试检的版本</legend>
+                    <legend>检索式基础命中抽查</legend>
                     {asArray(queryPreview?.candidates).map((candidate) => {
                       const selected = candidate.id === selectedQueryId;
                       return (
-                        <label key={candidate.id} className={`rawb-query-candidate${selected ? " is-selected" : ""}${candidate.status !== "ready" ? " is-unavailable" : ""}`}>
+                        <div key={candidate.id} className={`rawb-query-candidate${selected ? " is-selected" : ""}${candidate.status !== "ready" ? " is-unavailable" : ""}`}>
                           <span className="rawb-query-candidate__top">
-                            <input
-                              type="radio"
-                              name="query-candidate"
-                              value={candidate.id}
-                              checked={selected}
-                              disabled={candidate.status !== "ready"}
-                              onChange={() => {
-                                setSelectedQueryId(candidate.id);
-                                setCreateForm((form) => ({ ...form, searchQuery: candidate.query }));
-                              }}
-                            />
+                            <span className="rawb-query-candidate__marker" aria-hidden="true" />
                             <strong>{candidate.label}</strong>
                             <em>{candidate.status === "ready" ? `PubMed 命中 ${candidate.total}` : candidate.status === "zero_results" ? "0 条结果" : "试检失败"}</em>
                           </span>
@@ -3001,29 +4170,56 @@ export function ResearchAgentWorkbench({
                           {asArray(candidate.samples).length ? (
                             <details>
                               <summary>抽查当前排序前 {candidate.sampledCount} 条未筛选样本</summary>
-                              <ol>{candidate.samples.map((sample) => <li key={sample.sourceId ?? sample.pmid}><span>{sample.accessLevel === "abstract_only" ? "题名+摘要" : "仅题名"}</span><strong>{sample.title}</strong>{sample.abstractSnippet ? <p>{sample.abstractSnippet}</p> : null}</li>)}</ol>
+                              <ol>{candidate.samples.map((sample) => <li key={sample.sourceId ?? sample.pmid}><span>{sample.accessLevel === "abstract_only" ? "题名+摘要" : "仅题名"}{sample.year ? ` · ${sample.year}` : ""}</span><strong>{sample.title}</strong>{sample.abstractSnippet ? <p>{sample.abstractSnippet}</p> : null}</li>)}</ol>
                             </details>
                           ) : <small>{candidate.boundary}</small>}
-                        </label>
+                        </div>
                       );
                     })}
                   </fieldset>
                   <p className="rawb-query-plan__boundary">{queryPreview?.accessBoundary} {queryPreview?.recallCheck?.boundary}</p>
-                  <label htmlFor="rawb-project-search-query">专家可手动修改检索式</label>
+                  <label htmlFor="rawb-project-search-query">需要修订时，直接改当前基础检索式</label>
                   <textarea
                     id="rawb-project-search-query"
                     value={createForm.searchQuery}
                     onChange={(event) => setCreateForm((form) => ({ ...form, searchQuery: event.target.value }))}
-                    rows={3}
-                    maxLength={2000}
+                    rows={4}
+                    maxLength={5000}
                     required
                   />
-                  {!formValid && createForm.searchQuery.trim().length >= 3 ? <p className="rawb-create-form__help is-warning">检索式已改变；请先重新试检，不能用旧命中量创建项目。</p> : null}
+                  {!queryPreviewMatches && createForm.searchQuery.trim().length >= 3 ? <p className="rawb-create-form__help is-warning">检索式已改变；必须重新执行基础抽查与近五年综述扫描，不能沿用旧汇报建项。</p> : null}
                   <div className="rawb-query-plan__actions">
-                    <button type="button" onClick={resetQueryPlanning}>返回改问题</button>
-                    <button type="button" onClick={handleRecalibrateQueries} disabled={busyAction === "query-preview"}>{busyAction === "query-preview" ? "正在试检…" : "重新试检当前式"}</button>
+                    <button type="button" onClick={() => {
+                      const fallback = asArray(queryCalibration?.revisedPlan?.candidates).find((candidate) => candidate.id === selectedQueryId)
+                        ?? asArray(queryCalibration?.revisedPlan?.candidates)[0];
+                      setQueryPreview(null);
+                      setSelectedQueryId(fallback?.id ?? "");
+                      setCreateForm((form) => ({ ...form, searchQuery: fallback?.query ?? form.searchQuery }));
+                      setCreateStep("calibration");
+                    }}>返回反馈校准</button>
+                    <button type="button" onClick={handleRecalibrateQueries} disabled={busyAction === "query-preview"}>{busyAction === "query-preview" ? "正在重新扫描…" : "重新扫描当前式"}</button>
                   </div>
-                  <details className="rawb-query-plan__advanced">
+                  {scopingRound === 1 ? (
+                    <DirectionSelectionPanel
+                      report={queryPreview?.reviewLandscape?.synthesis?.directionReport}
+                      decision={directionDecision}
+                      busy={busyAction === "direction-selection"}
+                      onChange={handleDirectionDecisionChange}
+                      onSubmit={handleChooseDirection}
+                    />
+                  ) : (
+                    <>
+                    <section className="rawb-second-round-summary" aria-labelledby="rawb-second-round-summary-title">
+                      <span>两轮调查已接通</span>
+                      <h3 id="rawb-second-round-summary-title">正式项目将继承收窄后的问题</h3>
+                      <dl>
+                        <div><dt>首轮宽问题</dt><dd>{directionSelection?.sourceQuestion}</dd></div>
+                        <div><dt>采用方向</dt><dd>{directionSelection?.selectedDirection?.direction}</dd></div>
+                        <div><dt>第二轮问题</dt><dd>{directionSelection?.narrowedBrief?.question}</dd></div>
+                      </dl>
+                      <p>{directionSelection?.narrowedBrief?.evidenceBoundary}</p>
+                    </section>
+                    <details className="rawb-query-plan__advanced">
                     <summary>项目名称、约束与已有材料</summary>
                     <label htmlFor="rawb-project-title">项目名称</label>
                     <input id="rawb-project-title" value={createForm.title} onChange={(event) => setCreateForm((form) => ({ ...form, title: event.target.value }))} maxLength={120} required />
@@ -3053,7 +4249,9 @@ export function ResearchAgentWorkbench({
                   <button className="rawb-create-submit" type="submit" disabled={!formValid || busyAction === "create"}>
                     {busyAction === "create" ? "正在建立研究…" : "采用这个检索并建立研究"}
                   </button>
-                  <p className="rawb-create-form__help">建项后只会推进到首个人工决定点；系统不会自动批准研究范围。</p>
+                  <p className="rawb-create-form__help">首轮方向账本、两轮问题与两轮综述汇报会随项目保存；建项后仍只推进到首个人工决定点。</p>
+                    </>
+                  )}
                 </>
               )}
             </form>
@@ -3072,12 +4270,14 @@ export function ResearchAgentWorkbench({
                   ? completedProfile?.label ?? "研究交付"
                   : RESEARCH_PHASES[itemPhaseIndex]?.label;
                 const itemStatusLabel =
-                  itemStatus === "completed" && item?.contentMaturity?.code === "guided_draft"
+                  item?.loadable === false
+                    ? "历史记录待恢复"
+                    : itemStatus === "completed" && item?.contentMaturity?.code === "guided_draft"
                     ? "流程演练已完成"
                     : STATUS_LABELS[itemStatus] ?? itemStatus;
                 return (
                   <li key={id ?? firstText(item?.title)}>
-                    <button type="button" className={id === selectedProjectId ? "is-active" : ""} onClick={() => selectProject(id)} aria-current={id === selectedProjectId ? "true" : undefined}>
+                    <button type="button" className={id === selectedProjectId ? "is-active" : ""} onClick={() => selectProject(id)} aria-current={id === selectedProjectId ? "true" : undefined} disabled={item?.loadable === false} title={item?.loadError?.message ?? undefined}>
                       <strong>{firstText(item?.title, item?.name) ?? "未命名研究"}</strong>
                       <span>{phaseLabel}<i aria-hidden="true">·</i>{itemStatusLabel}</span>
                     </button>

@@ -22,6 +22,7 @@ import {
   createAuthoritativeExportManifest,
   createAuthorSignoffContents,
 } from "./export-authority-v1.js";
+import { generatePubMedQueryPlan } from "./research-query-planner-v1.js";
 
 const packageRoot = resolve(new URL(".", import.meta.url).pathname);
 
@@ -323,8 +324,8 @@ test("query preview and literature landscape are usable Pi tools without human a
     undefined,
     ctx,
   );
-  assert.equal(previewCalls.length, 2);
-  assert.equal(previewResult.details.candidates.length, 2);
+  assert.ok(previewCalls.length >= 3);
+  assert.equal(previewResult.details.candidates.length, previewCalls.length);
 
   const landscape = pi.tools.find((tool) => tool.name === "research_literature_landscape");
   const landscapeResult = await landscape.execute(
@@ -502,7 +503,7 @@ test("Agent create refuses an unpreviewed or edited query before any project mut
   assert.equal(creates, 0);
 });
 
-test("interactive research-new previews two candidates and only then creates at a human Gate", async () => {
+test("interactive research-new previews a professional query matrix and only then creates at a human Gate", async () => {
   const cwd = await mkdtemp(join(tmpdir(), "pi-research-new-preview-"));
   const calls = [];
   const service = {
@@ -535,20 +536,23 @@ test("interactive research-new previews two candidates and only then creates at 
   };
   const pi = fakePi();
   createResearchExtension({ serviceFactory: async () => service })(pi);
-  const previewLabel = "宽召回版 · PubMed 命中 30 · 样本 1";
+  const plannedCandidate = generatePubMedQueryPlan({
+    question: "术后睡眠与恢复有何关联？",
+  }).candidates[0];
+  const previewLabel = `${plannedCandidate.label} · PubMed 命中 30 · 样本 1`;
   const ctx = fakeContext(cwd, {
     mode: "tui",
     hasUI: true,
     selections: [previewLabel],
     inputs: [
       "术后睡眠与恢复有何关联？",
-      "(postoperative[Title/Abstract] OR \"postoperative care\"[Title/Abstract]) AND (sleep[Title/Abstract] OR \"sleep quality\"[Title/Abstract] OR insomnia[Title/Abstract]) AND (recovery[Title/Abstract] OR rehabilitation[Title/Abstract])",
+      plannedCandidate.query,
       "睡眠与恢复",
     ],
     confirms: [true],
   });
   await pi.commands.get("research-new").handler("", ctx);
-  assert.equal(calls.filter(([name]) => name === "preview").length, 2);
+  assert.ok(calls.filter(([name]) => name === "preview").length >= 3);
   assert.equal(calls.filter(([name]) => name === "create").length, 1);
   assert.equal(calls.some(([name]) => name === "gateDecision"), false);
   assert.equal(pi.entries[0].data.action, "project_created_by_user");

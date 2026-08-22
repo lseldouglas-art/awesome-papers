@@ -18,7 +18,20 @@ import { ResearchEngineError, sha256 } from "./research-core/event-engine-v1.js"
 import { evaluateResearchFormalAuthority } from "./research-core/research-formal-authority-v1.js";
 import { PiRuntimeAdapter } from "./research-core/pi-runtime-adapter-v1.js";
 import { buildLiteratureLandscape } from "./research-core/research-literature-landscape-v1.js";
-import { previewPubMedQueryPlan } from "./research-core/research-query-planner-v1.js";
+import {
+  generatePubMedQueryPlan,
+  previewPubMedQueryPlan,
+} from "./research-core/research-query-planner-v1.js";
+import {
+  calibratePubMedQueryStrategy,
+} from "./research-core/research-query-calibration-v1.js";
+import {
+  buildResearchDirectionSelection,
+} from "./research-core/research-direction-selection-v1.js";
+import {
+  createQueryStrategyModel,
+  generatePromptDrivenPubMedQueryPlan,
+} from "./research-core/research-query-strategy-agent-v1.js";
 import {
   ResearchAgentServiceError,
   ResearchAgentServiceV1,
@@ -162,7 +175,11 @@ const service = new ResearchAgentServiceV1({
 });
 const activeRuns = new Map();
 const activeCreates = new Map();
+const queryPlans = new Map();
+const queryCalibrations = new Map();
 const queryPreviews = new Map();
+const directionSelections = new Map();
+const queryStrategyModel = createQueryStrategyModel({ env });
 
 const vite = production
   ? null
@@ -210,6 +227,28 @@ function rememberQueryPreview(preview) {
     }
   }
   return preview;
+}
+
+function rememberExpiring(map, key, value) {
+  map.set(key, {
+    value: structuredClone(value),
+    expiresAt: Date.now() + 30 * 60 * 1000,
+  });
+  if (map.size > 200) {
+    for (const [entryKey, entry] of map) {
+      if (entry.expiresAt <= Date.now() || map.size > 200) map.delete(entryKey);
+    }
+  }
+  return value;
+}
+
+function requireExpiring(map, key, { staleCode, staleMessage }) {
+  const entry = map.get(key);
+  if (!entry || entry.expiresAt <= Date.now()) {
+    map.delete(key);
+    throw Object.assign(new Error(staleMessage), { code: staleCode });
+  }
+  return structuredClone(entry.value);
 }
 
 function requireQueryPreviewSelection(body) {
@@ -314,8 +353,138 @@ function queryPreviewSelectionForBody(body) {
     ...(candidate.error ? { error: candidate.error } : {}),
     samples,
     sampleSourceIds: samples.map((sample) => sample.sourceId),
+    ...(entry.preview.reviewLandscape
+      ? { reviewLandscape: structuredClone(entry.preview.reviewLandscape) }
+      : {}),
+    ...(entry.preview.strategyCalibration
+      ? { strategyCalibration: structuredClone(entry.preview.strategyCalibration) }
+      : {}),
   };
   return { ...selection, selectionHash: sha256(selection) };
+}
+
+function scopingContextForCreate(body, finalPreviewSelection) {
+  if (typeof body.directionSelectionHash !== "string") return null;
+  if (!/^[a-f0-9]{64}$/i.test(body.directionSelectionHash)) {
+    throw Object.assign(new Error("方向选择指纹无效；请重新提交方向决定。"), {
+      code: "INVALID_DIRECTION_SELECTION_HASH",
+    });
+  }
+  const context = requireExpiring(directionSelections, body.directionSelectionHash, {
+    staleCode: "DIRECTION_SELECTION_STALE",
+    staleMessage: "方向选择记录不存在或已过期；请从首轮综述重新确认方向。",
+  });
+  if (
+    context.decision.decisionHash !== body.directionSelectionHash ||
+    context.decision.narrowedBrief.question.trim().normalize("NFKC") !== body.question.trim().normalize("NFKC")
+  ) {
+    throw Object.assign(
+      new Error("最终研究问题已经改变；请重新确认方向并执行第二轮调查。"),
+      { code: "SCOPING_DECISION_MISMATCH" },
+    );
+  }
+  if (!finalPreviewSelection || finalPreviewSelection.question.trim() !== body.question.trim()) {
+    throw Object.assign(
+      new Error("第二轮调查没有绑定当前收窄问题，不能建立正式项目。"),
+      { code: "SECOND_ROUND_PREVIEW_REQUIRED" },
+    );
+  }
+  return {
+    scopingDecision: context.decision,
+    scopingRounds: [
+      {
+        round: 1,
+        role: "orientation",
+        question: context.roundOnePreviewSelection.question,
+        query: context.roundOnePreviewSelection.query,
+        previewSelection: context.roundOnePreviewSelection,
+      },
+      {
+        round: 2,
+        role: "focused",
+        question: finalPreviewSelection.question,
+        query: finalPreviewSelection.query,
+        previewSelection: finalPreviewSelection,
+      },
+    ],
+  };
+}
+
+function queryPlanWithDirectionSeed(plan, decision) {
+  const query = String(decision?.narrowedBrief?.suggestedQuery ?? "").trim();
+  if (query.length < 3) return plan;
+  const focusMapping = decision?.narrowedBrief?.focusMapping;
+  const sourceMappings = Array.isArray(plan.mappings)
+    ? structuredClone(plan.mappings)
+    : [];
+  const hasFocusMapping = focusMapping
+    && focusMapping.conceptId
+    && !sourceMappings.some((mapping) => mapping.conceptId === focusMapping.conceptId);
+  const mappings = hasFocusMapping
+    ? [
+        ...sourceMappings,
+        {
+          ...structuredClone(focusMapping),
+          roleLabel: "研究者选定方向",
+          excludedAmbiguities: [],
+          confidence: "human_selected_controlled_seed",
+        },
+      ]
+    : sourceMappings;
+  const sourceConceptGroups = Array.isArray(plan.conceptGroups)
+    ? structuredClone(plan.conceptGroups)
+    : [];
+  const conceptGroups = hasFocusMapping
+    ? [
+        ...sourceConceptGroups,
+        {
+          id: focusMapping.conceptId,
+          sourceTerm: focusMapping.sourceTerm,
+          role: "selected_direction",
+          roleLabel: "研究者选定方向",
+          meshTerms: [...(focusMapping.meshTerms ?? [])],
+          freeTextTerms: [...(focusMapping.mappedTerms ?? [])],
+          wildcardTerms: [...(focusMapping.wildcardTerms ?? [])],
+          proximityTerms: structuredClone(focusMapping.proximityTerms ?? []),
+          excludedAmbiguities: [],
+          confidence: "human_selected_controlled_seed",
+        },
+      ]
+    : sourceConceptGroups;
+  const seeded = {
+    ...structuredClone(plan),
+    planner: {
+      ...structuredClone(plan.planner),
+      mode: "human_selected_direction_seed_v1",
+      claim: "已继承首轮研究对象词群，并追加研究者所选方向的受控英文词群。",
+    },
+    mappings,
+    conceptGroups,
+    candidates: [
+      {
+        id: "selected_direction_focused",
+        label: "方向收窄检索式",
+        strategy: decision.narrowedBrief.queryRationale,
+        query: query.slice(0, 5_000),
+        includedConceptIds: [...new Set(
+          mappings.map((mapping) => mapping.conceptId).filter(Boolean),
+        )],
+      },
+    ],
+    unknownChinese: Array.isArray(plan.unknownChinese)
+      ? plan.unknownChinese.filter((term) => term !== decision.selectedDirection.direction)
+      : [],
+    directionSeed: {
+      decisionHash: decision.decisionHash,
+      selectedDirectionId: decision.selectedDirection.id,
+      themeId: decision.selectedDirection.themeId,
+      sourcePreviewPlanHash: decision.sourcePreviewPlanHash,
+    },
+    accessBoundary:
+      "第二轮初稿继承首轮已确认的研究对象词群，并加入被选方向的受控词群；尚未访问 PubMed，研究者确认后才执行前 100 篇反馈校准。",
+  };
+  const { planHash: _oldPlanHash, ...body } = seeded;
+  return { ...body, planHash: sha256(body) };
 }
 
 function sendDownload(response, { body, contentType, fileName, sha256 = null }) {
@@ -785,10 +954,14 @@ function userBriefFor({
     ([accessLevel, count]) => `${count} 条${BRIEF_ACCESS_LABELS[accessLevel] ?? accessLevel}`,
   );
   const preview = previewSelection(result.project);
+  const reviewLandscape = preview?.reviewLandscape;
+  const reviewSynthesis = reviewLandscape?.synthesis;
   const accessSummary = currentEvidence.length > 0
     ? `已形成 ${currentEvidence.length} 条可追溯证据提取记录：${accessParts.join("、")}。`
     : sourceMaterials.length > 0
       ? `已保存 ${sourceMaterials.length} 条来源（${accessParts.join("、")}），尚未把来源自动等同于经过核查的证据。`
+      : reviewLandscape?.status === "ready"
+        ? `建项前已完成近 ${reviewLandscape.reviewWindow?.years ?? 5} 年综述扫描与摘要分析：PubMed 命中 ${reviewLandscape.total ?? "未知"} 篇，本轮分析 ${reviewLandscape.sampledCount ?? 0} 篇。${reviewSynthesis?.summaries?.coverage ?? ""}${reviewSynthesis?.summaries?.gaps ?? ""}这些材料仍是选题调查样本，不属于正式文献库。`
       : preview
         ? `建项前 PubMed 试检命中 ${preview.total ?? "未知"} 条；当前样本只用于校准检索，不属于正式文献库。`
         : "尚未建立可用于研究判断的来源或证据记录。";
@@ -806,6 +979,7 @@ function userBriefFor({
     ...verificationBoundaries,
     maturity.boundary,
     ...sourceBoundaries,
+    reviewSynthesis?.boundary,
     acceptedConclusions.length === 0
       ? "尚未形成通过当前准入条件的研究结论；摘要未报告和未执行的步骤保持未知。"
       : null,
@@ -1303,8 +1477,36 @@ function serializeProject(result) {
           planHash: previewSelection(result.project).planHash,
           selectionHash: previewSelection(result.project).selectionHash,
           samples: previewSelection(result.project).samples,
+          reviewLandscape: previewSelection(result.project).reviewLandscape ?? null,
         }
       : null,
+    scopingDecision: result.project.scopingDecision
+      ? structuredClone(result.project.scopingDecision)
+      : null,
+    scopingRounds: Array.isArray(result.project.scopingRounds)
+      ? result.project.scopingRounds.map((round) => ({
+          round: round.round,
+          role: round.role,
+          question: round.question,
+          query: round.query,
+          previewSelectionHash: round.previewSelection?.selectionHash ?? null,
+          total: round.previewSelection?.total ?? null,
+          sampledCount: round.previewSelection?.samples?.length ?? 0,
+          calibration: round.previewSelection?.strategyCalibration
+            ? {
+                requestedSampleLimit:
+                  round.previewSelection.strategyCalibration.requestedSampleLimit ?? 100,
+                sampledCount:
+                  round.previewSelection.strategyCalibration.feedback?.sampledCount ?? 0,
+                abstractAvailableCount:
+                  round.previewSelection.strategyCalibration.feedback?.abstractAvailableCount ?? 0,
+                potentialNoiseCount:
+                  round.previewSelection.strategyCalibration.feedback?.potentialNoiseCount ?? 0,
+              }
+            : null,
+          reviewLandscape: round.previewSelection?.reviewLandscape ?? null,
+        }))
+      : [],
     retrievalRuns: formalRetrievalRuns(result.project).map((run) => ({
       purpose: run.purpose,
       nodeId: run.nodeId,
@@ -1531,12 +1733,28 @@ async function apiHandler(request, response, pathname) {
     // runtime provenance. Rehydrate each project so the sidebar and detail view
     // apply exactly the same maturity decision.
     const projectResults = await Promise.all(
-      projects.map((project) => service.getProject(project.id)),
+      projects.map(async (project) => ({
+        index: project,
+        result: project.loadable === false ? null : await service.getProject(project.id),
+      })),
     );
     sendJson(
       response,
       200,
-      projectResults.map((result) => {
+      projectResults.map(({ index, result }) => {
+        if (!result) {
+          return {
+            id: index.id,
+            title: index.title,
+            question: index.question,
+            completionProfileId: index.completionProfileId,
+            contentMaturity: { code: "recovery_required", label: "历史记录待恢复" },
+            status: "failed",
+            currentPhaseId: "question_formation",
+            loadable: false,
+            loadError: index.loadError,
+          };
+        }
         const project = result.project;
         const nodeId = result.projection.boundary?.nodeId;
         const status = statusForResult(result);
@@ -1555,6 +1773,75 @@ async function apiHandler(request, response, pathname) {
     return true;
   }
 
+  if (pathname === "/api/research/query-plan" && request.method === "POST") {
+    const body = await readJson(request);
+    if (typeof body.question !== "string" || Array.from(body.question.trim()).length < 4) {
+      throw Object.assign(new Error("研究问题至少需要 4 个字，才能生成专业检索策略。"), {
+        code: "INVALID_RESEARCH_QUESTION",
+      });
+    }
+    let directionDecision = null;
+    if (typeof body.directionSelectionHash === "string") {
+      const context = requireExpiring(directionSelections, body.directionSelectionHash, {
+        staleCode: "DIRECTION_SELECTION_STALE",
+        staleMessage: "方向选择记录不存在或已过期；请从首轮综述重新确认方向。",
+      });
+      if (context.decision.narrowedBrief.question.trim().normalize("NFKC") !== body.question.trim().normalize("NFKC")) {
+        throw Object.assign(new Error("第二轮问题已经改变；请重新确认方向决定。"), {
+          code: "SCOPING_DECISION_MISMATCH",
+        });
+      }
+      directionDecision = context.decision;
+    }
+    const generatedPlan = await generatePromptDrivenPubMedQueryPlan({
+      question: body.question.trim().slice(0, 1200),
+      model: queryStrategyModel,
+      signal: AbortSignal.timeout(90_000),
+    });
+    const plan = directionDecision
+      ? queryPlanWithDirectionSeed(generatedPlan, directionDecision)
+      : generatedPlan;
+    rememberExpiring(queryPlans, plan.planHash, plan);
+    sendJson(response, 200, plan);
+    return true;
+  }
+
+  if (pathname === "/api/research/query-calibration" && request.method === "POST") {
+    const body = await readJson(request);
+    if (typeof body.question !== "string" || Array.from(body.question.trim()).length < 4) {
+      throw Object.assign(new Error("研究问题至少需要 4 个字，才能执行前 100 篇反馈校准。"), {
+        code: "INVALID_RESEARCH_QUESTION",
+      });
+    }
+    if (typeof body.initialPlanHash !== "string" || !/^[a-f0-9]{64}$/i.test(body.initialPlanHash)) {
+      throw Object.assign(new Error("前 100 篇反馈必须绑定当前检索初稿指纹。"), {
+        code: "QUERY_PLAN_REQUIRED",
+      });
+    }
+    const plan = requireExpiring(queryPlans, body.initialPlanHash, {
+      staleCode: "QUERY_PLAN_STALE",
+      staleMessage: "检索初稿不存在或已过期；请重新生成初稿。",
+    });
+    if (plan.question !== body.question.trim()) {
+      throw Object.assign(new Error("研究问题已改变；请重新生成检索初稿。"), {
+        code: "QUERY_PLAN_STALE",
+      });
+    }
+    const calibration = await calibratePubMedQueryStrategy({
+      gateway: toolGateway,
+      question: plan.question,
+      plan,
+      selectedCandidateId: body.selectedCandidateId,
+      editedQuery: typeof body.editedQuery === "string" ? body.editedQuery : null,
+      model: queryStrategyModel,
+      signal: AbortSignal.timeout(150_000),
+    });
+    rememberExpiring(queryCalibrations, calibration.calibrationHash, calibration);
+    rememberExpiring(queryPlans, calibration.revisedPlan.planHash, calibration.revisedPlan);
+    sendJson(response, 200, calibration);
+    return true;
+  }
+
   if (pathname === "/api/research/query-preview" && request.method === "POST") {
     const body = await readJson(request);
     if (typeof body.question !== "string" || Array.from(body.question.trim()).length < 4) {
@@ -1562,14 +1849,86 @@ async function apiHandler(request, response, pathname) {
         code: "INVALID_RESEARCH_QUESTION",
       });
     }
-    const preview = rememberQueryPreview(await previewPubMedQueryPlan({
+    let strategyCalibration = null;
+    if (typeof body.calibrationHash === "string") {
+      const calibration = requireExpiring(queryCalibrations, body.calibrationHash, {
+        staleCode: "QUERY_CALIBRATION_STALE",
+        staleMessage: "前 100 篇反馈记录不存在或已过期；请重新校准检索式。",
+      });
+      if (calibration.question !== body.question.trim()) {
+        throw Object.assign(new Error("研究问题已改变；请重新执行前 100 篇反馈。"), {
+          code: "QUERY_CALIBRATION_STALE",
+        });
+      }
+      strategyCalibration = {
+        schemaVersion: calibration.schemaVersion,
+        calibrationHash: calibration.calibrationHash,
+        initialPlanHash: calibration.initialPlanHash,
+        executedAt: calibration.executedAt,
+        total: calibration.total,
+        requestedSampleLimit: calibration.requestedSampleLimit,
+        feedback: calibration.feedback,
+        revision: calibration.revision,
+        accessBoundary: calibration.accessBoundary,
+        stageBrief: calibration.stageBrief,
+      };
+    }
+    const generatedPreview = await previewPubMedQueryPlan({
       gateway: toolGateway,
       question: body.question.trim().slice(0, 1200),
       candidateQueries: Array.isArray(body.candidateQueries) ? body.candidateQueries : null,
       sampleLimit: body.sampleLimit,
-      signal: AbortSignal.timeout(45_000),
-    }));
+      reviewScanCandidateId: body.reviewScanCandidateId,
+      reviewWindowYears: body.reviewWindowYears,
+      reviewSampleLimit: body.reviewSampleLimit,
+      signal: AbortSignal.timeout(75_000),
+    });
+    const preview = rememberQueryPreview({
+      ...generatedPreview,
+      ...(strategyCalibration ? { strategyCalibration } : {}),
+    });
     sendJson(response, 200, preview);
+    return true;
+  }
+
+  if (pathname === "/api/research/direction-selection" && request.method === "POST") {
+    const body = await readJson(request);
+    if (typeof body.queryPlanHash !== "string" || !/^[a-f0-9]{64}$/i.test(body.queryPlanHash)) {
+      throw Object.assign(new Error("方向选择必须绑定当前首轮综述指纹。"), {
+        code: "DIRECTION_PREVIEW_REQUIRED",
+      });
+    }
+    const entry = queryPreviews.get(body.queryPlanHash);
+    if (!entry || entry.expiresAt <= Date.now()) {
+      queryPreviews.delete(body.queryPlanHash);
+      throw Object.assign(new Error("首轮综述记录不存在或已过期；请重新扫描后选择方向。"), {
+        code: "DIRECTION_PREVIEW_STALE",
+      });
+    }
+    const preview = structuredClone(entry.preview);
+    const selectedCandidateId = preview.reviewLandscape?.selectedCandidateId
+      ?? preview.candidates?.find((candidate) => candidate.status === "ready")?.id;
+    const roundOnePreviewSelection = queryPreviewSelectionForBody({
+      queryPlanHash: preview.planHash,
+      selectedCandidateId,
+    });
+    if (!roundOnePreviewSelection) {
+      throw Object.assign(new Error("首轮综述没有可冻结的检索回执。"), {
+        code: "DIRECTION_PREVIEW_STALE",
+      });
+    }
+    const decision = buildResearchDirectionSelection({
+      preview,
+      selectedDirectionId: body.selectedDirectionId,
+      selectionReason: body.selectionReason,
+      deferredReason: body.deferredReason,
+      actor: humanActor(),
+    });
+    rememberExpiring(directionSelections, decision.decisionHash, {
+      decision,
+      roundOnePreviewSelection,
+    });
+    sendJson(response, 200, decision);
     return true;
   }
 
@@ -1607,6 +1966,9 @@ async function apiHandler(request, response, pathname) {
         const queryPreviewSelection = body.researchMode === "live_pubmed"
           ? queryPreviewSelectionForBody(body)
           : null;
+        const scopingContext = body.researchMode === "live_pubmed"
+          ? scopingContextForCreate(body, queryPreviewSelection)
+          : null;
         const sources = normalizeSourceMaterials(body.sourceMaterials, id);
         let result = await service.createProject({
           id,
@@ -1616,9 +1978,10 @@ async function apiHandler(request, response, pathname) {
           owner: humanActor(),
           constraints: splitLines(body.constraints),
           researchMode: body.researchMode === "live_pubmed" ? "live_pubmed" : "guided_materials",
-          searchQuery: typeof body.searchQuery === "string" ? body.searchQuery.trim().slice(0, 2000) : null,
+          searchQuery: typeof body.searchQuery === "string" ? body.searchQuery.trim().slice(0, 5000) : null,
           searchLimit: 8,
           queryPreviewSelection,
+          ...(scopingContext ?? {}),
           sourceMaterials: sources,
         });
         if (body.researchMode === "live_pubmed") {
@@ -1690,7 +2053,7 @@ async function apiHandler(request, response, pathname) {
             id: "researcher_retry",
             label: "研究者修订版",
             strategy: "同一项目修订检索式后重新执行真实预检。",
-            query: body.searchQuery.trim().slice(0, 2000),
+            query: body.searchQuery.trim().slice(0, 5000),
           },
           {
             id: "previous_query_comparison",

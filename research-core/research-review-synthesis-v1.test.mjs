@@ -1,0 +1,99 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { analyzeReviewAbstracts } from "./research-review-synthesis-v1.js";
+
+const RECORDS = [
+  {
+    sourceId: "pubmed:101",
+    pmid: "101",
+    year: "2026",
+    title: "Immunotherapy for non-small cell lung cancer: a systematic review and meta-analysis",
+    abstract: "We searched PubMed, Embase, and Cochrane databases and assessed risk of bias. Findings suggest immune checkpoint inhibitors may improve survival. However, substantial heterogeneity and limited evidence remain. Further prospective randomized trials are needed.",
+  },
+  {
+    sourceId: "pubmed:102",
+    pmid: "102",
+    year: "2025",
+    title: "Neoadjuvant immunotherapy and biomarkers in resectable lung cancer: systematic review",
+    abstract: "This systematic review followed PRISMA and was registered in PROSPERO. Risk of bias and certainty of evidence were assessed. Results indicate promising pathological response after neoadjuvant immunotherapy. Patient selection biomarkers remain unclear and longer follow-up is needed.",
+  },
+  {
+    sourceId: "pubmed:103",
+    pmid: "103",
+    year: "2024",
+    title: "Targeted therapy and acquired resistance in metastatic lung cancer",
+    abstract: "This review summarizes EGFR and KRAS targeted therapy. Resistance mechanisms remain a major challenge and results across studies are inconsistent. Additional high-quality prospective studies are warranted.",
+  },
+  {
+    sourceId: "pubmed:104",
+    pmid: "104",
+    year: "2023",
+    title: "Low-dose CT screening for lung cancer: a scoping review",
+    abstract: "We searched MEDLINE and Embase for screening and early detection studies. Real-world evidence is limited and health disparities affect implementation. Standardization of nodule management is needed.",
+  },
+  {
+    sourceId: "pubmed:105",
+    pmid: "105",
+    year: "2022",
+    title: "Quality of life after lung cancer treatment",
+    abstract: null,
+  },
+];
+
+test("review synthesis converts title and abstract samples into traceable topic, method, gap, and question intelligence", () => {
+  const synthesis = analyzeReviewAbstracts(RECORDS, {
+    reviewWindow: { years: 5, from: "2021/08/17", to: "2026/08/17" },
+  });
+
+  assert.equal(synthesis.schemaVersion, "research-review-synthesis/v1");
+  assert.equal(synthesis.analysisLevel, "title_abstract");
+  assert.equal(synthesis.analyzedSourceCount, 5);
+  assert.equal(synthesis.abstractAvailableCount, 4);
+  assert.equal(synthesis.titleOnlyCount, 1);
+
+  const immunotherapy = synthesis.themeCoverage.find((item) => item.id === "immunotherapy");
+  assert.equal(immunotherapy.count, 2);
+  assert.deepEqual(immunotherapy.sourceIds, ["pubmed:101", "pubmed:102"]);
+  assert.ok(synthesis.themeCoverage.some((item) => item.id === "early_detection_screening"));
+  assert.ok(synthesis.temporalSignals.some((item) => item.id === "immunotherapy"));
+
+  assert.ok(synthesis.methodVisibility.moreCompleteCount >= 2);
+  assert.ok(synthesis.methodSignals.some((item) => item.id === "risk_of_bias" && item.count === 2));
+  assert.match(synthesis.methodVisibility.boundary, /摘要未报告不能写成没有实施/);
+
+  const heterogeneity = synthesis.gapClusters.find((item) => item.id === "heterogeneity");
+  assert.equal(heterogeneity.count, 1);
+  assert.deepEqual(heterogeneity.sourceIds, ["pubmed:101"]);
+  assert.ok(heterogeneity.evidenceExcerpts[0].text.includes("heterogeneity"));
+
+  assert.ok(synthesis.breakthroughCandidates.length >= 3);
+  assert.ok(synthesis.breakthroughCandidates.every((candidate) => candidate.sourceIds.length > 0));
+  assert.ok(synthesis.breakthroughCandidates.some((candidate) => /分子分型与生物标志物/.test(candidate.question)));
+  assert.match(synthesis.breakthroughCandidates[0].basis, /不是已证实的研究空白/);
+
+  assert.match(synthesis.directionReport.executiveSummary, /可验证方向/);
+  assert.equal(synthesis.directionReport.directions.length, synthesis.breakthroughCandidates.length);
+  assert.ok(synthesis.directionReport.directions.every((direction) => (
+    direction.sourceIds.length > 0
+    && direction.studyPlan.studyDesign
+    && direction.studyPlan.populationAndComparison
+    && direction.studyPlan.coreOutcomes.length >= 3
+    && direction.studyPlan.executionSteps.length >= 3
+    && /下一轮窄检索/.test(direction.studyPlan.decisionGate)
+  )));
+  const biomarkerDirection = synthesis.directionReport.directions.find((direction) => direction.direction === "分子分型与生物标志物");
+  assert.match(biomarkerDirection.studyPlan.studyDesign, /前瞻性.*多中心/);
+  assert.ok(biomarkerDirection.studyPlan.coreOutcomes.includes("临床净获益"));
+  assert.match(synthesis.directionReport.boundary, /选题假设，不是研究空白定论或临床建议/);
+
+  const first = synthesis.sourceAnalyses.find((item) => item.sourceId === "pubmed:101");
+  assert.match(first.conclusionExcerpt, /improve survival/);
+  assert.match(first.gapExcerpt, /heterogeneity/);
+  assert.ok(first.methodSignalLabels.includes("报告数据库检索"));
+
+  const titleOnly = synthesis.sourceAnalyses.find((item) => item.sourceId === "pubmed:105");
+  assert.equal(titleOnly.methodVisibility, "abstract_unavailable");
+  assert.match(titleOnly.boundary, /保持未知/);
+  assert.match(synthesis.boundary, /不是全量文献计量、全文质量评价或研究空白定论/);
+});
