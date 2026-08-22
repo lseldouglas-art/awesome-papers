@@ -71,20 +71,32 @@ function sourceCandidateFor(preview) {
     ?? null;
 }
 
-function researchSubjectFor(sourceQuestion) {
-  const subject = cleanText(sourceQuestion, 900)
-    .replace(/(?:的)?研究(?:现状|进展|概况|趋势)$/u, "")
-    .replace(/(?:研究)?(?:现状|进展|概况|趋势)$/u, "")
+function broadResearchSubjectFor(sourceQuestion) {
+  const question = cleanText(sourceQuestion, 900)
+    .replace(/[.。!！?？]+$/u, "")
     .trim();
-  return subject || cleanText(sourceQuestion, 900);
+  const match = question.match(
+    /^(?<subject>[^,，;；:：?？.!！。\n]{1,80}?)(?:(?:的)?研究)?(?:现状|进展|概况|趋势)(?:如何|怎样|是什么)?$/u,
+  );
+  const subject = cleanText(match?.groups?.subject, 900);
+  return subject || null;
 }
 
 function narrowedQuestionFor({ selectedDirection, sourceQuestion }) {
+  const source = cleanText(sourceQuestion, 1_200);
   const recommended = cleanText(selectedDirection?.recommendedQuestion, 1_200);
-  const subject = researchSubjectFor(sourceQuestion);
-  if (hasText(recommended, 4)) return `${subject}：${recommended}`.slice(0, 1_200);
+  const broadSubject = broadResearchSubjectFor(source);
+  if (broadSubject && hasText(recommended, 4)) {
+    return `${broadSubject}：${recommended}`.slice(0, 1_200);
+  }
+  // Outside the narrow, explicit orientation-title grammar above, the source
+  // question is researcher-authored authority and must not be diluted by a
+  // generic evidence-derived direction template.
+  if (hasText(source, 1) && !broadSubject) return source;
   const direction = cleanText(selectedDirection?.direction, 240);
-  return `${cleanText(sourceQuestion, 900)}；第二轮聚焦：${direction}`.slice(0, 1_200);
+  if (hasText(source, 1)) return `${source}；第二轮聚焦：${direction}`.slice(0, 1_200);
+  if (hasText(recommended, 4)) return recommended;
+  return direction;
 }
 
 export function buildResearchDirectionSelection({
