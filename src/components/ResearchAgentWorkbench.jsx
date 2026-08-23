@@ -47,11 +47,78 @@ const RESEARCH_PHASES = Object.freeze([
   },
 ]);
 
+const RESEARCH_JOURNEY = Object.freeze([
+  {
+    id: "intent",
+    label: "研究意向",
+    meaning: "先记录想研究的领域、粗问题与边界，不要求第一步就形成最终选题。",
+    nodeIds: ["capture_intent", "clarify_question", "approve_scope"],
+  },
+  {
+    id: "literature",
+    label: "文献调研",
+    meaning: "用真实检索认识领域、校准召回与噪声，形成可比较方向。",
+    nodeIds: [
+      "design_orientation_search",
+      "run_pilot_search",
+      "calibrate_search",
+      "build_orientation_corpus",
+    ],
+  },
+  {
+    id: "topic",
+    label: "选题确认",
+    meaning: "在文献调研之后比较候选方向，由研究者锁定最终目标选题。",
+    nodeIds: ["profile_landscape", "approve_review_angle"],
+  },
+  {
+    id: "analysis",
+    label: "领域分析",
+    meaning: "围绕确认后的选题精准检索、冻结文献库、提取证据并核查边界。",
+    nodeIds: [
+      "design_focused_search",
+      "calibrate_focused_search",
+      "freeze_library",
+      "extract_evidence",
+      "seek_counterevidence",
+      "synthesize_claims",
+      "verify_evidence",
+      "approve_evidence_boundary",
+    ],
+  },
+  {
+    id: "structure",
+    label: "文章结构",
+    meaning: "让已核查证据形成论证树、文章结构与图表计划。",
+    nodeIds: ["derive_outline", "stress_test_outline", "approve_outline"],
+  },
+  {
+    id: "execution",
+    label: "执行与结果",
+    meaning: "完成综述写作、逐句核查、全文审计与交付；不冒充实验或临床实施。",
+    nodeIds: [
+      "write_claim_units",
+      "verify_claim_units",
+      "approve_claim_units",
+      "assemble_manuscript",
+      "audit_manuscript",
+      "prepare_delivery",
+      "author_signoff",
+    ],
+  },
+]);
+
+const JOURNEY_PROFILE_ENDPOINTS = Object.freeze({
+  evidence_brief: 3,
+  evidence_outline: 4,
+  audited_review: 5,
+});
+
 const WORKBENCH_TABS = Object.freeze([
-  { id: "task", label: "当前任务" },
-  { id: "evidence", label: "科研成果" },
-  { id: "writing", label: "写作核查" },
-  { id: "records", label: "研究记录" },
+  { id: "task", label: "当前阶段" },
+  { id: "evidence", label: "证据与结果" },
+  { id: "writing", label: "文章与核查" },
+  { id: "records", label: "版本记录" },
 ]);
 
 const COMPLETION_PROFILES = Object.freeze([
@@ -580,6 +647,49 @@ function phaseIndexForProject(project) {
   return 0;
 }
 
+function currentNodeIdForProject(project) {
+  return firstText(
+    project?.currentTask?.nodeId,
+    project?.currentWorkOrder?.nodeId,
+    project?.currentNode?.id,
+    project?.currentNodeId,
+    project?.projection?.currentTask?.nodeId,
+    project?.projection?.currentNode?.id,
+    project?.pendingGate?.nodeId,
+    project?.pendingReview?.nodeId,
+  );
+}
+
+function journeyIndexForProject(project) {
+  const nodeId = currentNodeIdForProject(project);
+  const explicitIndex = RESEARCH_JOURNEY.findIndex((stage) => stage.nodeIds.includes(nodeId));
+  if (explicitIndex >= 0) return explicitIndex;
+
+  const phaseId = phaseIdForProject(project);
+  const fallback = {
+    question_formation: 0,
+    literature_research: 1,
+    argument_design: 4,
+    writing_and_verification: 5,
+    delivery: 5,
+  }[phaseId];
+  return Number.isFinite(fallback) ? fallback : 0;
+}
+
+function journeyEndpointForProject(project) {
+  return JOURNEY_PROFILE_ENDPOINTS[project?.completionProfileId] ?? RESEARCH_JOURNEY.length - 1;
+}
+
+function journeyStageState(project, index) {
+  const currentIndex = journeyIndexForProject(project);
+  const endpoint = journeyEndpointForProject(project);
+  if (index > endpoint) return "excluded";
+  if (projectStatus(project) === "completed") return index <= endpoint ? "complete" : "excluded";
+  if (index < currentIndex) return "complete";
+  if (index === currentIndex) return "active";
+  return "upcoming";
+}
+
 function pendingGateForProject(project) {
   const direct = project?.pendingGate ?? project?.projection?.pendingGate ?? project?.gate;
   if (direct && ["pending", "open", "awaiting_decision"].includes(direct.status ?? "pending")) {
@@ -1062,24 +1172,34 @@ function RuntimeBadge({ runtime, loading, error }) {
 }
 
 function ResearchProgress({ project }) {
-  const activeIndex = phaseIndexForProject(project);
-  const projectCompleted = projectStatus(project) === "completed";
-  const completedIds = new Set(asArray(project?.completedPhaseIds));
+  const activeIndex = journeyIndexForProject(project);
+  const activeStage = RESEARCH_JOURNEY[activeIndex] ?? RESEARCH_JOURNEY[0];
+  const nodeId = currentNodeIdForProject(project);
   return (
-    <nav className="rawb-progress" aria-label="研究进度">
+    <nav className="rawb-progress rawb-journey" aria-label="科研工作旅程">
+      <div className="rawb-journey__heading">
+        <div>
+          <span>当前研究路径</span>
+          <strong>{activeStage.label}</strong>
+        </div>
+        <p>{nodeId ? activeStage.meaning : "历史项目的具体节点尚待恢复，当前只显示保守阶段映射。"}</p>
+      </div>
       <ol>
-        {RESEARCH_PHASES.map((phase, index) => {
-          const complete = index < activeIndex || completedIds.has(phase.id);
-          const active = !projectCompleted && activeIndex < RESEARCH_PHASES.length && index === activeIndex;
+        {RESEARCH_JOURNEY.map((stage, index) => {
+          const state = journeyStageState(project, index);
+          const active = state === "active";
           return (
             <li
-              key={phase.id}
-              className={[complete ? "is-complete" : "", active ? "is-active" : ""].filter(Boolean).join(" ")}
+              key={stage.id}
+              className={`is-${state}`}
               aria-current={active ? "step" : undefined}
-              title={phase.meaning}
+              title={stage.meaning}
             >
               <span className="rawb-progress__node">{index + 1}</span>
-              <span>{phase.label}</span>
+              <span className="rawb-progress__copy">
+                <strong>{stage.label}</strong>
+                <small>{state === "complete" ? "已通过" : state === "active" ? "进行中" : state === "excluded" ? "本轮不包含" : "未开始"}</small>
+              </span>
             </li>
           );
         })}
@@ -1103,9 +1223,9 @@ function Companion({ children, active = false }) {
 function EmptyState({ onCreate }) {
   return (
     <section className="rawb-empty" aria-labelledby="rawb-empty-title">
-      <Companion>先告诉我一个真正想弄清楚的问题。我们一次只走一步。</Companion>
-      <h1 id="rawb-empty-title">从研究问题开始，不从模板开始</h1>
-      <p>当前是证据综述模式：Agent 会比较真实 PubMed 检索、整理证据并核查写作；它不会把文献线索冒充实验或分析结果。</p>
+      <Companion>先告诉我想研究的领域或一个大概问题。我们会用文献把它逐步收窄。</Companion>
+      <h1 id="rawb-empty-title">从研究意向开始，在文献调研后确认选题</h1>
+      <p>Agent 会比较真实 PubMed 检索、整理证据并核查写作；研究员在关键节点决定范围、最终选题和结论边界。</p>
       <button className="rawb-primary" type="button" onClick={onCreate}>
         开始一个研究项目
       </button>
@@ -1138,6 +1258,28 @@ function DecisionReason({
   );
 }
 
+function shortIntegrityCode(value) {
+  if (typeof value !== "string" || value.length < 13) return value ?? "未记录";
+  return `${value.slice(0, 8)}…${value.slice(-4)}`;
+}
+
+function IntegrityRecord({ value, label = "决定记录" }) {
+  if (!value) return null;
+  return (
+    <div className="rawb-integrity-record">
+      <div>
+        <strong>内容已锁定</strong>
+        <span>{label} · {shortIntegrityCode(value)}</span>
+      </div>
+      <details>
+        <summary>技术记录</summary>
+        <p>完整校验码用于确认审批绑定的是这一版内容，研究员通常不需要阅读。</p>
+        <code>{value}</code>
+      </details>
+    </div>
+  );
+}
+
 function ReviewArtifactList({ artifacts, heading, authorityFingerprint = null }) {
   const [copiedId, setCopiedId] = useState("");
 
@@ -1155,23 +1297,21 @@ function ReviewArtifactList({ artifacts, heading, authorityFingerprint = null })
   return (
     <section className="rawb-review-artifacts" aria-label={heading}>
       <h4>{heading}</h4>
-      {authorityFingerprint ? (
-        <p className="rawb-review-artifacts__fingerprint">
-          本次决定只绑定以下决定指纹：<code>{authorityFingerprint}</code>
-        </p>
-      ) : null}
-      <div className="rawb-result-list">
-        {artifacts.map((artifact, index) => (
-          <ArtifactResult
-            key={firstText(artifact?.id, artifact?.artifactId, artifact?.address) ?? index}
-            artifact={artifact}
-            index={index}
-            copiedId={copiedId}
-            onCopy={handleCopy}
-            defaultOpen
-          />
-        ))}
-      </div>
+      <IntegrityRecord value={authorityFingerprint} label="审批绑定" />
+      <details className="rawb-review-artifacts__list">
+        <summary>查看 {artifacts.length} 项候选研究内容</summary>
+        <div className="rawb-result-list">
+          {artifacts.map((artifact, index) => (
+            <ArtifactResult
+              key={firstText(artifact?.id, artifact?.artifactId, artifact?.address) ?? index}
+              artifact={artifact}
+              index={index}
+              copiedId={copiedId}
+              onCopy={handleCopy}
+            />
+          ))}
+        </div>
+      </details>
     </section>
   );
 }
@@ -1183,8 +1323,13 @@ function GateDecision({ gate, busy, onDecision }) {
   useEffect(() => setReason(""), [gate?.id, gate?.gateId]);
 
   if (!gate) return null;
-  const label = firstText(gate.userLabel, gate.title, gate.label) ?? "确认本步研究边界";
-  const purpose = firstText(gate.reason, gate.purpose, gate.explanation, gate.description) ?? "这一步会改变后续研究范围，需要由研究者明确决定。";
+  const gateNodeId = firstText(gate.nodeId, gate?.currentNode?.id);
+  const label = gateNodeId === "approve_scope"
+    ? "确认研究意向与初始边界"
+    : firstText(gate.userLabel, gate.title, gate.label) ?? "确认本步研究边界";
+  const purpose = gateNodeId === "approve_scope"
+    ? "先确认这一轮要研究的领域、粗问题与不可越过的边界。文献调研之后仍会单独确认最终目标选题。"
+    : firstText(gate.reason, gate.purpose, gate.explanation, gate.description) ?? "这一步会改变后续研究范围，需要由研究者明确决定。";
   const criteria = asArray(gate.acceptanceCriteria ?? gate.criteria);
   const artifacts = asCollection(gate.artifacts ?? gate.inputs ?? gate.outputs);
   const validReason = reason.trim().length >= 8;
@@ -1291,20 +1436,28 @@ function ResearchUserBrief({ project, briefRef, feedback, onViewEvidence }) {
     : {};
   const conclusions = asCollection(brief.newConclusions);
   const boundaries = asArray(evidenceBoundary.boundaries).filter(Boolean);
-  const currentPeriod = firstText(
-    brief.currentResearchPeriod,
-    project?.currentResearchPeriod,
-    project?.currentTask?.userLabel,
-  ) ?? "当前研究阶段尚未报告";
-  const nextStep = firstText(
-    brief.nextStepOrUserDecision,
-    project?.summary?.nextDecision,
-    project?.currentTask?.userLabel,
-  ) ?? "等待当前项目状态更新。";
+  const currentNodeId = currentNodeIdForProject(project);
+  const currentPeriod = currentNodeId === "approve_scope"
+    ? "研究意向 · 确认初始边界"
+    : firstText(
+      brief.currentResearchPeriod,
+      project?.currentResearchPeriod,
+      project?.currentTask?.userLabel,
+    ) ?? "当前研究阶段尚未报告";
+  const nextStep = currentNodeId === "approve_scope"
+    ? "确认研究意向与初始边界；完成后进入文献调研，最终选题仍待后续确认。"
+    : firstText(
+      brief.nextStepOrUserDecision,
+      project?.summary?.nextDecision,
+      project?.currentTask?.userLabel,
+    ) ?? "等待当前项目状态更新。";
   const accessSummary = firstText(
     evidenceBoundary.accessSummary,
     project?.summary?.boundary,
   ) ?? "尚未建立可用于研究判断的证据记录。";
+  const primaryConclusion = conclusions.length
+    ? firstText(conclusions[0]?.claim) ?? "结论内容未报告"
+    : "本轮尚未产生通过当前准入条件的新结论。";
 
   return (
     <section
@@ -1316,48 +1469,34 @@ function ResearchUserBrief({ project, briefRef, feedback, onViewEvidence }) {
     >
       <div className="rawb-user-brief__heading">
         <div>
-          <p className="rawb-eyebrow">紧邻当前操作 · 自动更新</p>
-          <h2 id="rawb-user-brief-title">阶段科研回报</h2>
+          <span>自动更新</span>
+          <h2 id="rawb-user-brief-title">研究员摘要</h2>
         </div>
         <span>项目版本 {Number.isFinite(Number(brief.revision ?? project?.version)) ? Number(brief.revision ?? project.version) : "—"}</span>
       </div>
       {feedback ? <p className="rawb-user-brief__feedback" role="status">{feedback}</p> : null}
       <div className="rawb-user-brief__grid">
         <article>
-          <p>当前研究时期</p>
+          <p>当前阶段</p>
           <strong>{currentPeriod}</strong>
         </article>
-        <article className="rawb-user-brief__conclusions">
-          <p>本轮新得到的结论</p>
-          {conclusions.length ? (
-            <ol>
-              {conclusions.map((conclusion, index) => (
-                <li key={firstText(conclusion?.id) ?? index}>
-                  <strong>{firstText(conclusion?.claim) ?? "结论内容未报告"}</strong>
-                  <span>{firstText(conclusion?.confidence, conclusion?.scope) ?? "适用范围尚未报告"}</span>
-                </li>
-              ))}
-            </ol>
-          ) : <span>本轮尚未产生通过当前准入条件的新结论。</span>}
+        <article>
+          <p>目前得到什么</p>
+          <strong>{primaryConclusion}</strong>
         </article>
         <article>
-          <p>主要依据与边界</p>
-          <strong>{accessSummary}</strong>
-          {boundaries.length ? (
-            <ul>
-              {boundaries.slice(0, 3).map((boundary) => <li key={boundary}>{boundary}</li>)}
-            </ul>
-          ) : null}
-        </article>
-        <article>
-          <p>下一步或需要确认的决定</p>
+          <p>下一决定</p>
           <strong>{nextStep}</strong>
         </article>
       </div>
-      <div className="rawb-user-brief__actions">
-        <button type="button" onClick={onViewEvidence}>查看完整科研成果</button>
-        <span>这里只显示可交付给研究者的回报；详细产物和内部记录分别留在对应标签页。</span>
-      </div>
+      <details className="rawb-user-brief__boundary">
+        <summary>查看主要依据与证据边界</summary>
+        <strong>{accessSummary}</strong>
+        {boundaries.length ? (
+          <ul>{boundaries.slice(0, 3).map((boundary) => <li key={boundary}>{boundary}</li>)}</ul>
+        ) : null}
+        <button type="button" onClick={onViewEvidence}>打开完整证据与结果</button>
+      </details>
     </section>
   );
 }
@@ -1601,6 +1740,156 @@ function ScopingDecisionLedger({ project }) {
   );
 }
 
+function EvidenceOverview({ project }) {
+  const retrievalDisplay = researchWorkbenchRetrievalDisplay(project);
+  const previewLandscape = retrievalDisplay.mode === "preview"
+    ? retrievalDisplay.preview?.reviewLandscape
+    : null;
+  const scopingRounds = asArray(project?.scopingRounds);
+  const latestRound = scopingRounds.at(-1);
+  const landscape = previewLandscape ?? latestRound?.reviewLandscape ?? null;
+  if (!landscape || landscape.status && landscape.status !== "ready") return null;
+
+  const synthesis = landscape.synthesis ?? {};
+  const analyzedCount = Number(
+    synthesis.analyzedSourceCount ?? landscape.sampledCount ?? 0,
+  );
+  const abstractCount = Number(
+    landscape.abstractAvailableCount ?? synthesis.abstractAvailableCount ?? 0,
+  );
+  const themes = asArray(synthesis.themeCoverage ?? landscape.themeCoverage).slice(0, 5);
+  const directions = asArray(synthesis?.directionReport?.directions).slice(0, 4);
+  const funnel = [];
+
+  scopingRounds.slice(0, 2).forEach((round, index) => {
+    const total = Number(round?.total);
+    if (Number.isFinite(total)) {
+      funnel.push({
+        id: `round-${round.round ?? index + 1}`,
+        label: index === 0 ? "领域宽检索" : "聚焦检索",
+        value: total,
+      });
+    }
+  });
+  if (!funnel.length) {
+    const previewTotal = Number(retrievalDisplay.preview?.total);
+    if (Number.isFinite(previewTotal)) {
+      funnel.push({ id: "preview", label: "PubMed 命中", value: previewTotal });
+    }
+  }
+  if (analyzedCount > 0) {
+    funnel.push({ id: "review-sample", label: "分层综述样本", value: analyzedCount });
+  }
+
+  const abstractRatio = analyzedCount > 0
+    ? Math.max(0, Math.min(100, Math.round((abstractCount / analyzedCount) * 100)))
+    : 0;
+  const brief = landscape.stageBrief ?? {};
+
+  return (
+    <section className="rawb-evidence-overview" aria-labelledby="rawb-evidence-overview-title">
+      <header className="rawb-evidence-overview__heading">
+        <div>
+          <span>文献调研快照</span>
+          <h3 id="rawb-evidence-overview-title">研究范围正在怎样收窄</h3>
+        </div>
+        <strong>题名与摘要级</strong>
+      </header>
+
+      {funnel.length ? (
+        <ol className="rawb-search-funnel" aria-label="检索范围收窄过程">
+          {funnel.map((item, index) => (
+            <li key={item.id}>
+              <span>{item.label}</span>
+              <strong>{item.value.toLocaleString("zh-CN")}</strong>
+              {index < funnel.length - 1 ? <i aria-hidden="true" /> : null}
+            </li>
+          ))}
+        </ol>
+      ) : null}
+
+      <div className="rawb-evidence-overview__visuals">
+        <section className="rawb-evidence-clusters" aria-labelledby="rawb-evidence-clusters-title">
+          <div className="rawb-visual-heading">
+            <h4 id="rawb-evidence-clusters-title">主题覆盖</h4>
+            <span>{analyzedCount || "—"} 篇分层综述</span>
+          </div>
+          {themes.length ? (
+            <ul aria-label="当前摘要样本中的主题覆盖度">
+              {themes.map((theme, index) => {
+                const count = Number(theme.count ?? 0);
+                const share = Number(theme.share ?? (analyzedCount ? count / analyzedCount * 100 : 0));
+                return (
+                  <li
+                    key={theme.id ?? theme.label}
+                    style={{
+                      "--rawb-bubble-scale": Math.max(0.58, Math.min(1, share / 80)),
+                      "--rawb-bubble-order": index,
+                    }}
+                    title={`${theme.label}：${count}/${analyzedCount || "未知"}`}
+                  >
+                    <strong>{theme.label}</strong>
+                    <span>{count}/{analyzedCount || "—"}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : <p>当前接口没有返回主题覆盖；保持未知。</p>}
+        </section>
+
+        <section className="rawb-access-ring" aria-labelledby="rawb-access-ring-title">
+          <div className="rawb-visual-heading">
+            <h4 id="rawb-access-ring-title">可访问证据</h4>
+            <span>实际读取层级</span>
+          </div>
+          <div className="rawb-access-ring__body">
+            <div
+              className="rawb-access-ring__chart"
+              role="img"
+              aria-label={`${analyzedCount} 篇样本中 ${abstractCount} 篇有摘要`}
+              style={{ "--rawb-access-angle": `${abstractRatio * 3.6}deg` }}
+            >
+              <strong>{abstractCount}/{analyzedCount || "—"}</strong>
+              <span>摘要可用</span>
+            </div>
+            <ul>
+              <li><span className="is-abstract" aria-hidden="true" />题名与摘要<strong>{abstractCount}</strong></li>
+              <li><span className="is-title" aria-hidden="true" />仅题名<strong>{Math.max(0, analyzedCount - abstractCount)}</strong></li>
+            </ul>
+          </div>
+          <p>摘要未报告的内容仍记为未知；尚未自动升级为全文证据。</p>
+        </section>
+      </div>
+
+      {directions.length ? (
+        <section className="rawb-direction-shortlist" aria-labelledby="rawb-direction-shortlist-title">
+          <div className="rawb-visual-heading">
+            <h4 id="rawb-direction-shortlist-title">候选研究方向</h4>
+            <span>文献调研后再确认选题</span>
+          </div>
+          <ol>
+            {directions.map((direction, index) => (
+              <li key={direction.id ?? direction.direction}>
+                <span>{index + 1}</span>
+                <div>
+                  <strong>{direction.direction}</strong>
+                  <p>{direction.recommendedQuestion}</p>
+                </div>
+                <em>{index === 0 ? "优先核查" : "备选"}</em>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
+      <footer className="rawb-evidence-overview__boundary">
+        <div><strong>目前可以说</strong><p>{firstText(synthesis?.summaries?.coverage, brief.newFindings?.[0]) ?? "已获得用于校准研究方向的题名摘要样本。"}</p></div>
+        <div><strong>目前不能说</strong><p>{firstText(brief.evidenceBoundary) ?? "不能据此认定研究空白、因果关系或临床决策价值。"}</p></div>
+      </footer>
+    </section>
+  );
+}
+
 function TaskPanel({
   project,
   gate,
@@ -1616,7 +1905,13 @@ function TaskPanel({
   const task = taskContainer?.payload && typeof taskContainer.payload === "object"
     ? { ...taskContainer, ...taskContainer.payload }
     : taskContainer;
-  const objective = firstText(task.objective, task.purpose, task.description, project?.nextAction) ?? "等待状态机给出下一项明确任务。";
+  const taskNodeId = firstText(task.nodeId, project?.currentNode?.id, project?.currentNodeId);
+  const taskLabel = taskNodeId === "approve_scope"
+    ? "确认研究意向"
+    : firstText(task.userLabel, task.title, task.label) ?? "准备下一步研究任务";
+  const objective = taskNodeId === "approve_scope"
+    ? "确认当前研究领域、粗问题和初始边界；最终目标选题将在文献调研后单独形成。"
+    : firstText(task.objective, task.purpose, task.description, project?.nextAction) ?? "等待状态机给出下一项明确任务。";
   const acceptance = asArray(task.acceptanceCriteria ?? task.criteria);
   const outputs = asArray(task.requiredOutputs ?? task.outputs);
   const blocker = firstText(project?.blocker?.message, project?.blocker, task.blocker);
@@ -1655,12 +1950,18 @@ function TaskPanel({
   if (projectStatus(project) === "completed") return <DeliverySummary project={project} />;
 
   return (
-    <div className="rawb-panel-grid">
+    <div className="rawb-panel-grid rawb-research-workspace">
       <section className="rawb-task-card">
-        <p className="rawb-eyebrow">现在只做这一件事</p>
-        <h2>{firstText(task.userLabel, task.title, task.label) ?? "准备下一步研究任务"}</h2>
+        <header className="rawb-task-focus">
+          <div>
+            <span>本阶段只做这一项决定</span>
+            <h2>{taskLabel}</h2>
+          </div>
+          <strong>{RESEARCH_JOURNEY[journeyIndexForProject(project)]?.label ?? "当前阶段"}</strong>
+        </header>
         <p className="rawb-task-card__objective">{objective}</p>
         {blocker ? <p className="rawb-blocker">{blocker}</p> : null}
+        <EvidenceOverview project={project} />
         {formalRetrievalBlocked ? (
           <section className={`rawb-recovery is-${retryClass}`} aria-labelledby="rawb-recovery-title">
             <div className="rawb-recovery__heading">
@@ -1777,30 +2078,33 @@ function TaskPanel({
             </button>
           </form>
         ) : null}
-        <ScopingDecisionLedger project={project} />
-        <LiveRetrievalSummary project={project} />
-        <div className="rawb-task-details">
-          <div>
-            <h3>完成标准</h3>
-            {acceptance.length ? (
-              <ul className="rawb-check-list">
-                {acceptance.map((item, index) => <li key={`${String(item)}-${index}`}>{String(item)}</li>)}
-              </ul>
-            ) : <p>状态机尚未返回本步验收条件。</p>}
+        <details className="rawb-research-details">
+          <summary>查看完整检索、完成标准与研究记录</summary>
+          <ScopingDecisionLedger project={project} />
+          <LiveRetrievalSummary project={project} />
+          <div className="rawb-task-details">
+            <div>
+              <h3>完成标准</h3>
+              {acceptance.length ? (
+                <ul className="rawb-check-list">
+                  {acceptance.map((item, index) => <li key={`${String(item)}-${index}`}>{String(item)}</li>)}
+                </ul>
+              ) : <p>状态机尚未返回本步验收条件。</p>}
+            </div>
+            <div>
+              <h3>本步会留下</h3>
+              {outputs.length ? (
+                <ul className="rawb-output-list is-compact">
+                  {outputs.map((output, index) => (
+                    <li key={firstText(output?.artifactId, output?.id, output?.type) ?? index}>
+                      <strong>{firstText(output?.label, output?.title, output?.type) ?? String(output)}</strong>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p>产物要求将在工作单生成后显示。</p>}
+            </div>
           </div>
-          <div>
-            <h3>本步会留下</h3>
-            {outputs.length ? (
-              <ul className="rawb-output-list is-compact">
-                {outputs.map((output, index) => (
-                  <li key={firstText(output?.artifactId, output?.id, output?.type) ?? index}>
-                    <strong>{firstText(output?.label, output?.title, output?.type) ?? String(output)}</strong>
-                  </li>
-                ))}
-              </ul>
-            ) : <p>产物要求将在工作单生成后显示。</p>}
-          </div>
-        </div>
+        </details>
       </section>
       {gate ? <GateDecision gate={gate} busy={busy} onDecision={onGateDecision} /> : null}
       {review ? <HumanReview review={review} busy={busy} onDecision={onReviewDecision} /> : null}
@@ -1874,11 +2178,7 @@ function ArtifactResult({
         </div>
       </div>
       <p className="rawb-result-card__summary">{serverShaped ? researchOutputSummary(artifact) : artifactSummary(artifact)}</p>
-      {artifact?.contentHash ? (
-        <p className="rawb-result-card__authority">
-          当前内容哈希 <code>{artifact.contentHash}</code>
-        </p>
-      ) : null}
+      <IntegrityRecord value={artifact?.contentHash} label="内容版本" />
       {open ? (
         <div className="rawb-result-detail" id={itemId}>
           {serverShaped && artifact?.readableBody ? <div className="rawb-result-detail__body">{artifact.readableBody}</div> : null}
@@ -3866,8 +4166,6 @@ export function ResearchAgentWorkbench({
     ? project.contentMaturity
     : {};
   const processDraft = firstText(contentMaturity.code)?.toLowerCase() === "guided_draft";
-  const formalResearchComplete = contentMaturity.formalResearchComplete === true;
-  const maturityLabel = firstText(contentMaturity.label);
   const blockerRetryClass = firstText(project?.blocker?.retryClass);
 
   const primaryAction = useMemo(() => {
@@ -3951,25 +4249,6 @@ export function ResearchAgentWorkbench({
     }
   }, [performProjectAction, primaryAction.kind, project, refreshSelectedProject, revealUserBrief, status]);
 
-  const companionMessage = useMemo(() => {
-    if (gate) return "这一步会改变后续研究边界。我已经把理由放在下面，决定权交给你。";
-    if (review) return "候选产物已经准备好。请看内容是否达到本步标准，再决定接受还是修订。";
-    if (POLLING_STATUSES.has(status)) return "我正在处理当前工作单。你可以离开这个页面，研究记录会持续保留。";
-    if (status === "paused") return "项目停在安全位置，没有丢失进度。准备好后再让我继续。";
-    if (status === "cancelled") return "本轮已经停止，原项目和研究记录仍被保留。继续研究时请基于原问题建立新项目。";
-    if (status === "completed") {
-      if (formalResearchComplete) return "约定的研究目标已经走完。现在看到的是已经冻结、可以追溯的交付版本。";
-      if (processDraft) return `本轮研究目标已经到达终点。当前内容等级是“${maturityLabel ?? "结构化流程草案"}”，请按标注边界使用。`;
-      return `本轮研究目标已经到达终点。当前内容等级是“${maturityLabel ?? "研究成果"}”，请按证据边界继续核查。`;
-    }
-    if (["failed", "blocked"].includes(status)) return "这一步没有硬闯过去。先看清问题，再从同一个安全位置继续。";
-    return "状态机已经选好下一步。你只需要决定：现在要不要让 Agent 开始。";
-  }, [formalResearchComplete, gate, maturityLabel, processDraft, review, status]);
-
-  const currentPhase = RESEARCH_PHASES[Math.min(phaseIndexForProject(project), RESEARCH_PHASES.length - 1)];
-  const selectedCompletionProfile = COMPLETION_PROFILES.find(
-    (candidate) => candidate.id === project?.completionProfileId,
-  );
   const queryPreviewMatches = asArray(queryPreview?.candidates).some((candidate) =>
     candidate.id === selectedQueryId &&
     candidate.status === "ready" &&
@@ -3990,7 +4269,7 @@ export function ResearchAgentWorkbench({
       <header className="rawb-header">
         <div className="rawb-brand">
           <img className="rawb-brand__mark" src={evidenceFirefly} alt="" />
-          <span><strong>科研工作台 · 证据综述</strong><small>真实检索 · Agent 执行 · 人类负责</small></span>
+          <span><strong>科研工作台 · 研究方案工作纸</strong><small>真实检索 · Agent 执行 · 人类负责</small></span>
         </div>
         <RuntimeBadge runtime={runtime} loading={runtimeLoading} error={runtimeError} />
         <button className="rawb-new-button" type="button" onClick={() => {
@@ -4017,7 +4296,7 @@ export function ResearchAgentWorkbench({
                       ? handleCreate
                       : (event) => event.preventDefault()}
               aria-label={createStep === "question"
-                ? "从研究问题开始"
+                ? "从研究领域或大概问题开始"
                 : createStep === "strategy"
                   ? "确认专业 PubMed 检索策略"
                   : createStep === "calibration"
@@ -4027,7 +4306,7 @@ export function ResearchAgentWorkbench({
               <div className="rawb-create-form__heading">
                 <div>
                   <small>第 {scopingRound} 轮 · {createStep === "question" ? "1" : createStep === "strategy" ? "2" : createStep === "calibration" ? "3" : "4"} / 4</small>
-                  <strong>{createStep === "question" ? (scopingRound === 1 ? "先说研究问题" : "确认收窄后的研究问题") : createStep === "strategy" ? "确认检索初稿" : createStep === "calibration" ? "确认前 100 篇反馈与修订" : "查看近五年综述分析"}</strong>
+                  <strong>{createStep === "question" ? (scopingRound === 1 ? "先说研究领域或大概问题" : "确认收窄后的研究问题") : createStep === "strategy" ? "确认检索初稿" : createStep === "calibration" ? "确认前 100 篇反馈与修订" : "查看近五年综述分析"}</strong>
                 </div>
                 <button type="button" onClick={() => { setCreateOpen(false); resetQueryPlanning(); }}>关闭</button>
               </div>
@@ -4036,13 +4315,13 @@ export function ResearchAgentWorkbench({
                   <p className="rawb-create-form__intro">{scopingRound === 1
                     ? "先别急着检索。系统会扩展 MeSH 主题词、专业自由词、常用亚型与适用的邻近表达；你确认后才访问 PubMed。"
                     : `已选择“${directionSelection?.selectedDirection?.direction ?? "当前方向"}”。现在围绕收窄问题生成第二轮检索，首轮记录不会被覆盖。`}</p>
-                  <label htmlFor="rawb-project-question">真正想研究的问题</label>
+                  <label htmlFor="rawb-project-question">想研究的领域或大概问题</label>
                   <textarea
                     ref={titleInputRef}
                     id="rawb-project-question"
                     value={createForm.question}
                     onChange={(event) => setCreateForm((form) => ({ ...form, question: event.target.value }))}
-                    placeholder="例如：围术期睡眠与术后恢复之间有什么关系？"
+                    placeholder="例如：肺癌免疫治疗；或想了解治疗前血液标志物与预后的关系。"
                     rows={5}
                     maxLength={1200}
                     required
@@ -4055,7 +4334,7 @@ export function ResearchAgentWorkbench({
                   <button className="rawb-create-submit" type="submit" disabled={busyAction === "query-plan"}>
                     {busyAction === "query-plan" ? "正在拆解概念与词群…" : "生成专业检索策略"}
                   </button>
-                  <p className="rawb-create-form__help">这一步不联网、不建项，也不会替你确认研究问题或检索边界。</p>
+                  <p className="rawb-create-form__help">第一步允许保持宽泛；最终目标选题会在文献调研之后由研究者单独确认。</p>
                 </>
               ) : createStep === "strategy" ? (
                 <>
@@ -4262,13 +4541,13 @@ export function ResearchAgentWorkbench({
               {projects.map((item) => {
                 const id = projectId(item);
                 const itemStatus = projectStatus(item);
-                const itemPhaseIndex = phaseIndexForProject(item);
+                const itemJourneyIndex = journeyIndexForProject(item);
                 const completedProfile = COMPLETION_PROFILES.find(
                   (candidate) => candidate.id === item?.completionProfileId,
                 );
                 const phaseLabel = itemStatus === "completed"
                   ? completedProfile?.label ?? "研究交付"
-                  : RESEARCH_PHASES[itemPhaseIndex]?.label;
+                  : RESEARCH_JOURNEY[itemJourneyIndex]?.label;
                 const itemStatusLabel =
                   item?.loadable === false
                     ? "历史记录待恢复"
@@ -4300,19 +4579,23 @@ export function ResearchAgentWorkbench({
 
           {bootLoading || (projectLoading && !project) ? <LoadingWorkspace /> : !project ? <EmptyState onCreate={() => setCreateOpen(true)} /> : (
             <>
-              <ResearchProgress project={project} />
               <section className="rawb-project-hero" aria-labelledby="rawb-project-title-heading">
-                <Companion active={POLLING_STATUSES.has(status)}>{companionMessage}</Companion>
                 <div className="rawb-project-hero__copy">
                   <div className="rawb-project-hero__meta">
-                    <span>{status === "completed"
-                      ? selectedCompletionProfile?.label ?? "研究交付"
-                      : currentPhase?.label ?? "研究准备"}</span>
+                    <span>研究方案工作纸</span>
+                    <span>项目版本 {Number.isFinite(Number(project?.version)) ? Number(project.version) : "—"}</span>
                     <span className={`rawb-status is-${status}`}>{status === "completed" && processDraft ? "流程演练已完成" : STATUS_LABELS[status] ?? status}</span>
                   </div>
-                  <h1 id="rawb-project-title-heading">{firstText(project?.title, project?.name) ?? "未命名研究"}</h1>
-                  <p>{firstText(project?.question, project?.researchQuestion, project?.brief?.question) ?? "研究问题尚未记录。"}</p>
-                  <p className="rawb-mode-boundary"><strong>当前模式：</strong>可审计的 PubMed 证据综述；候选方向必须经过单独验证，不能当作实验或分析结论。</p>
+                  <h1 id="rawb-project-title-heading">研究方案工作纸</h1>
+                  <p className="rawb-project-name">{firstText(project?.title, project?.name) ?? "未命名研究"}</p>
+                  <div className="rawb-project-question">
+                    <span>{journeyIndexForProject(project) < 2 ? "当前研究意向" : "当前目标选题"}</span>
+                    <p>{firstText(project?.question, project?.researchQuestion, project?.brief?.question) ?? "研究问题尚未记录。"}</p>
+                  </div>
+                  <details className="rawb-mode-boundary">
+                    <summary>研究模式与责任边界</summary>
+                    <p>可审计的 PubMed 证据综述；候选方向必须经过单独验证，不能当作实验、分析或临床结论。</p>
+                  </details>
                 </div>
                 <div className="rawb-project-actions">
                   <button className="rawb-primary" type="button" onClick={handlePrimaryAction} disabled={primaryAction.disabled}>
@@ -4336,6 +4619,8 @@ export function ResearchAgentWorkbench({
                   ) : null}
                 </div>
               </section>
+
+              <ResearchProgress project={project} />
 
               <ResearchUserBrief
                 project={project}
