@@ -8,6 +8,27 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 - External usability testing of the two-step project creation flow.
 
+## [0.1.3] - 2026-08-28
+
+### Changed
+
+- Reordered the workspace around field brief, researcher decision, and evidence source; the visible page no longer leads with execution state.
+- Moved the Pi runtime badge, research-state journey, quality counters, versions, hashes, and tool logs into a dedicated technical-audit tab.
+- Removed the report workflow stepper and replaced it with the report purpose, observation unit, and scientific boundary.
+- Rewrote remaining Agent- and state-machine-oriented frontstage copy as researcher-facing actions and research judgments.
+- Gave the review report a field-specific title and preserved PMID-level evidence in bounded drawers instead of a primary evidence wall.
+
+### Security and scientific integrity
+
+- Split public scientific limitations from technical integrity notes so hashes, digital-signature caveats, trusted-root notes, and event-store details do not enter the mentor brief.
+- Kept relevance, source-ledger, and stale-report checks fail closed while expressing failures in researcher language.
+- Retained the title/abstract access boundary, fixed 20-review sample denominator, low-frequency-not-gap rule, same-topic-review check, and 50–100-paper planning boundary.
+
+### Verification
+
+- Passed 285 core tests, 9 workbench-model tests, 13 report-UI tests, and the API end-to-end test.
+- Passed the production build, diff check, 1448×1086 desktop review, and 390×844 no-overflow review.
+
 ## [0.1.2] - 2026-08-28
 
 ### Added

@@ -2,13 +2,14 @@
 
 ## Current period
 
-V1 core loop complete; local alpha and private hosted evaluation preparation.
+V1 core loop complete; field-first information architecture verified; local alpha and private hosted evaluation preparation.
 
 ## What the current evidence supports
 
 - deterministic core tests exercise event, artifact, retrieval, review, recovery, and export invariants;
 - API end-to-end tests traverse mock PubMed and the complete human-boundary loop;
 - production build and desktop/mobile product paths have been manually verified;
+- researcher-facing pages lead with domain judgments, while Pi runtime and workflow state remain available in technical audit;
 - historical invalid export metadata degrades to a trace-only record instead of blocking the project.
 
 ## Boundaries

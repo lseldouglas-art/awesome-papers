@@ -18,7 +18,7 @@ import "./research-review-report.css";
 
 const CHAPTERS = Object.freeze([
   { id: "landscape", label: "领域图景", title: "领域图景" },
-  { id: "trends", label: "趋势与选题", title: "近五年趋势与选题分析" },
+  { id: "trends", label: "五年趋势", title: "近五年趋势与选题分析" },
   { id: "opportunities", label: "研究机会", title: "一句话总结与研究机会" },
   { id: "plan", label: "综述方向", title: "综述方向：如何把题目真正做完" },
 ]);
@@ -36,6 +36,30 @@ function joinChineseSentences(items) {
     .map((item) => String(item).trim().replace(/[。；;]+$/g, ""))
     .filter(Boolean);
   return sentences.length ? `${sentences.join("；")}。` : "";
+}
+
+function decisionGroupSummary(groupId) {
+  const summaries = {
+    risk_detection: "重点看哪些人需要更早识别、在什么场景使用何种检测，以及风险边界怎样定义。",
+    treatment_decision: "重点看治疗适用人群、比较策略、结局标准和真实实施边界。",
+    stratification_monitoring: "重点看分层变量、验证层级，以及研究结果能否真正改变决策。",
+    unmapped_themes: "这些主题还没有进入既有决策链，需要人工复核后再用于选题。",
+  };
+  return summaries[groupId] ?? "这些数字只表示当前样本覆盖；正式选题仍需回到具体人群、比较和结局。";
+}
+
+function directionOrganization(direction) {
+  const items = list(direction?.organization ?? direction?.reviewPlan?.organization ?? direction?.outline).slice(0, 4);
+  return items.length ? items.join(" → ") : "先冻结问题边界，再按比较策略、核心结局与验证层级组织文献。";
+}
+
+function directionWorkload(direction) {
+  return [
+    direction?.reviewPlan?.reviewType,
+    direction?.workload?.targetCoreLiterature,
+    direction?.workload?.timeline,
+    direction?.workload?.difficulty ? `难度${direction.workload.difficulty}` : null,
+  ].filter(Boolean).join(" · ") || "工作量需在窄检索后确认";
 }
 
 function directionTitle(direction) {
@@ -58,10 +82,6 @@ function screeningDispositionLabel(row) {
 function chapterIndex(id) {
   const index = CHAPTERS.findIndex((chapter) => chapter.id === id);
   return index < 0 ? 0 : index;
-}
-
-function ClaimLabel({ children, tone = "sample" }) {
-  return <span className={`rawb-report-claim-label is-${tone}`}>{children}</span>;
 }
 
 function FindingList({ items, empty = "当前分层样本没有返回可安全表达的判断。" }) {
@@ -128,7 +148,6 @@ function RoundComparison({ comparison }) {
     <section className="rawb-report-rounds" aria-labelledby="rawb-report-rounds-title">
       <header>
         <div>
-          <ClaimLabel tone="inference">两轮检索结构比较</ClaimLabel>
           <h3 id="rawb-report-rounds-title">问题如何从领域扫描收窄到聚焦检索</h3>
         </div>
         <p>{comparison.boundary}</p>
@@ -136,7 +155,7 @@ function RoundComparison({ comparison }) {
       <div className="rawb-report-rounds__grid">
         {[comparison.first, comparison.second].map((round, index) => (
           <article key={index === 0 ? "first" : "second"}>
-            <span>{index === 0 ? "首轮 · 领域扫描" : "第二轮 · 聚焦检索（未验证）"}</span>
+            <span>{index === 0 ? "领域扫描" : "聚焦检索"}</span>
             <strong>{round.question || "研究问题未返回"}</strong>
             <dl>
               <div><dt>分层样本</dt><dd>{round.sampledCount} 篇</dd></div>
@@ -156,8 +175,7 @@ function FieldLandscapeChapter({ model }) {
   return (
     <div className="rawb-report-chapter-layout is-landscape">
       <section className="rawb-report-narrative">
-        <ClaimLabel>{model.claimLabels.sampleObservation}</ClaimLabel>
-        <h2>从第一性原理看领域现状</h2>
+        <h2 className="rawb-report-reader-title"><span aria-hidden="true">01</span>这个领域，目前能确定什么？</h2>
         <p className="rawb-report-lead">领域综述的最小有效单元不是一个宽泛主题，而是一项可检验的决策：针对哪类人群、在何种疾病阶段、比较何种策略、以哪个时间点的患者重要结局判断获益。当前样本的作用，是定位这些决策链上已经被覆盖与仍需核查的环节。</p>
         <p className="rawb-report-sample-synthesis"><strong>当前样本判断：</strong>{model.executiveSummary || "当前样本尚不足以形成稳定的领域判断。"}</p>
         <FindingList items={model.developmentStatus} />
@@ -175,7 +193,7 @@ function FieldLandscapeChapter({ model }) {
 
       <section className="rawb-report-wide-section">
         <header className="rawb-report-section-heading">
-          <div><ClaimLabel>{model.claimLabels.sampleObservation}</ClaimLabel><h3>当前需要解决的具体问题</h3></div>
+          <div><h3>当前需要解决的具体问题</h3></div>
           <p>问题来自摘要明确报告的限制；摘要未报告仍保持未知。</p>
         </header>
         <FindingList items={model.majorProblems} empty="当前摘要未形成可稳定聚类的问题信号；不能据此写成领域没有问题。" />
@@ -183,7 +201,7 @@ function FieldLandscapeChapter({ model }) {
 
       <section className="rawb-report-wide-section">
         <header className="rawb-report-section-heading">
-          <div><ClaimLabel>方法边界</ClaimLabel><h3>新入门研究者的关键判断点</h3></div>
+          <div><h3>新入门研究者的关键判断点</h3></div>
           <p>这些是研究方法约束；领域级判断仍需指南、关键全文和高质量综述单独核查。</p>
         </header>
         <FindingList items={model.newcomerGuide} />
@@ -193,54 +211,99 @@ function FieldLandscapeChapter({ model }) {
 }
 
 function TrendChapter({ model }) {
-  const journalRows = model.journalDistribution.slice(0, 6);
-  const titleRows = model.titlePatternDistribution.slice(0, 6);
+  const groups = model.decisionStructure.slice(0, 3);
+  const maxThemeCount = Math.max(
+    1,
+    ...groups.flatMap((group) => list(group.items).map((item) => Number(item?.count) || 0)),
+  );
+  const structuralInsights = [
+    ...model.selectionPatterns,
+    ...model.metadataPatternInsights,
+  ].slice(0, 3);
+  const structuralLabels = ["问题层级", "证据标准", "转化门槛"];
+  const directInsights = [
+    ...model.trendInsights,
+    ...model.metadataPatternInsights,
+  ].slice(0, 5);
+  const finalJudgment = model.selectionPatterns[0]?.conclusion
+    ?? "优先选择能够明确人群、比较条件、核心结局和验证门槛的问题，再用同题综述窄检索确认新增价值。";
+
   return (
-    <div className="rawb-report-chapter-layout is-trends">
-      <section className="rawb-report-narrative">
-        <ClaimLabel>{model.claimLabels.sampleObservation}</ClaimLabel>
-        <h2>热点分支、结构性演变与选题规律</h2>
-        <p className="rawb-report-lead">本章只分析当前分层样本中的主题、题名与期刊模式；不把固定抽样配额解释为全领域发文增减。</p>
+    <div className="rawb-report-trend-brief">
+      <header className="rawb-report-trend-brief__intro">
+        <h2><span aria-hidden="true">02</span>近五年，研究重点如何变化？</h2>
+        <p>本章把当前样本中的主题变化翻译成选题判断；数字只说明这批题名与摘要的覆盖，不代表全领域发文量。</p>
         {model.stratifiedAllocation ? (
-          <p className="rawb-report-method-note"><strong>抽样设计判断：</strong>当前账本按连续 12 个月窗口等额选取综述；日历年份计数会受窗口边界影响，只能说明样本构成，不能支持“领域升温”或“发文增长”。</p>
+          <p className="rawb-report-trend-boundary"><strong>阅读边界：</strong>当前样本按连续 12 个月窗口等额选取；年份计数只能说明样本构成，不能证明“领域升温”或“发文增长”。</p>
         ) : null}
-        <FindingList items={model.trendInsights} empty="当前样本没有形成足以报告的时间变化信号。" />
-      </section>
+      </header>
 
-      <section className="rawb-report-analysis-grid" aria-label="当前样本分布分析">
-        <article>
-          <header><h3>年度样本结构</h3><span>非全量发文计量</span></header>
-          <DistributionBars items={model.yearDistribution} />
-        </article>
-        <article>
-          <header><h3>热点研究分支</h3><span>当前样本覆盖度</span></header>
-          <DistributionBars items={model.themeDistribution.slice(0, 6)} total={model.analyzedCount} />
-        </article>
-        <article>
-          <header><h3>期刊分布</h3><span>仅说明样本来源</span></header>
-          <DistributionBars items={journalRows} />
-        </article>
-        <article>
-          <header><h3>题名结构</h3><span>选题表达模式</span></header>
-          <DistributionBars items={titleRows} />
-        </article>
-      </section>
+      <div className="rawb-report-trend-columns">
+        <div className="rawb-report-trend-columns__left">
+          <section className="rawb-report-trend-section" aria-labelledby="rawb-report-trend-branches-title">
+            <header>
+              <h3 id="rawb-report-trend-branches-title">一、热点研究分支</h3>
+              <p>主题可重叠；覆盖度表示当前样本中的研究密度。</p>
+            </header>
+            {groups.length ? (
+              <ol className="rawb-report-trend-groups">
+                {groups.map((group) => (
+                  <li key={group.id}>
+                    <strong>{group.label}</strong>
+                    <div className="rawb-report-trend-groups__bars">
+                      {list(group.items).slice(0, 2).map((item, itemIndex) => {
+                        const count = Number(item?.count) || 0;
+                        const width = Math.max(7, Math.round((count / maxThemeCount) * 100));
+                        return (
+                          <div key={item.id ?? item.label}>
+                            <span>{item.label}</span>
+                            <i aria-hidden="true"><i className={itemIndex === 0 ? "is-primary" : "is-secondary"} style={{ width: `${width}%` }} /></i>
+                            <b>{count}/{model.analyzedCount}</b>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p>{decisionGroupSummary(group.id)}</p>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <DistributionBars items={model.themeDistribution.slice(0, 6)} total={model.analyzedCount} />
+            )}
+          </section>
 
-      <section className="rawb-report-wide-section">
-        <header className="rawb-report-section-heading">
-          <div><ClaimLabel tone="inference">{model.claimLabels.researchOpportunityInference}</ClaimLabel><h3>基于样本结构形成的选题策略推断</h3></div>
-          <p>这些是把样本结构转化为选题策略的方法学推断，不是逐篇文献直接证明的价值或新意；必须经同题综述窄检索验证。</p>
-        </header>
-        <FindingList items={model.selectionPatterns} />
-      </section>
+          <section className="rawb-report-trend-section is-structure" aria-labelledby="rawb-report-trend-structure-title">
+            <header>
+              <h3 id="rawb-report-trend-structure-title">二、近五年的结构性演变</h3>
+              <p>从描述主题，走向可以比较和验证的研究问题。</p>
+            </header>
+            <dl>
+              {structuralInsights.map((item, index) => (
+                <div key={item?.id ?? `${item?.title}-${index}`}>
+                  <dt>{structuralLabels[index]}</dt>
+                  <dd><strong>{item?.title}</strong><span>{conclusion(item)}</span></dd>
+                </div>
+              ))}
+            </dl>
+            <p className="rawb-report-trend-section__takeaway">选题价值不再由技术名词是否新决定，而由它能否减少一个具体科研或临床决定的不确定性决定。</p>
+          </section>
+        </div>
 
-      <section className="rawb-report-wide-section">
-        <header className="rawb-report-section-heading">
-          <div><ClaimLabel>{model.claimLabels.sampleObservation}</ClaimLabel><h3>期刊与题名模式的直接判断</h3></div>
-          <p>只报告当前数据真正支持的模式，并明确自动编码的解释边界。</p>
-        </header>
-        <FindingList items={model.metadataPatternInsights} />
-      </section>
+        <div className="rawb-report-trend-columns__right">
+          <section className="rawb-report-trend-section is-conclusions" aria-labelledby="rawb-report-trend-conclusions-title">
+            <header>
+              <h3 id="rawb-report-trend-conclusions-title">三、从当前样本中直接得到的选题结论</h3>
+            </header>
+            <FindingList items={directInsights} empty="当前样本还不能形成可复核的选题结论。" />
+          </section>
+
+          <section className="rawb-report-trend-section is-final" aria-labelledby="rawb-report-trend-final-title">
+            <header><h3 id="rawb-report-trend-final-title">四、最后怎么判断</h3></header>
+            <p>{finalJudgment}</p>
+            <p className="rawb-report-trend-formula"><strong>选题公式</strong><span>明确人群 × 临床场景 × 比较策略 × 核心结局 × 验证层级</span></p>
+          </section>
+        </div>
+      </div>
     </div>
   );
 }
@@ -253,14 +316,19 @@ function OpportunityChapter({ model, selectedDirectionId, onDirectionSelect, int
   return (
     <div className="rawb-report-chapter-layout is-opportunities">
       <section className="rawb-report-narrative is-wide">
-        <ClaimLabel tone="inference">{model.claimLabels.researchOpportunityInference}</ClaimLabel>
-        <h2>低频不构成空白；可验证的增量必须改变决策框架</h2>
+        <h2 className="rawb-report-reader-title"><span aria-hidden="true">03</span>下一步，哪些研究问题最值得继续验证？</h2>
         <p className="rawb-report-lead">{model.opportunityThesis}</p>
-        <p className="rawb-report-method-note">以下方案均是待窄检索证伪的结构化候选，不是已证实空白；竞争综述、真实文献量与可比性必须在立题前冻结。</p>
+        <p className="rawb-report-method-note"><strong>判断原则：</strong>候选方向只有在近两年同题综述没有用相同人群、比较轴和核心结局充分回答，且原始研究量足以支持预设比较时，才值得正式立题。</p>
       </section>
 
       <fieldset className="rawb-report-opportunity-list">
         <legend>{onDirectionSelect ? "选择一个方向进入立题方案" : "候选方向比较"}</legend>
+        <div className="rawb-report-opportunity-list__header" aria-hidden="true">
+          <span>候选题目</span>
+          <span>为什么值得写</span>
+          <span>文献组织主线</span>
+          <span>可行性与工作量</span>
+        </div>
         {directions.map((direction, index) => {
           const selected = direction.id === selectedDirectionId;
           const content = (
@@ -268,16 +336,18 @@ function OpportunityChapter({ model, selectedDirectionId, onDirectionSelect, int
               <span className="rawb-report-opportunity-list__rank">{String(index + 1).padStart(2, "0")}</span>
               <span className="rawb-report-opportunity-list__title">
                 <strong>{directionTitle(direction)}</strong>
-                <small><b>核查优先级</b>{direction.priority}</small>
-                <small>{direction.workload?.timeline ? `${direction.workload.timeline} · ` : ""}{direction.workload?.difficulty ? `难度 ${direction.workload.difficulty}` : "难度待窄检索评估"}</small>
+                <small><b>建议顺位</b>{direction.priority}</small>
               </span>
-              <span className="rawb-report-opportunity-list__competition">
-                <b>{direction.externalReviewVerified ? `同题综述：已核查 · 竞争风险${direction.competitionRisk || "待判"}` : "同题综述：待核查"}</b>
-                <small>样本内覆盖信号{direction.coverageSignal || "未知"}：{direction.existingCoverage?.interpretation}</small>
-                <small>{direction.whyNotFullyReviewed}</small>
+              <span className="rawb-report-opportunity-list__value" data-label="为什么值得写">
+                <small>{direction.incrementalValueHypothesis || direction.whyPotentiallyValuable || direction.whyNotFullyReviewed}</small>
               </span>
-              <span className="rawb-report-opportunity-list__increment"><b>可验证增量</b><small>{direction.incrementalValueHypothesis}</small></span>
-              <span className="rawb-report-opportunity-list__discard"><b>放弃或降级条件</b><small>{joinChineseSentences(list(direction.discardConditions).slice(0, 1))}</small></span>
+              <span className="rawb-report-opportunity-list__organization" data-label="文献组织主线">
+                <small>{directionOrganization(direction)}</small>
+              </span>
+              <span className="rawb-report-opportunity-list__workload" data-label="可行性与工作量">
+                <small>{directionWorkload(direction)}</small>
+                <small>先比较近两年同题综述，再决定是否立题。</small>
+              </span>
             </>
           );
           return onDirectionSelect ? (
@@ -301,14 +371,14 @@ function OpportunityChapter({ model, selectedDirectionId, onDirectionSelect, int
 
       <section className="rawb-report-wide-section rawb-report-research-gates">
         <header className="rawb-report-section-heading">
-          <div><ClaimLabel tone="external">{model.claimLabels.externalReviewCheck}</ClaimLabel><h3>选题调研优化建议</h3></div>
-          <p>{model.externalReviewVerificationCount > 0 ? `已有 ${model.externalReviewVerificationCount}/${model.directions.length} 个方向绑定合规核查回执；未绑定方向仍保持待核查。` : "尚无按方向绑定的合规外部综述核查回执；先核查竞争综述、问题边界与真实文献量，再决定综述类型。"}</p>
+          <div><h3>选题调研优化建议</h3></div>
+          <p>按“同题综述比较—问题收窄—文献量估算—新增价值判断”的顺序完成立题。</p>
         </header>
         <ol>
-          <li><strong>竞争综述核查</strong><span>检索近两年同题综述、协议与伞状综述，明确重叠问题。</span></li>
+          <li><strong>同题综述比较</strong><span>逐篇比较近两年综述、协议与伞状综述的问题、评价轴和更新日期。</span></li>
           <li><strong>问题收窄</strong><span>固定人群、疾病阶段、比较策略、核心结局与随访时间。</span></li>
-          <li><strong>文献量预检</strong><span>50–100篇只能作为检索前目标；必须报告命中、去重与初筛后的估计量。</span></li>
-          <li><strong>立题门槛</strong><span>新增价值应来自可比较框架、标准化表格或临床决策路径。</span></li>
+          <li><strong>文献量估算</strong><span>报告命中、去重与初筛后的原始研究量；50–100篇只是工作量目标。</span></li>
+          <li><strong>新增价值判断</strong><span>说明新综述将改变哪一种比较框架、标准化表格或临床决策。</span></li>
         </ol>
       </section>
     </div>
@@ -338,22 +408,19 @@ function PlanChapter({
   return (
     <div className="rawb-report-chapter-layout is-plan">
       <section className="rawb-report-narrative is-wide">
-        <ClaimLabel tone="inference">{model.claimLabels.researchOpportunityInference}</ClaimLabel>
-        <h2>立题边界与执行方案</h2>
-        <p className="rawb-report-lead">本章只展开当前选中的一个方向；标题、文献量与工作周期都是立题候选，需经第二轮窄检索和竞争综述核查后冻结。</p>
+        <h2 className="rawb-report-reader-title"><span aria-hidden="true">04</span>选定方向后，怎样把这篇综述做完？</h2>
+        <p className="rawb-report-lead">本章把当前方向转化为可执行的综述问题、文献结构和停止条件；标题、文献量与周期需用窄检索结果进一步校准。</p>
       </section>
 
       <aside className="rawb-report-selected-direction">
-        <span>探索性立题 · 未验证</span>
+        <span>候选综述方向</span>
         <h3>{directionTitle(direction)}</h3>
         <dl>
-          <div><dt>综述类型</dt><dd>{direction.reviewPlan?.reviewType || "待窄检索确认"}</dd></div>
-          <div><dt>范围状态</dt><dd>待窄检索确认</dd></div>
-          <div><dt>工作量估计</dt><dd>{direction.workload?.targetCoreLiterature ?? "待计算"}</dd></div>
-          <div><dt>周期估计</dt><dd>{direction.workload?.timeline ?? "待评估"}</dd></div>
-          <div><dt>难度估计</dt><dd>{direction.workload?.difficulty ?? "待评估"}</dd></div>
-          <div><dt>同题综述核查</dt><dd>{direction.externalReviewVerified ? "已绑定方向级回执" : "未完成"}</dd></div>
-          <div><dt>原始研究量预检</dt><dd>未完成；50–100篇仅为候选发现目标</dd></div>
+          <div><dt>建议综述类型</dt><dd>{direction.reviewPlan?.reviewType || "依据窄检索结果选择"}</dd></div>
+          <div><dt>核心文献目标</dt><dd>{direction.workload?.targetCoreLiterature ?? "窄检索后估算"}</dd></div>
+          <div><dt>预估周期</dt><dd>{direction.workload?.timeline ?? "窄检索后估算"}</dd></div>
+          <div><dt>预估难度</dt><dd>{direction.workload?.difficulty ?? "窄检索后估算"}</dd></div>
+          <div><dt>首要核查</dt><dd>{direction.externalReviewVerified ? "比较同题综述的评价框架" : "近两年同题综述与协议"}</dd></div>
         </dl>
       </aside>
 
@@ -361,10 +428,9 @@ function PlanChapter({
         <article>
           <h3>为什么这个角度可能形成增量</h3>
           <p>{direction.incrementalValueHypothesis || direction.whyPotentiallyValuable || direction.whySuitable}</p>
-          <p><strong>同题综述状态：</strong>{direction.externalReviewVerified ? `已核查；竞争风险${direction.competitionRisk || "待判"}` : "待绑定可定位的方向级核查回执"}</p>
-          <p><strong>样本内覆盖信号：</strong>{direction.coverageSignal || "未知"}。{direction.existingCoverage?.interpretation || "当前样本尚未形成可计算的主题覆盖。"}</p>
-          <p><strong>为何尚不能判定已被充分综述：</strong>{direction.whyNotFullyReviewed || "当前尚未完成同题综述逐篇比较。"}</p>
-          <p className="rawb-report-method-note"><strong>不能提前承诺：</strong>低频不等于空白，已有综述也不等于问题已解决。正式立题必须完成竞争综述与原始研究量核查。</p>
+          <p><strong>当前样本覆盖：</strong>{direction.existingCoverage?.interpretation || "当前样本尚未形成可计算的主题覆盖。"}</p>
+          <p><strong>竞争性判断：</strong>{direction.whyNotFullyReviewed || "需逐篇比较同题综述的问题、评价轴与更新日期。"}</p>
+          <p className="rawb-report-method-note"><strong>成立条件：</strong>低频本身不能证明空白；只有既有综述没有充分回答同一决策问题，且原始研究可支持预设比较时，候选增量才成立。</p>
         </article>
         <article>
           <h3>范围定义与 PICO / PCC</h3>
@@ -388,7 +454,7 @@ function PlanChapter({
             "第7–9周：提取证据、质量评价并形成比较框架。",
             "第10–12周：综合、写作、导师核查与版本冻结。",
           ]).map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ol>
-          <p><strong>立题门槛：</strong>{direction.verificationGate || "完成第二轮窄检索后再判断。"}</p>
+          <p><strong>继续推进条件：</strong>{direction.verificationGate || "完成窄检索并比较同题综述后再判断。"}</p>
           <p><strong>放弃或降级条件：</strong>{joinChineseSentences(abandonConditions)}</p>
         </article>
       </section>
@@ -446,7 +512,7 @@ function EvidenceRowsTable({ rows, caption }) {
   );
 }
 
-function EvidenceDrawer({ model, evidenceRows, chapterLabel, open, onClose, drawerRef }) {
+function EvidenceDrawer({ model, evidenceRows, chapterLabel, comparison, open, onClose, drawerRef }) {
   return (
     <section
       className="rawb-report-evidence"
@@ -462,13 +528,6 @@ function EvidenceDrawer({ model, evidenceRows, chapterLabel, open, onClose, draw
         <div><h2 id="rawb-report-evidence-title">{chapterLabel} · 本节分析依据</h2><p>先显示本章直接引用的代表性记录；完整纳入账本仍可展开核验。</p></div>
         <button type="button" onClick={onClose}>关闭依据</button>
       </header>
-      <dl className="rawb-report-binding">
-        <div><dt>项目</dt><dd>{model.binding?.projectId ?? "建项前预检"}</dd></div>
-        <div><dt>来源集合</dt><dd>{model.binding?.sourceSetHash ? model.binding.sourceSetHash.slice(0, 12) : "预检指纹待绑定"}</dd></div>
-        <div><dt>报告版本</dt><dd>{model.binding?.reportRevision ?? "建项后生成"}</dd></div>
-        <div><dt>内容指纹</dt><dd>{model.binding?.reportHash ? model.binding.reportHash.slice(0, 12) : "报告内容指纹缺失"}</dd></div>
-        <div><dt>相关性门禁</dt><dd>{model.relevanceGate?.status === "passed" ? "已通过" : model.relevanceGate?.status === "blocked" ? "已阻断" : "建项前待核"}</dd></div>
-      </dl>
       {evidenceRows.length ? (
         <EvidenceRowsTable rows={evidenceRows} caption={`本章直接引用的 ${evidenceRows.length} 篇代表性记录`} />
       ) : <p className="rawb-report-empty">本章结论尚未映射到可定位的代表性记录；在补齐映射前只能作为方法提示。</p>}
@@ -502,6 +561,19 @@ function EvidenceDrawer({ model, evidenceRows, chapterLabel, open, onClose, draw
         </details>
       ) : null}
       <p className="rawb-report-evidence__boundary"><strong>结论边界：</strong>{model.reportBoundary}</p>
+      <details className="rawb-report-technical-audit">
+        <summary>技术审计信息</summary>
+        <p>以下内容供复现、故障诊断和版本核对使用，不参与前台的领域判断。</p>
+        {model.technicalIntegrityBoundary ? <p>{model.technicalIntegrityBoundary}</p> : null}
+        <dl className="rawb-report-binding">
+          <div><dt>项目标识</dt><dd>{model.binding?.projectId ?? "建项前预检"}</dd></div>
+          <div><dt>来源集合指纹</dt><dd>{model.binding?.sourceSetHash ? model.binding.sourceSetHash.slice(0, 12) : "尚未绑定"}</dd></div>
+          <div><dt>报告版本</dt><dd>{model.binding?.reportRevision ?? "建项后生成"}</dd></div>
+          <div><dt>内容指纹</dt><dd>{model.binding?.reportHash ? model.binding.reportHash.slice(0, 12) : "尚未生成"}</dd></div>
+          <div><dt>相关性检查</dt><dd>{model.relevanceGate?.status === "passed" ? "通过" : model.relevanceGate?.status === "blocked" ? "阻断" : "建项前检查"}</dd></div>
+        </dl>
+        <RoundComparison comparison={comparison} />
+      </details>
     </section>
   );
 }
@@ -519,6 +591,7 @@ function downloadMentorBrief(model, options = {}) {
 
 export function ResearchReviewReport({
   landscape,
+  question = "",
   researchReport = null,
   firstRound = null,
   secondRound = null,
@@ -576,6 +649,13 @@ export function ResearchReviewReport({
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const activeIndex = chapterIndex(activeChapter);
   const activeChapterConfig = CHAPTERS[activeIndex];
+  const readerQuestion = String(
+    question
+    || landscape?.question
+    || secondRound?.question
+    || firstRound?.question
+    || "",
+  ).trim();
   const chapterEvidenceRows = researchReportChapterEvidenceRows(
     model,
     activeChapter,
@@ -655,48 +735,57 @@ export function ResearchReviewReport({
   return (
     <section className="rawb-four-chapter-report" aria-labelledby={`${tabBase}-title`}>
       <header className="rawb-four-chapter-report__header">
-        <div>
+        <div className="rawb-four-chapter-report__identity">
           <span>科研工作台 · 综述选题报告</span>
-          <h1 id={`${tabBase}-title`}>{String(activeIndex + 1).padStart(2, "0")} {activeChapterConfig.title}</h1>
-          <p>{model.periodLabel} · {model.claimLabels.sampleObservation} · 题名与摘要级</p>
-          <div className="rawb-report-claim-legend" aria-label="报告结论层级">
-            <ClaimLabel>{model.claimLabels.sampleObservation}</ClaimLabel>
-            <ClaimLabel tone="external">{model.claimLabels.externalReviewCheck}</ClaimLabel>
-            <ClaimLabel tone="inference">{model.claimLabels.researchOpportunityInference}</ClaimLabel>
+          <h1 id={`${tabBase}-title`}>{readerQuestion ? `${readerQuestion}：领域图景与综述选题` : "领域图景与综述选题"}</h1>
+          <p>{model.periodLabel} · {model.analyzedCount} 篇题名与摘要</p>
+          <div className="rawb-report-scope-summary" aria-label="报告用途与证据边界">
+            <span>用途：领域扫描与综述选题</span>
+            <span>观察对象：近五年综述题名与摘要</span>
+            <span>边界：不能单独证明研究空白或临床有效性</span>
           </div>
         </div>
-        <button
-          type="button"
-          className="rawb-report-export"
-          disabled={reportBlocked}
-          onClick={() => downloadMentorBrief(model, { selectionReason, deferredReason })}
-        >导出导师简报</button>
+        <div className="rawb-four-chapter-report__tools">
+          <div className="rawb-four-chapter-report__utility">
+            <button
+              type="button"
+              className="rawb-report-export"
+              disabled={reportBlocked}
+              onClick={() => downloadMentorBrief(model, { selectionReason, deferredReason })}
+            >导出导师简报</button>
+          </div>
+        </div>
       </header>
 
       {relevanceBlocked ? (
-        <p className="rawb-report-blocker" role="alert">研究对象相关性门禁未通过或缺失：当前样本不能进入正式报告、选题决定或导出。</p>
+        <p className="rawb-report-blocker" role="alert">当前样本与研究问题的相关性不足，不能用于领域判断、选题或导出；请返回检索校准并修订范围。</p>
       ) : null}
-      {ledgerBlocked ? <p className="rawb-report-blocker" role="alert">账本完整性门禁未通过：{model.ledgerIntegrity.boundary}</p> : null}
+      {ledgerBlocked ? <p className="rawb-report-blocker" role="alert">纳入记录数量与报告分析分母不一致：{model.ledgerIntegrity.boundary}</p> : null}
       {staleBinding ? (
-        <p className="rawb-report-blocker" role="alert">报告或方向绑定已经过期：{bindingStatus.mismatches.length ? `${bindingStatus.mismatches.join("、")} 与当前项目不一致或缺失。` : "当前报告、首轮方向或内容绑定无法重新核验。"}请返回检索校准并重新扫描；旧报告保留为只读记录，不能导出或用于选题。</p>
+        <p className="rawb-report-blocker" role="alert">本报告使用的证据版本已不是当前版本。请返回检索校准并重新生成；旧报告只供追溯，不能导出或用于选题。</p>
       ) : null}
 
-      <div className="rawb-report-tabs" role="tablist" aria-label="综述选题报告章节" onKeyDown={handleTabKeyDown}>
-        {CHAPTERS.map((chapter) => (
-          <button
-            key={chapter.id}
-            id={`${tabBase}-${chapter.id}-tab`}
-            type="button"
-            role="tab"
-            aria-selected={activeChapter === chapter.id}
-            aria-controls={`${tabBase}-${chapter.id}-panel`}
-            tabIndex={activeChapter === chapter.id ? 0 : -1}
-            className={activeChapter === chapter.id ? "is-active" : ""}
-            onClick={() => selectChapter(chapter.id)}
-          >
-            {chapter.label}
-          </button>
-        ))}
+      <div className="rawb-report-navigation">
+        <div className="rawb-report-tabs" role="tablist" aria-label="综述选题报告章节" onKeyDown={handleTabKeyDown}>
+          {CHAPTERS.map((chapter) => (
+            <button
+              key={chapter.id}
+              id={`${tabBase}-${chapter.id}-tab`}
+              type="button"
+              role="tab"
+              aria-selected={activeChapter === chapter.id}
+              aria-controls={`${tabBase}-${chapter.id}-panel`}
+              tabIndex={activeChapter === chapter.id ? 0 : -1}
+              className={activeChapter === chapter.id ? "is-active" : ""}
+              onClick={() => selectChapter(chapter.id)}
+            >
+              {chapter.label}
+            </button>
+          ))}
+        </div>
+        <button type="button" className="rawb-report-evidence-entry" aria-expanded={evidenceOpen} onClick={evidenceOpen ? closeEvidence : openEvidence}>
+          {evidenceOpen ? "收起本节分析依据" : `查看本节分析依据（${chapterEvidenceRows.length}篇）`}
+        </button>
       </div>
 
       <section
@@ -712,24 +801,18 @@ export function ResearchReviewReport({
           <OpportunityChapter model={model} selectedDirectionId={selectedDirectionId} onDirectionSelect={onDirectionSelect} interactionDisabled={reportBlocked} />
         ) : null}
         {activeChapter === "plan" ? (
-          <>
-            <RoundComparison comparison={comparison} />
-            <PlanChapter
-              model={model}
-              selectionReason={selectionReason}
-              deferredReason={deferredReason}
-              onSelectionReasonChange={onSelectionReasonChange}
-              onDeferredReasonChange={onDeferredReasonChange}
-              interactionDisabled={reportBlocked}
-            />
-          </>
+          <PlanChapter
+            model={model}
+            selectionReason={selectionReason}
+            deferredReason={deferredReason}
+            onSelectionReasonChange={onSelectionReasonChange}
+            onDeferredReasonChange={onDeferredReasonChange}
+            interactionDisabled={reportBlocked}
+          />
         ) : null}
       </section>
 
       <footer className="rawb-report-actions">
-        <button type="button" className="rawb-report-evidence-entry" aria-expanded={evidenceOpen} onClick={evidenceOpen ? closeEvidence : openEvidence}>
-          {evidenceOpen ? "收起本节分析依据" : `查看本节分析依据（${chapterEvidenceRows.length}篇代表性记录）`}
-        </button>
         {(activeIndex < CHAPTERS.length - 1 || onPrimaryAction) ? (
           <button
             type="button"
@@ -742,7 +825,7 @@ export function ResearchReviewReport({
         ) : null}
       </footer>
 
-      <EvidenceDrawer model={model} evidenceRows={chapterEvidenceRows} chapterLabel={activeChapterConfig.label} open={evidenceOpen} onClose={closeEvidence} drawerRef={drawerRef} />
+      <EvidenceDrawer model={model} evidenceRows={chapterEvidenceRows} chapterLabel={activeChapterConfig.label} comparison={comparison} open={evidenceOpen} onClose={closeEvidence} drawerRef={drawerRef} />
       <p className="rawb-four-chapter-report__boundary"><strong>证据与责任边界：</strong>{model.reportBoundary}</p>
     </section>
   );

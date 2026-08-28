@@ -74,9 +74,9 @@ test("four-chapter model normalizes contract label objects and uses review propo
   const selectedId = proposalIds[1];
   const model = buildResearchReviewReportModel({ landscape, selectedDirectionId: selectedId });
   assert.deepEqual(model.claimLabels, {
-    sampleObservation: "20篇样本观察",
-    externalReviewCheck: "外部综述待核查",
-    researchOpportunityInference: "研究机会推断",
+    sampleObservation: "当前20篇综述样本",
+    externalReviewCheck: "立题前核查近两年同题综述",
+    researchOpportunityInference: "候选选题判断",
   });
   assert.equal(model.stratifiedAllocation, true);
   assert.ok(model.directions.length >= 3 && model.directions.length <= 5);
@@ -120,13 +120,16 @@ test("four-chapter model normalizes contract label objects and uses review propo
     .items.some((item) => item.id === "early_onset"));
   assert.match(model.reportBoundary, /题名摘要级/);
   assert.match(model.reportBoundary, /不能替代全文系统综述/);
+  assert.doesNotMatch(model.reportBoundary, /reportHash|数字签名|可信根|事件库|版本库/);
+  assert.match(model.technicalIntegrityBoundary, /reportHash|数字签名/);
   const brief = buildMentorBrief(model);
   assert.match(brief, /题名摘要级|题名与摘要级/);
-  assert.match(brief, /同题综述状态：待绑定可定位的方向级核查回执/);
-  assert.match(brief, /样本内覆盖信号/);
-  assert.match(brief, /待验证增量/);
+  assert.match(brief, /同题综述比较：立题前逐篇比较/);
+  assert.match(brief, /当前样本覆盖/);
+  assert.match(brief, /候选增量/);
   assert.match(brief, /放弃或降级条件/);
-  assert.match(brief, /外部综述状态：外部综述待核查/);
+  assert.match(brief, /立题前核查：立题前核查近两年同题综述/);
+  assert.doesNotMatch(brief, /reportHash|sourceSetHash|数字签名|可信根|事件库|版本库|内容指纹/);
   assert.doesNotMatch(brief, /PMID\s+\d{6,}/);
   assert.equal(buildResearchReviewReportModel({ landscape }).selectedDirection, null);
 });
@@ -287,7 +290,7 @@ test("analysis denominator and evidence rows exclude screening records not admit
   report.ledger.rowCount += 1;
   const model = buildResearchReviewReportModel({ landscape: landscapeFromReport(report) });
   assert.equal(model.analyzedCount, 20);
-  assert.equal(model.claimLabels.sampleObservation, "20篇样本观察");
+  assert.equal(model.claimLabels.sampleObservation, "当前20篇综述样本");
   assert.equal(model.rows.length, 20);
   assert.equal(model.screeningRows.length, 21);
   assert.equal(model.excludedRows.length, 1);
@@ -338,7 +341,7 @@ test("relevance and ledger integrity failures disable report actions with a reco
       onPrimaryAction() {},
       storageKey: failure,
     }));
-    assert.match(markup, failure === "relevance" ? /相关性门禁未通过或缺失/ : /账本完整性门禁未通过/);
+    assert.match(markup, failure === "relevance" ? /当前样本与研究问题的相关性不足/ : /纳入记录数量与报告分析分母不一致/);
     assert.match(markup, /rawb-report-export[^>]*disabled/);
     assert.match(markup, /type="radio"[^>]*disabled/);
     assert.match(markup, /rawb-report-primary[^>]*disabled/);
@@ -424,10 +427,13 @@ test("rendered report accepts object claim labels, exposes one chapter CTA and o
     onPrimaryAction() {},
     storageKey: "render-test",
   }));
-  assert.match(markup, /20篇样本观察/);
-  assert.match(markup, /01 领域图景/);
-  assert.match(markup, /外部综述待核查/);
-  assert.match(markup, /研究机会推断/);
+  assert.match(markup, /本轮分析 20 篇近五年综述/);
+  assert.match(markup, /领域图景与综述选题/);
+  assert.match(markup, /这个领域，目前能确定什么/);
+  assert.doesNotMatch(markup, /rawb-report-workflow/);
+  assert.doesNotMatch(markup, /rawb-report-claim-legend/);
+  assert.match(markup, /rawb-report-scope-summary/);
+  assert.match(markup, /用途：领域扫描与综述选题/);
   assert.doesNotMatch(markup, /\[object Object\]/);
   assert.equal((markup.match(/rawb-report-primary/g) ?? []).length, 1);
   assert.equal((markup.match(/rawb-report-evidence-entry/g) ?? []).length, 1);
@@ -440,12 +446,17 @@ test("rendered report accepts object claim labels, exposes one chapter CTA and o
     onPrimaryAction() {},
     storageKey: "opportunities-test",
   }));
-  assert.match(opportunitiesMarkup, /核查优先级/);
-  assert.match(opportunitiesMarkup, /同题综述：待核查/);
-  assert.match(opportunitiesMarkup, /样本内覆盖信号/);
+  assert.match(opportunitiesMarkup, /下一步，哪些研究问题最值得继续验证/);
+  assert.match(opportunitiesMarkup, /建议顺位/);
+  assert.match(opportunitiesMarkup, /候选题目/);
+  assert.match(opportunitiesMarkup, /为什么值得写/);
+  assert.match(opportunitiesMarkup, /先比较近两年同题综述/);
   assert.doesNotMatch(opportunitiesMarkup, /竞争风险(?:高|中|低)/);
-  assert.match(opportunitiesMarkup, /可验证增量/);
-  assert.match(opportunitiesMarkup, /放弃或降级条件/);
+  assert.match(opportunitiesMarkup, /文献组织主线/);
+  assert.match(opportunitiesMarkup, /可行性与工作量/);
+  assert.doesNotMatch(opportunitiesMarkup, /样本内覆盖信号/);
+  assert.doesNotMatch(opportunitiesMarkup, /放弃或降级条件/);
+  assert.match(opportunitiesMarkup, /选题调研优化建议/);
   assert.match(opportunitiesMarkup, new RegExp(`value="${selectedDirectionId}"`));
 
   storage.setItem("trends-test:chapter", "trends");
@@ -454,9 +465,12 @@ test("rendered report accepts object claim labels, exposes one chapter CTA and o
     selectedDirectionId,
     storageKey: "trends-test",
   }));
-  assert.match(trendsMarkup, /is-inference[^>]*>研究机会推断<\/span><h3>基于样本结构形成的选题策略推断<\/h3>/);
-  assert.match(trendsMarkup, /不是逐篇文献直接证明的价值或新意/);
-  assert.match(trendsMarkup, /必须经同题综述窄检索验证/);
+  assert.match(trendsMarkup, /近五年，研究重点如何变化/);
+  assert.match(trendsMarkup, /rawb-report-trend-columns/);
+  assert.match(trendsMarkup, /近五年的结构性演变/);
+  assert.match(trendsMarkup, /从当前样本中直接得到的选题结论/);
+  assert.match(trendsMarkup, /不代表全领域发文量/);
+  assert.doesNotMatch(trendsMarkup, /rawb-report-analysis-grid/);
 
   storage.setItem("plan-test:chapter", "plan");
   assert.ok(buildResearchReviewReportModel({ landscape, selectedDirectionId }).selectedDirection);
@@ -474,9 +488,8 @@ test("rendered report accepts object claim labels, exposes one chapter CTA and o
     storageKey: "plan-test",
   }));
   assert.match(planMarkup, /范围定义与 PICO \/ PCC/);
-  assert.match(planMarkup, /第二轮 · 聚焦检索（未验证）/);
-  assert.match(planMarkup, /探索性立题 · 未验证/);
-  assert.match(planMarkup, /原始研究量预检/);
+  assert.match(planMarkup, /候选综述方向/);
+  assert.match(planMarkup, /首要核查/);
   assert.match(planMarkup, /核心结局/);
   assert.match(planMarkup, /文献组织思路/);
   assert.match(planMarkup, /工作量、执行与降级条件/);
@@ -490,8 +503,8 @@ test("rendered report accepts object claim labels, exposes one chapter CTA and o
     storageKey: "stale-test",
     currentBinding: { ...gastricReport.binding, sourceSetHash: "f".repeat(64) },
   }));
-  assert.match(staleMarkup, /报告或方向绑定已经过期/);
-  assert.match(staleMarkup, /不能导出或用于选题/);
+  assert.match(staleMarkup, /本报告使用的证据版本已不是当前版本/);
+  assert.match(staleMarkup, /旧报告只供追溯/);
   assert.match(staleMarkup, /rawb-report-export[^>]*disabled/);
   assert.match(staleMarkup, /type="radio"[^>]*disabled/);
   assert.match(staleMarkup, /rawb-report-primary[^>]*disabled/);
@@ -501,6 +514,8 @@ test("responsive report CSS includes 390px, 200% zoom, focus, local overflow, an
   const css = readFileSync(new URL("../src/components/research-review-report.css", import.meta.url), "utf8");
   assert.match(css, /@media \(max-width: 460px\)/);
   assert.match(css, /\.rawb-four-chapter-report\s*\{[\s\S]*?width:\s*100%/);
+  assert.match(css, /\.rawb-report-trend-columns\s*\{[\s\S]*?grid-template-columns/);
+  assert.match(css, /\.rawb-report-opportunity-list__header/);
   assert.match(css, /\.rawb-report-evidence__table-wrap\s*\{[\s\S]*?overflow-x:\s*auto/);
   assert.match(css, /:focus-visible/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);

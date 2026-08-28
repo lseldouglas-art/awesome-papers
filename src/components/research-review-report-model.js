@@ -1,7 +1,7 @@
 const DEFAULT_CLAIM_LABELS = Object.freeze({
-  sampleObservation: "20篇样本观察",
-  externalReviewCheck: "外部综述待核查",
-  researchOpportunityInference: "研究机会推断",
+  sampleObservation: "当前20篇综述样本",
+  externalReviewCheck: "立题前核查近两年同题综述",
+  researchOpportunityInference: "候选选题判断",
 });
 
 const DECISION_CHAIN_THEME_GROUPS = Object.freeze([
@@ -61,6 +61,13 @@ function joinChineseSentences(items) {
     .map((item) => text(item).replace(/[。；;]+$/g, ""))
     .filter(Boolean);
   return sentences.length ? `${sentences.join("；")}。` : "";
+}
+
+function splitBoundarySentences(value) {
+  return text(value)
+    .split(/(?<=。)/u)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
 }
 
 function normalizedDistribution(items, fallbackItems = []) {
@@ -197,9 +204,9 @@ function normalizedReviewDirections(synthesis, themeDistribution, analyzedCount,
       recommendedQuestion: text(proposal?.recommendedQuestion, proposal?.reviewQuestion, proposal?.suggestedTitle),
       whyPotentiallyValuable: text(proposal?.whyPotentiallyValuable),
       whyNotFullyReviewed: text(proposal?.whyNotFullyReviewed)
-        || "尚未完成近两年同题综述的逐篇比较，现阶段不能把该方向写成真实空白。",
+        || "需逐篇比较近两年同题综述是否采用相同人群、比较轴与核心结局；若已充分回答，本方向不成立。",
       incrementalValueHypothesis,
-      noveltyStatus: text(proposal?.noveltyStatus) || "待同题综述窄检索核查",
+      noveltyStatus: text(proposal?.noveltyStatus) || "以同题综述比较结果判断新增价值",
       existingCoverage: {
         count: coverageCount,
         total: coverageTotal,
@@ -287,7 +294,7 @@ export function buildResearchReviewReportModel({
     declaredAnalyzedRowCount: analyzedCount,
     boundary: rows.length === analyzedCount && analyzedCount > 0
       ? "当前分析分母与逐条纳入账本一致。"
-      : `逐条纳入账本为 ${rows.length} 篇，但报告声明分析 ${analyzedCount} 篇；在重新生成报告前不得继续选题或导出。`,
+      : `逐篇纳入记录为 ${rows.length} 篇，但报告声明分析 ${analyzedCount} 篇；在重新生成报告前不得继续选题或导出。`,
   };
   const externalReviewReceipts = verifiedExternalReviewReceipts(contract);
   const derived = contract?.derivedAnalysis ?? {};
@@ -315,17 +322,13 @@ export function buildResearchReviewReportModel({
   const claimLabels = {
     sampleObservation: analyzedCount === 20
       ? DEFAULT_CLAIM_LABELS.sampleObservation
-      : `${analyzedCount}篇样本观察`,
+      : `当前${analyzedCount}篇综述样本`,
     externalReviewCheck: externalReviewVerificationCount === 0
       ? DEFAULT_CLAIM_LABELS.externalReviewCheck
       : externalReviewVerified
-        ? "外部综述已逐方向核查"
-        : `外部综述部分核查 ${externalReviewVerificationCount}/${directions.length}`,
-    researchOpportunityInference: text(
-      contract?.claimLabels?.researchOpportunityInference?.label,
-      contract?.claimLabels?.researchOpportunityInference,
-      DEFAULT_CLAIM_LABELS.researchOpportunityInference,
-    ),
+        ? "已完成近两年同题综述比较"
+        : `继续比较其余同题综述（已完成 ${externalReviewVerificationCount}/${directions.length}）`,
+    researchOpportunityInference: DEFAULT_CLAIM_LABELS.researchOpportunityInference,
   };
   const themeById = new Map(themeDistribution.map((item) => [item.id, item]));
   const mappedThemeIds = new Set(DECISION_CHAIN_THEME_GROUPS.flatMap((group) => group.themeIds));
@@ -468,12 +471,19 @@ export function buildResearchReviewReportModel({
       ? directions.find((item) => item.id === selectedDirectionId) ?? null
       : null);
   const relevanceGate = contract?.relevanceGate ?? null;
-  const reportBoundaryParts = [
-    text(contract?.boundary),
+  const technicalBoundaryPattern = /reportHash|sourceSetHash|数字签名|可信根|事件库|版本库|内容指纹|来源集绑定|哈希/i;
+  const contractBoundarySentences = splitBoundarySentences(contract?.boundary);
+  const publicReportBoundaryParts = [
+    ...contractBoundarySentences.filter((sentence) => !technicalBoundaryPattern.test(sentence)),
     text(contract?.ledger?.samplingMetadata?.boundary),
-    text(professorReport?.boundary, synthesis?.boundary, landscape?.stageBrief?.evidenceBoundary),
+    text(professorReport?.boundary),
+    text(synthesis?.boundary),
+    text(landscape?.stageBrief?.evidenceBoundary),
   ].filter(Boolean);
-  const reportBoundary = [...new Set(reportBoundaryParts)].join(" ")
+  const technicalIntegrityBoundary = contractBoundarySentences
+    .filter((sentence) => technicalBoundaryPattern.test(sentence))
+    .join(" ");
+  const reportBoundary = [...new Set(publicReportBoundaryParts)].join(" ")
     || "当前结论仅来自分层抽取的 PubMed 题名与可用摘要，不是全量文献计量、全文质量评价或研究空白定论。";
 
   return {
@@ -514,6 +524,7 @@ export function buildResearchReviewReportModel({
     externalReviewVerified,
     externalReviewVerificationCount,
     reportBoundary,
+    technicalIntegrityBoundary,
     evidenceBoundary: text(professorReport?.traceability?.accessBoundary, landscape?.stageBrief?.evidenceBoundary, reportBoundary),
   };
 }
@@ -638,7 +649,7 @@ export function buildMentorBrief(model, {
     "# 综述选题导师简报",
     "",
     `研究窗口：${model?.periodLabel ?? "当前检索窗口"}`,
-    `证据层级：${model?.claimLabels?.sampleObservation ?? "当前分层样本观察"}`,
+    `分析范围：${model?.claimLabels?.sampleObservation ?? "当前分层综述样本"}`,
     `样本数量：${model?.analyzedCount ?? 0} 篇`,
     "",
     "## 当前判断",
@@ -651,10 +662,10 @@ export function buildMentorBrief(model, {
     direction?.displayTitle || direction?.direction || "尚未选择方向",
     direction?.recommendedQuestion ? `建议问题：${direction.recommendedQuestion}` : "",
     direction?.priority ? `核查优先级：${direction.priority}` : "",
-    `同题综述状态：${direction?.externalReviewVerified ? `已核查，竞争风险${direction?.competitionRisk ?? "待判"}` : "待绑定可定位的方向级核查回执"}`,
-    direction?.existingCoverage?.interpretation ? `样本内覆盖信号（${direction?.coverageSignal ?? "未知"}）：${direction.existingCoverage.interpretation}` : "",
-    direction?.whyNotFullyReviewed ? `尚不能判定已被充分综述的理由：${direction.whyNotFullyReviewed}` : "",
-    direction?.incrementalValueHypothesis ? `待验证增量：${direction.incrementalValueHypothesis}` : "",
+    `同题综述比较：${direction?.externalReviewVerified ? `已完成；竞争风险${direction?.competitionRisk ?? "待判"}` : "立题前逐篇比较近两年同范围综述、协议与伞状综述"}`,
+    direction?.existingCoverage?.interpretation ? `当前样本覆盖（${direction?.coverageSignal ?? "未知"}）：${direction.existingCoverage.interpretation}` : "",
+    direction?.whyNotFullyReviewed ? `竞争性判断：${direction.whyNotFullyReviewed}` : "",
+    direction?.incrementalValueHypothesis ? `候选增量：${direction.incrementalValueHypothesis}` : "",
     direction?.scopeDefinition ? `PICO/PCC 边界：${direction.scopeDefinition}` : "",
     list(direction?.coreOutcomes).length ? `核心结局：${list(direction.coreOutcomes).join("、")}` : "",
     list(direction?.organization ?? direction?.outline).length
@@ -663,7 +674,7 @@ export function buildMentorBrief(model, {
     direction?.workload?.targetCoreLiterature ? `文献量目标：${direction.workload.targetCoreLiterature}` : "",
     direction?.workload?.timeline ? `时间估计：${direction.workload.timeline}` : "",
     direction?.workload?.difficulty ? `难度估计：${direction.workload.difficulty}` : "",
-    direction?.verificationGate ? `立题门槛：${direction.verificationGate}` : "",
+    direction?.verificationGate ? `继续推进条件：${direction.verificationGate}` : "",
     list(direction?.discardConditions ?? direction?.abandonConditions).length
       ? `放弃或降级条件：${joinChineseSentences(direction?.discardConditions ?? direction?.abandonConditions)}`
       : "",
@@ -671,7 +682,7 @@ export function buildMentorBrief(model, {
     text(deferredReason) ? `其余方向暂缓理由：${text(deferredReason)}` : "",
     "",
     "## 证据边界",
-    `外部综述状态：${model?.claimLabels?.externalReviewCheck ?? "外部综述待核查"}`,
+    `立题前核查：${model?.claimLabels?.externalReviewCheck ?? "比较近两年同题综述"}`,
     model?.reportBoundary || "当前仅为题名与摘要级判断。",
   ];
   return lines.filter((line, index) => line || lines[index - 1] !== "").join("\n").trim();

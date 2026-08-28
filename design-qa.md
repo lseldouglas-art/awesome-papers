@@ -1,3 +1,28 @@
+# 科研工作台 v0.1.3 领域优先验收记录
+
+- 验收日期：2026-08-28
+- 本地地址：http://127.0.0.1:5177/research-workbench
+- 桌面截图：`docs/audits/field-first-2026-08-28/02-after-field-brief.png`
+- 技术审计截图：`docs/audits/field-first-2026-08-28/03-technical-audit.png`
+- 移动截图：`docs/audits/field-first-2026-08-28/04-mobile-field-brief.png`
+- 前后对照：`docs/audits/field-first-2026-08-28/05-before-after.png`
+
+## 本轮验收结论
+
+| 核查项 | 结果 | 说明 |
+| --- | --- | --- |
+| 领域判断优先 | 通过 | 首屏顺序为领域简报、研究者决定与证据来源，不再以运行阶段开场。 |
+| 状态机后台化 | 通过 | Pi 运行模式、研究旅程、质量计数、版本、哈希与工具日志集中到“技术审计”。 |
+| 科研边界保留 | 通过 | 20 篇样本、题名摘要访问层级、PMID、同题综述待核查及低频不等于空白均保留。 |
+| 导师简报纯度 | 通过 | `reportHash`、数字签名、可信根与事件库说明不再进入科研简报。 |
+| 桌面 4:3 | 通过 | 1448 × 1086 无页面级横向溢出。 |
+| 移动端 | 通过 | 390 × 844 无页面级横向溢出；技术审计中的 Pi 信息仍可访问。 |
+| 自动化回归 | 通过 | Core 285、model 9、UI 13、API E2E 1 均通过；production build 与 diff check 通过。 |
+
+final result: passed
+
+---
+
 # 科研工作台 v0.1.2 设计与科研验收记录
 
 - 验收日期：2026-08-28

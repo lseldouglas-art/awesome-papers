@@ -3,7 +3,7 @@
 > 本地优先、可审计、证据边界明确的 PubMed 综述工作台。  
 > A local-first, auditable workbench for evidence-bounded PubMed reviews.
 
-![Research Workbench v0.1.2 four-chapter review report](./docs/assets/research-report-v012-01-landscape.png)
+![Research Workbench v0.1.3 field-first research brief](./docs/audits/field-first-2026-08-28/02-after-field-brief.png)
 
 [![CI](https://github.com/lseldouglas-art/research-workbench/actions/workflows/ci.yml/badge.svg)](https://github.com/lseldouglas-art/research-workbench/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
@@ -34,6 +34,7 @@ Working today:
 - pause, recovery, protocol revision, and cancellation boundaries;
 - evidence brief, evidence outline, and audited-review completion profiles;
 - researcher-facing stage brief with conclusions, evidence boundaries, and next decisions;
+- a field-first workspace that leads with the domain landscape and keeps Pi runtime, workflow state, versions, and hashes in a technical-audit tab;
 - four text-first report chapters that move from field landscape to one executable review direction;
 - chapter-level PMID evidence drawers and a separately expandable complete source ledger;
 - fail-closed second-round topic validation bound to the exact report, proposal, reasons, focus mapping, and query;
