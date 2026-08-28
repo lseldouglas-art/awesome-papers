@@ -9,6 +9,7 @@ import {
 
 import evidenceFirefly from "../assets/evidence-firefly-v1.png";
 import { ResearchReviewReport } from "./ResearchReviewReport.jsx";
+import { buildResearchReviewReportModel } from "./research-review-report-model.js";
 import {
   firstRoundCheckpointFrom,
   loadScopingDraft,
@@ -541,6 +542,13 @@ function asArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function researcherFacingCriteria(value) {
+  const internalCriterion = /真实用户|决定理由被记录|明确作出|Agent|状态机|工作单|节点编号|指纹|哈希|校验码|版本绑定/;
+  return asArray(value)
+    .map((item) => String(item).trim())
+    .filter((item) => item && !internalCriterion.test(item));
+}
+
 function queryPlanExecutionLabel(status) {
   if (status === "completed") return "专业检索策略已生成 · 已完成模型扩词";
   if (status === "baseline_completed") return "专业检索策略初稿已生成";
@@ -567,6 +575,82 @@ function asCollection(value) {
 
 function firstText(...values) {
   return values.find((value) => typeof value === "string" && value.trim())?.trim();
+}
+
+const FRONTSTAGE_INTERNAL_LANGUAGE = /Agent|安全保存点|安全边界|阶段边界|人工边界|内部执行状态|计划指纹|方向选择指纹|内容指纹|来源集合指纹|哈希|校验码|本机检查点|科研运行时|接口返回/;
+
+export function researcherFacingErrorMessage(error) {
+  const raw = firstText(error?.message, typeof error === "string" ? error : null) ?? "";
+  const code = firstText(error?.code, error?.payload?.code)?.toUpperCase() ?? "";
+
+  if (code === "PUBMED_NO_RESULTS" || /PubMed.*(?:零结果|未返回结果)/i.test(raw)) {
+    return "本次 PubMed 检索未返回结果，请修改检索式后重试。";
+  }
+  if (/^PUBMED_/.test(code)) {
+    return "PubMed 本次检索未完成；已有材料不受影响，请稍后重试。";
+  }
+  if (/QUERY_.*(?:REQUIRED|INCOMPLETE)/.test(code)) {
+    return "当前检索准备材料不完整，请重新完成本步检索校准。";
+  }
+  if (["NETWORK_ERROR", "INVALID_JSON", "FETCH_UNAVAILABLE"].includes(code)) {
+    return "当前无法更新研究材料；已有简报仍可查看，详细原因见“技术审计”。";
+  }
+  if (
+    /(?:STALE|FINGERPRINT|HASH|BIND|MISMATCH|CONFLICT)/.test(code) ||
+    FRONTSTAGE_INTERNAL_LANGUAGE.test(raw) ||
+    /(?:必须绑定|绑定当前|可写入的编号)/.test(raw)
+  ) {
+    return "当前研究材料与最新记录不一致，请刷新后重新核对；详细原因见“技术审计”。";
+  }
+  return raw || "当前研究请求没有完成，请核对输入与证据范围后重试。";
+}
+
+function researcherFacingBlockerText(project) {
+  const blocker = project?.blocker && typeof project.blocker === "object"
+    ? project.blocker
+    : null;
+  const retryClass = firstText(blocker?.retryClass);
+  if (retryClass === "protocol_revision_required") {
+    return "当前检索式未获得可分析结果，需要检查主题词、同义词、字段限制或研究范围。";
+  }
+  if (retryClass === "same_protocol_retry") {
+    return "检索服务暂时未完成请求；当前检索式可以保留并重试。";
+  }
+  if (retryClass === "human_review_required") {
+    return "现有信息不足以判断问题来自检索式还是检索服务，需要核对后选择重试或修订。";
+  }
+  const raw = firstText(blocker?.reason, blocker?.message, typeof project?.blocker === "string" ? project.blocker : null);
+  return raw && !FRONTSTAGE_INTERNAL_LANGUAGE.test(raw)
+    ? raw
+    : "当前研究材料需要重新核对后再继续。";
+}
+
+export function researcherFacingNextDecision(project) {
+  const gate = pendingGateForProject(project);
+  if (gate) return `请确认「${firstText(gate.userLabel, gate.label) ?? "当前研究范围"}」；确认后继续下一项科研工作。`;
+  const review = pendingReviewForProject(project);
+  if (review) return `请复核「${firstText(review.userLabel, review.label) ?? "当前研究材料"}」，并选择接受或要求修订。`;
+
+  const currentNodeId = currentNodeIdForProject(project);
+  if (currentNodeId === "approve_scope") {
+    return "先确认研究范围，再用真实文献回答领域现状、主要问题与选题机会。";
+  }
+
+  const status = projectStatus(project);
+  if (status === "completed") return "查看完整科研成果，并按已记录的证据边界解释和使用。";
+  if (status === "cancelled") return "如需继续，请基于原研究问题建立新一轮文献调研。";
+  if (status === "paused") return "核对当前研究问题、检索式与已保存材料，决定继续、修订或结束本轮。";
+  if (status === "blocked") return `${researcherFacingBlockerText(project)} 请据此选择重试或修订。`;
+  if (POLLING_STATUSES.has(status)) return "研究材料正在更新；形成新的可核查依据后，再判断下一项需要补证的问题。";
+
+  const candidate = firstText(
+    project?.userBrief?.nextStepOrUserDecision,
+    project?.summary?.nextDecision,
+    project?.currentTask?.userLabel,
+  );
+  return candidate && !FRONTSTAGE_INTERNAL_LANGUAGE.test(candidate)
+    ? candidate
+    : "根据当前证据决定下一项需要核查的科研问题。";
 }
 
 function unwrapData(payload) {
@@ -1241,21 +1325,7 @@ function DecisionReason({
   );
 }
 
-function IntegrityRecord({ value, label = "决定记录" }) {
-  if (!value) return null;
-  return (
-    <details className="rawb-integrity-record">
-      <summary>技术审计信息</summary>
-      <div>
-        <strong>{label}</strong>
-        <span>完整校验码仅用于确认这一版内容未被替换。</span>
-        <code>{value}</code>
-      </div>
-    </details>
-  );
-}
-
-function ReviewArtifactList({ artifacts, heading, authorityFingerprint = null }) {
+function ReviewArtifactList({ artifacts, heading }) {
   const [copiedId, setCopiedId] = useState("");
 
   async function handleCopy(itemKey, artifact) {
@@ -1272,7 +1342,6 @@ function ReviewArtifactList({ artifacts, heading, authorityFingerprint = null })
   return (
     <section className="rawb-review-artifacts" aria-label={heading}>
       <h4>{heading}</h4>
-      <IntegrityRecord value={authorityFingerprint} label="审批绑定" />
       <details className="rawb-review-artifacts__list">
         <summary>查看 {artifacts.length} 项候选研究内容</summary>
         <div className="rawb-result-list">
@@ -1305,7 +1374,9 @@ function GateDecision({ gate, busy, onDecision }) {
   const purpose = gateNodeId === "approve_scope"
     ? "先确认这一轮要研究的领域、粗问题与不可越过的边界。文献调研之后仍会单独确认最终目标选题。"
     : firstText(gate.reason, gate.purpose, gate.explanation, gate.description) ?? "这一步会改变后续研究范围，需要由研究者明确决定。";
-  const criteria = asArray(gate.acceptanceCriteria ?? gate.criteria);
+  const criteria = gateNodeId === "approve_scope"
+    ? ["研究领域与粗问题符合本轮研究目的", "初始范围足以支持后续文献调研且没有越过当前证据边界"]
+    : researcherFacingCriteria(gate.acceptanceCriteria ?? gate.criteria);
   const artifacts = asCollection(gate.artifacts ?? gate.inputs ?? gate.outputs);
   const validReason = reason.trim().length >= 8;
 
@@ -1326,7 +1397,6 @@ function GateDecision({ gate, busy, onDecision }) {
       <ReviewArtifactList
         artifacts={artifacts}
         heading="批准前先核对这些研究内容"
-        authorityFingerprint={firstText(gate.gateFingerprint, gate.fingerprint)}
       />
       <DecisionReason id={reasonId} label="决定理由" value={reason} onChange={setReason} />
       <div className="rawb-decision__actions">
@@ -1376,7 +1446,6 @@ function HumanReview({ review, busy, onDecision }) {
       <ReviewArtifactList
         artifacts={outputs}
         heading="接受前先核对候选正文与结构"
-        authorityFingerprint={firstText(review.materialFingerprint, review.fingerprint)}
       />
       <DecisionReason id={reasonId} label="复核意见" value={reason} onChange={setReason} />
       <div className="rawb-decision__actions">
@@ -1411,14 +1480,7 @@ function ResearchUserBrief({ project, briefRef, feedback, onViewEvidence }) {
     : {};
   const conclusions = asCollection(brief.newConclusions);
   const boundaries = asArray(evidenceBoundary.boundaries).filter(Boolean);
-  const currentNodeId = currentNodeIdForProject(project);
-  const nextStep = currentNodeId === "approve_scope"
-    ? "先确认研究范围，再用真实文献回答领域现状、主要问题与选题机会。"
-    : firstText(
-      brief.nextStepOrUserDecision,
-      project?.summary?.nextDecision,
-      project?.currentTask?.userLabel,
-    ) ?? "根据当前证据决定下一项需要核查的科研问题。";
+  const nextStep = researcherFacingNextDecision(project);
   const accessSummary = firstText(
     evidenceBoundary.accessSummary,
     project?.summary?.boundary,
@@ -1475,7 +1537,6 @@ function ResearchUserBrief({ project, briefRef, feedback, onViewEvidence }) {
 }
 
 function DeliverySummary({ project }) {
-  const records = asCollection(project?.events ?? project?.records ?? project?.history ?? project?.runLog);
   const serverCategories = serverResearchCategories(project);
   const researchOutputCount = Number.isFinite(Number(project?.researchOutputCount))
     ? Number(project.researchOutputCount)
@@ -1500,7 +1561,8 @@ function DeliverySummary({ project }) {
   const hasAuditedManuscript = asCollection(project?.artifacts).some(
     (artifact) => artifact?.type === "AuditedManuscript",
   );
-  const hasSources = asCollection(project?.sourceMaterials).length > 0;
+  const sourceCount = asCollection(project?.sourceMaterials).length;
+  const hasSources = sourceCount > 0;
   const hasSignedManifest = ["ExportManifest", "AuthorApproval", "SignedDelivery"].every(
     (type) => asCollection(project?.artifacts).some((artifact) => artifact?.type === type),
   );
@@ -1508,17 +1570,16 @@ function DeliverySummary({ project }) {
   return (
     <section className="rawb-delivery-summary" aria-labelledby="rawb-delivery-title">
       <div className="rawb-delivery-summary__heading">
-        <p className="rawb-eyebrow">{processDraft ? "流程演练交付" : "研究交付"}</p>
-        <h2 id="rawb-delivery-title">{formalResearchComplete ? "本次研究已经完成" : "本轮科研流程已经走完"}</h2>
+        <p className="rawb-eyebrow">{processDraft ? "受限研究材料" : "研究交付"}</p>
+        <h2 id="rawb-delivery-title">{formalResearchComplete ? "本次研究成果已形成" : "本轮研究材料已形成"}</h2>
         <p>{formalResearchComplete
-          ? "约定的研究目标均已通过，正式版本已经冻结。你仍可查看成果、核查写作和追溯全过程。"
-          : `“${completionProfile?.label ?? "本轮研究目标"}”已经到达约定终点，内容等级标注为“${maturityLabel}”。请按照服务端记录的证据边界理解和使用这些成果。`}</p>
+          ? "正式研究版本已经形成；请继续核对结论、来源与限制，再决定解释和发布方式。"
+          : `当前材料对应“${completionProfile?.label ?? "本轮研究目标"}”，内容等级为“${maturityLabel}”。请严格按已记录的证据边界理解和使用。`}</p>
       </div>
       <dl className="rawb-delivery-summary__stats">
-        <div><dt>流程状态</dt><dd>{processDraft ? "演练完成" : "完成"}</dd></div>
         <div><dt>内容等级</dt><dd>{maturityLabel}</dd></div>
         <div><dt>科研成果</dt><dd>{researchOutputCount} 项</dd></div>
-        <div><dt>研究记录</dt><dd>{records.length} 条</dd></div>
+        <div><dt>来源材料</dt><dd>{sourceCount} 条</dd></div>
       </dl>
       <div className="rawb-delivery-summary__limitation">
         <strong>交付时仍需记住</strong>
@@ -1546,7 +1607,7 @@ function DeliverySummary({ project }) {
         )}
       </div>
       <aside className="rawb-guardrail">
-        <div><strong>研究过程可追溯，作者仍负责</strong><p>后台保留检索、核查与修改记录；最终解释、署名和发布决定仍由研究者承担。</p></div>
+        <div><strong>成果可追溯，作者仍负责</strong><p>每项结论都应回到来源与访问层级核对；最终解释、署名和发布决定仍由研究者承担。</p></div>
       </aside>
     </section>
   );
@@ -1775,7 +1836,6 @@ function EvidenceOverview({ project }) {
     landscape.abstractAvailableCount ?? synthesis.abstractAvailableCount ?? 0,
   );
   const themes = asArray(synthesis.themeCoverage ?? landscape.themeCoverage).slice(0, 5);
-  const directions = asArray(synthesis?.directionReport?.directions).slice(0, 4);
 
   const abstractRatio = analyzedCount > 0
     ? Math.max(0, Math.min(100, Math.round((abstractCount / analyzedCount) * 100)))
@@ -1795,6 +1855,10 @@ function EvidenceOverview({ project }) {
         synthesis?.summaries?.coverage,
         brief.newFindings?.[0],
       ) ?? "当前题名与摘要样本用于识别主要研究分支、具体问题与可进一步核查的选题方向。"}</p>
+      <aside className="rawb-evidence-overview__legacy">
+        <strong>这项资料需要按最新方法重新分析</strong>
+        <p>当前只保留主题覆盖与摘要可访问性，尚未形成具体领域问题、可复核的时间趋势和成熟综述方案；因此不展示旧版自动候选方向。</p>
+      </aside>
 
       <div className="rawb-evidence-overview__visuals">
         <section className="rawb-evidence-clusters" aria-labelledby="rawb-evidence-clusters-title">
@@ -1849,27 +1913,6 @@ function EvidenceOverview({ project }) {
         </section>
       </div>
 
-      {directions.length ? (
-        <section className="rawb-direction-shortlist" aria-labelledby="rawb-direction-shortlist-title">
-          <div className="rawb-visual-heading">
-            <h4 id="rawb-direction-shortlist-title">候选研究方向</h4>
-            <span>文献调研后再确认选题</span>
-          </div>
-          <ol>
-            {directions.map((direction, index) => (
-              <li key={direction.id ?? direction.direction}>
-                <span>{index + 1}</span>
-                <div>
-                  <strong>{direction.direction}</strong>
-                  <p>{direction.recommendedQuestion}</p>
-                </div>
-                <em>{index === 0 ? "优先核查" : "备选"}</em>
-              </li>
-            ))}
-          </ol>
-        </section>
-      ) : null}
-
       <footer className="rawb-evidence-overview__boundary">
         <div><strong>目前可以说</strong><p>{firstText(synthesis?.summaries?.coverage, brief.newFindings?.[0]) ?? "已获得用于校准研究方向的题名摘要样本。"}</p></div>
         <div><strong>目前不能说</strong><p>{firstText(brief.evidenceBoundary) ?? "不能据此认定研究空白、因果关系或临床决策价值。"}</p></div>
@@ -1897,12 +1940,22 @@ function TaskPanel({
   const taskLabel = taskNodeId === "approve_scope"
     ? "确认研究意向"
     : firstText(task.userLabel, task.title, task.label) ?? "准备下一步研究任务";
+  const taskObjective = firstText(task.objective, task.purpose, task.description, project?.nextAction);
   const objective = taskNodeId === "approve_scope"
     ? "确认当前研究领域、粗问题和初始边界；最终目标选题将在文献调研后单独形成。"
-    : firstText(task.objective, task.purpose, task.description, project?.nextAction) ?? "请根据当前领域判断确定下一项需要核查的研究问题。";
-  const acceptance = asArray(task.acceptanceCriteria ?? task.criteria);
+    : taskObjective && !FRONTSTAGE_INTERNAL_LANGUAGE.test(taskObjective)
+      ? taskObjective
+      : "请根据当前领域判断确定下一项需要核查的研究问题。";
+  const acceptance = researcherFacingCriteria(task.acceptanceCriteria ?? task.criteria);
   const outputs = asArray(task.requiredOutputs ?? task.outputs);
-  const blocker = firstText(project?.blocker?.message, project?.blocker, task.blocker);
+  const taskBlocker = firstText(task.blocker);
+  const blocker = project?.blocker
+    ? researcherFacingBlockerText(project)
+    : taskBlocker && !FRONTSTAGE_INTERNAL_LANGUAGE.test(taskBlocker)
+      ? taskBlocker
+      : taskBlocker
+        ? "当前研究材料需要重新核对后再继续。"
+        : null;
   const structuredBlocker = project?.blocker && typeof project.blocker === "object"
     ? project.blocker
     : null;
@@ -1954,7 +2007,7 @@ function TaskPanel({
           <section className={`rawb-recovery is-${retryClass}`} aria-labelledby="rawb-recovery-title">
             <div className="rawb-recovery__heading">
               <div>
-                <p>研究已停在安全位置</p>
+                <p>当前检索需要处理</p>
                 <h3 id="rawb-recovery-title">
                   {retryClass === "protocol_revision_required"
                     ? "本轮是零结果，需要修订检索协议"
@@ -1963,13 +2016,10 @@ function TaskPanel({
                       : "失败类型需要研究者判断"}
                 </h3>
               </div>
-              <span>{firstText(structuredBlocker?.code) ?? "失败代码未记录"}</span>
             </div>
             <dl className="rawb-recovery__facts">
-              <div><dt>失败原因</dt><dd>{firstText(structuredBlocker?.reason) ?? "未记录"}</dd></div>
-              <div><dt>失败步骤</dt><dd>{firstText(project?.recovery?.safeCheckpoint?.label, structuredBlocker?.stage) ?? "当前正式检索步骤"}</dd></div>
+              <div><dt>无法继续的原因</dt><dd>{researcherFacingBlockerText(project)}</dd></div>
               <div><dt>原检索式</dt><dd><code>{failedQuery || "未记录"}</code></dd></div>
-              <div><dt>安全保存点</dt><dd>{firstText(project?.recovery?.safeCheckpoint?.message) ?? "项目、既有产物和成功检索回执均已保存。"}</dd></div>
             </dl>
             {retryClass === "same_protocol_retry" ? (
               <div className="rawb-recovery__single-action">
@@ -2051,7 +2101,7 @@ function TaskPanel({
             event.preventDefault();
             onRetrySearch?.(retryQuery.trim());
           }}>
-            <div><strong>在同一个项目修改检索式</strong><p>不会新建第二个项目；成功后会保存新的检索式并从这个安全位置继续。</p></div>
+            <div><strong>在同一个项目修改检索式</strong><p>不会新建第二个项目；成功后将保存新检索式，并继续完成本轮文献调研。</p></div>
             <label htmlFor="rawb-retry-search-query">PubMed 英文检索式</label>
             <input
               id="rawb-retry-search-query"
@@ -2098,7 +2148,7 @@ function TaskPanel({
       {review ? <HumanReview review={review} busy={busy} onDecision={onReviewDecision} /> : null}
       {!gate && !review ? (
         <aside className="rawb-guardrail">
-          <div><strong>后台按科研边界推进</strong><p>只有证据范围和研究者决定允许时才会继续；内部执行状态不占用前台简报空间。</p></div>
+          <div><strong>先核对证据，再决定下一问</strong><p>范围、选题与结论边界不会因为继续检索而自动改变。</p></div>
         </aside>
       ) : null}
     </div>
@@ -2166,7 +2216,6 @@ function ArtifactResult({
         </div>
       </div>
       <p className="rawb-result-card__summary">{serverShaped ? researchOutputSummary(artifact) : artifactSummary(artifact)}</p>
-      <IntegrityRecord value={artifact?.contentHash} label="内容版本" />
       {open ? (
         <div className="rawb-result-detail" id={itemId}>
           {serverShaped && artifact?.readableBody ? <div className="rawb-result-detail__body">{artifact.readableBody}</div> : null}
@@ -2485,7 +2534,7 @@ function WritingPanel({ project }) {
   );
 }
 
-function RecordsPanel({ project, runtime, runtimeLoading, runtimeError }) {
+function RecordsPanel({ project, runtime, runtimeLoading, runtimeError, actionError }) {
   const events = asCollection(project?.events ?? project?.records ?? project?.history ?? project?.runLog);
   const decisions = asCollection(project?.decisionTimeline);
   const quality = project?.researchQualityMetrics;
@@ -2502,6 +2551,25 @@ function RecordsPanel({ project, runtime, runtimeLoading, runtimeError }) {
     const bTime = new Date(b?.at ?? b?.createdAt ?? b?.timestamp ?? 0).getTime();
     return bTime - aTime;
   });
+  const technicalBlocker = project?.blocker && typeof project.blocker === "object"
+    ? project.blocker
+    : null;
+  const technicalActionError = firstText(
+    actionError?.message,
+    typeof actionError === "string" ? actionError : null,
+  );
+  const landscape = researchWorkbenchVisibleLandscape(project);
+  let reportAuditModel = null;
+  if (project?.researchReport || landscape?.researchReport) {
+    try {
+      reportAuditModel = buildResearchReviewReportModel({
+        landscape,
+        researchReport: project?.researchReport,
+      });
+    } catch {
+      reportAuditModel = null;
+    }
+  }
 
   return (
     <div className="rawb-records-layout">
@@ -2516,6 +2584,43 @@ function RecordsPanel({ project, runtime, runtimeLoading, runtimeError }) {
         <RuntimeBadge runtime={runtime} loading={runtimeLoading} error={runtimeError} />
       </section>
       <ResearchProgress project={project} />
+      {technicalActionError ? (
+        <details className="rawb-technical-log rawb-technical-report-audit">
+          <summary>展开最近一次请求的技术信息</summary>
+          <dl className="rawb-technical-binding">
+            <div><dt>错误代码</dt><dd>{firstText(actionError?.code, actionError?.payload?.code) ?? "未记录"}</dd></div>
+            <div><dt>HTTP 状态</dt><dd>{actionError?.status || "未记录"}</dd></div>
+            <div><dt>原始说明</dt><dd>{technicalActionError}</dd></div>
+          </dl>
+        </details>
+      ) : null}
+      {technicalBlocker ? (
+        <details className="rawb-technical-log rawb-technical-report-audit">
+          <summary>展开当前阻断的技术信息</summary>
+          <dl className="rawb-technical-binding">
+            <div><dt>失败代码</dt><dd>{firstText(technicalBlocker.code) ?? "未记录"}</dd></div>
+            <div><dt>恢复类别</dt><dd>{firstText(technicalBlocker.retryClass) ?? "未记录"}</dd></div>
+            <div><dt>内部步骤</dt><dd>{firstText(project?.recovery?.safeCheckpoint?.label, technicalBlocker.stage) ?? "未记录"}</dd></div>
+            <div><dt>安全保存点</dt><dd>{firstText(project?.recovery?.safeCheckpoint?.message) ?? "项目与既有记录已保留"}</dd></div>
+            <div><dt>原始说明</dt><dd>{firstText(technicalBlocker.message, technicalBlocker.reason) ?? "未记录"}</dd></div>
+          </dl>
+        </details>
+      ) : null}
+      {reportAuditModel ? (
+        <details className="rawb-technical-log rawb-technical-report-audit">
+          <summary>展开报告绑定与技术完整性信息</summary>
+          <p>这些字段只用于复现、故障诊断和版本核对，不参与领域现状、趋势或选题判断。</p>
+          {reportAuditModel.technicalIntegrityBoundary ? <p>{reportAuditModel.technicalIntegrityBoundary}</p> : null}
+          <dl className="rawb-technical-binding">
+            <div><dt>项目标识</dt><dd>{reportAuditModel.binding?.projectId ?? "建项前预检"}</dd></div>
+            <div><dt>来源集合指纹</dt><dd>{reportAuditModel.binding?.sourceSetHash ? reportAuditModel.binding.sourceSetHash.slice(0, 12) : "尚未绑定"}</dd></div>
+            <div><dt>报告版本</dt><dd>{reportAuditModel.binding?.reportRevision ?? "建项后生成"}</dd></div>
+            <div><dt>内容指纹</dt><dd>{reportAuditModel.binding?.reportHash ? reportAuditModel.binding.reportHash.slice(0, 12) : "尚未生成"}</dd></div>
+            <div><dt>研究对象相关性</dt><dd>{reportAuditModel.relevanceGate?.status === "passed" ? "通过" : reportAuditModel.relevanceGate?.status === "blocked" ? "阻断" : "建项前检查"}</dd></div>
+            <div><dt>逐篇文献清单</dt><dd>{reportAuditModel.ledgerIntegrity?.status === "passed" ? "一致" : "阻断"}</dd></div>
+          </dl>
+        </details>
+      ) : null}
       {quality ? (
         <section className="rawb-quality-pulse" aria-labelledby="rawb-quality-pulse-title">
           <div className="rawb-quality-pulse__heading">
@@ -3683,6 +3788,7 @@ export function ResearchAgentWorkbench({
   const [runtime, setRuntime] = useState(null);
   const [runtimeLoading, setRuntimeLoading] = useState(true);
   const [runtimeError, setRuntimeError] = useState("");
+  const [lastTechnicalError, setLastTechnicalError] = useState(null);
   const [projects, setProjects] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState(initialProjectId);
   const [project, setProject] = useState(null);
@@ -3718,7 +3824,9 @@ export function ResearchAgentWorkbench({
 
   const request = useCallback(async (path, { method = "GET", body, signal, idempotencyKey } = {}) => {
     if (typeof fetchImpl !== "function") {
-      throw new ResearchApiError("当前环境没有可用的网络请求能力。", { code: "FETCH_UNAVAILABLE" });
+      const apiError = new ResearchApiError("当前环境没有可用的网络请求能力。", { code: "FETCH_UNAVAILABLE" });
+      setLastTechnicalError(apiError);
+      throw apiError;
     }
     let response;
     try {
@@ -3734,9 +3842,11 @@ export function ResearchAgentWorkbench({
       });
     } catch (requestError) {
       if (requestError?.name === "AbortError") throw requestError;
-      throw new ResearchApiError("无法连接科研运行时，请确认本地服务仍在运行。", {
+      const apiError = new ResearchApiError("无法连接科研运行时，请确认本地服务仍在运行。", {
         code: "NETWORK_ERROR",
       });
+      setLastTechnicalError(apiError);
+      throw apiError;
     }
 
     const raw = await response.text();
@@ -3745,14 +3855,16 @@ export function ResearchAgentWorkbench({
       try {
         payload = JSON.parse(raw);
       } catch {
-        throw new ResearchApiError("科研接口返回了无法识别的数据。", {
+        const apiError = new ResearchApiError("科研接口返回了无法识别的数据。", {
           status: response.status,
           code: "INVALID_JSON",
         });
+        setLastTechnicalError(apiError);
+        throw apiError;
       }
     }
     if (!response.ok) {
-      throw new ResearchApiError(
+      const apiError = new ResearchApiError(
         firstText(payload?.message, payload?.error?.message, payload?.error) ?? `请求失败（${response.status}）`,
         {
           status: response.status,
@@ -3760,6 +3872,8 @@ export function ResearchAgentWorkbench({
           payload,
         },
       );
+      setLastTechnicalError(apiError);
+      throw apiError;
     }
     return payload;
   }, [base, fetchImpl]);
@@ -3846,7 +3960,7 @@ export function ResearchAgentWorkbench({
 
       if (projectsResult.status === "rejected") {
         if (projectsResult.reason?.name !== "AbortError") {
-          setError(projectsResult.reason?.message ?? "无法读取研究项目。");
+          setError(projectsResult.reason ?? "无法读取研究项目。");
           setBootLoading(false);
         }
         return;
@@ -3869,7 +3983,7 @@ export function ResearchAgentWorkbench({
       try {
         await loadProject(requestedId, { quiet: true, signal: controller.signal });
       } catch (loadError) {
-        if (loadError?.name !== "AbortError") setError(loadError?.message ?? "无法打开研究项目。");
+        if (loadError?.name !== "AbortError") setError(loadError ?? "无法打开研究项目。");
       } finally {
         if (!disposed) setBootLoading(false);
       }
@@ -3897,7 +4011,7 @@ export function ResearchAgentWorkbench({
     lastBriefMarkerRef.current = `${id}:${marker}`;
     if (!previous || !previous.startsWith(`${id}:`) || polling) return;
     if (previous !== `${id}:${marker}`) {
-      setActionFeedback(`阶段已更新：${firstText(project?.userBrief?.currentResearchPeriod, project?.currentTask?.userLabel) ?? "最新科研回报已就绪"}。`);
+      setActionFeedback("领域简报已更新，请核对新的结论、依据和下一项科研决定。");
     }
   }, [polling, project, status]);
 
@@ -3914,7 +4028,7 @@ export function ResearchAgentWorkbench({
         await loadProject(selectedProjectId, { quiet: true, signal: controller.signal });
       } catch (pollError) {
         if (!stopped && pollError?.name !== "AbortError") {
-          setError(pollError?.message ?? "刷新研究状态失败。");
+          setError(pollError ?? "刷新研究材料失败。");
         }
       }
       if (!stopped) timer = globalThis.setTimeout(tick, delay);
@@ -3949,7 +4063,7 @@ export function ResearchAgentWorkbench({
     try {
       await loadProject(id);
     } catch (loadError) {
-      if (loadError?.name !== "AbortError") setError(loadError?.message ?? "无法打开研究项目。");
+      if (loadError?.name !== "AbortError") setError(loadError ?? "无法打开研究项目。");
     }
   }, [loadProject]);
 
@@ -3962,7 +4076,7 @@ export function ResearchAgentWorkbench({
     try {
       await loadProject(selectedProjectIdRef.current);
     } catch (loadError) {
-      if (loadError?.name !== "AbortError") setError(loadError?.message ?? "刷新失败。");
+      if (loadError?.name !== "AbortError") setError(loadError ?? "刷新失败。");
     }
   }, [loadProject]);
 
@@ -3977,7 +4091,7 @@ export function ResearchAgentWorkbench({
 
   const handleViewEvidence = useCallback(() => {
     setActiveTab("evidence");
-    setActionFeedback("已打开完整科研成果；阶段回报仍保留在主操作区下方。");
+    setActionFeedback("已打开完整科研成果与证据来源。");
     globalThis.requestAnimationFrame?.(() => {
       globalThis.document?.querySelector(".rawb-tab-panel")?.focus({ preventScroll: false });
     });
@@ -3998,14 +4112,14 @@ export function ResearchAgentWorkbench({
       if (projectId(returnedProject)) commitProject(returnedProject);
       await loadProject(id, { quiet: true });
       const feedback = {
-        run: "继续运行的请求已经提交；新的阶段边界出现后，本卡片会自动更新。",
-        resume: "恢复请求已经写入；项目会从安全保存点继续。",
-        pause: "项目已经停在安全保存点，现有研究记录不会丢失。",
+        run: "下一项研究工作已开始；形成新的可核查材料后，本简报会更新。",
+        resume: "研究已恢复，将从上次中断处继续；已有材料保持不变。",
+        pause: "研究已暂停，已有文献、判断和决定均已保留。",
         cancel: "本轮已经停止；原项目和已有研究记录仍然保留。",
-      }[action] ?? "操作已经完成，阶段科研回报已更新。";
+      }[action] ?? "研究材料已经更新。";
       revealUserBrief(feedback);
     } catch (actionError) {
-      setError(actionError?.message ?? "当前操作没有完成，请稍后重试。");
+      setError(actionError ?? "当前操作没有完成，请稍后重试。");
     } finally {
       setBusyAction("");
       setCancelArmed(false);
@@ -4058,7 +4172,7 @@ export function ResearchAgentWorkbench({
       }));
       setCreateStep("strategy");
     } catch (previewError) {
-      setError(previewError?.message ?? "专业检索策略没有生成，请保留当前问题后重试。");
+      setError(previewError ?? "专业检索策略没有生成，请保留当前问题后重试。");
     } finally {
       setBusyAction("");
     }
@@ -4090,7 +4204,7 @@ export function ResearchAgentWorkbench({
       setCreateForm((form) => ({ ...form, searchQuery: revised.query ?? query }));
       setCreateStep("calibration");
     } catch (previewError) {
-      setError(previewError?.message ?? "前 100 篇反馈校准没有完成，请保留当前策略后重试。");
+      setError(previewError ?? "前 100 篇反馈校准没有完成，请保留当前策略后重试。");
     } finally {
       setBusyAction("");
     }
@@ -4128,7 +4242,7 @@ export function ResearchAgentWorkbench({
       setCreateForm((form) => ({ ...form, searchQuery: confirmed.query ?? query }));
       setCreateStep("review");
     } catch (previewError) {
-      setError(previewError?.message ?? "近五年综述扫描没有完成，请保留当前策略后重试。");
+      setError(previewError ?? "近五年综述扫描没有完成，请保留当前策略后重试。");
     } finally {
       setBusyAction("");
     }
@@ -4176,7 +4290,7 @@ export function ResearchAgentWorkbench({
       }
       setCreateForm((form) => ({ ...form, searchQuery: preview.candidates[0].query }));
     } catch (previewError) {
-      setError(previewError?.message ?? "修订检索式没有完成真实试检，请继续在本步修改。");
+      setError(previewError ?? "修订检索式没有完成真实试检，请继续在本步修改。");
     } finally {
       setBusyAction("");
     }
@@ -4245,7 +4359,7 @@ export function ResearchAgentWorkbench({
       setCreateForm((form) => ({ ...form, searchQuery: candidate.query ?? "" }));
       setCreateStep("strategy");
     } catch (selectionError) {
-      setError(selectionError?.message ?? "方向决定没有进入第二轮调查，请保留当前记录后重试。");
+      setError(selectionError ?? "方向决定没有进入第二轮调查，请保留当前记录后重试。");
     } finally {
       setBusyAction("");
     }
@@ -4254,11 +4368,11 @@ export function ResearchAgentWorkbench({
   const handleReturnToFirstRound = useCallback(() => {
     const restored = restoredFirstRoundState(directionSelection);
     if (!restored) {
-      setError("首轮本机检查点不可用；请保留当前记录并重新开始首轮扫描。");
+      setError("当前无法恢复首轮材料；请保留研究问题与检索式并重新开始首轮扫描。");
       return;
     }
     setError("");
-    setActionFeedback("已恢复首轮报告与方向选择；第二轮结果不会覆盖首轮检查点。");
+    setActionFeedback("已恢复首轮报告与方向选择；第二轮结果不会覆盖首轮材料。");
     setScopingRound(restored.scopingRound);
     setQueryPlan(restored.queryPlan);
     setQueryCalibration(restored.queryCalibration);
@@ -4328,7 +4442,7 @@ export function ResearchAgentWorkbench({
       setActiveTab("task");
       if (created && projectId(created)) commitProject(created);
       await loadProject(id, { quiet: true });
-      revealUserBrief("新项目已经建立；第一份阶段科研回报已放在主操作区下方。");
+      revealUserBrief("新项目已经建立；第一份领域研究简报已放在主操作区下方。");
     } catch (createError) {
       const failedProject = createError?.project;
       const failedId = firstText(createError?.projectId, projectId(failedProject));
@@ -4348,7 +4462,7 @@ export function ResearchAgentWorkbench({
           // The structured failure snapshot remains usable even if this refresh fails.
         }
       }
-      setError(createError?.message ?? "项目创建失败，请检查输入后重试。");
+      setError(createError ?? "项目创建失败，请检查输入后重试。");
     } finally {
       setBusyAction("");
     }
@@ -4374,7 +4488,7 @@ export function ResearchAgentWorkbench({
       revealUserBrief("新的检索结果已经写入，证据边界与下一步已更新。");
     } catch (retryError) {
       if (retryError?.project && projectId(retryError.project)) commitProject(retryError.project);
-      setError(retryError?.message ?? "重新检索没有完成，请修改检索式后重试。");
+      setError(retryError ?? "重新检索没有完成，请修改检索式后重试。");
     } finally {
       setBusyAction("");
     }
@@ -4414,12 +4528,12 @@ export function ResearchAgentWorkbench({
       const returnedProject = projectFromPayload(payload);
       if (projectId(returnedProject)) commitProject(returnedProject);
       await loadProject(id, { quiet: true });
-      revealUserBrief("新版检索协议已经保存；阶段回报已切换到新的安全边界。");
+      revealUserBrief("新版检索协议已保存；后续检索将按新协议重新执行，既有结果仅供追溯。");
     } catch (revisionError) {
       if (revisionError?.project && projectId(revisionError.project)) {
         commitProject(revisionError.project);
       }
-      setError(revisionError?.message ?? "新版检索协议没有保存，请核对失败原因与检索式后重试。");
+      setError(revisionError ?? "新版检索协议没有保存，请核对失败原因与检索式后重试。");
     } finally {
       setBusyAction("");
     }
@@ -4452,7 +4566,7 @@ export function ResearchAgentWorkbench({
       await loadProject(id, { quiet: true });
       revealUserBrief("你的研究决定已经记录；本轮回报和下一步已同步更新。");
     } catch (decisionError) {
-      setError(decisionError?.message ?? "人工决定没有写入，请重试。");
+      setError(decisionError ?? "研究决定没有记录，请重试。");
     } finally {
       setBusyAction("");
     }
@@ -4483,9 +4597,9 @@ export function ResearchAgentWorkbench({
       const returnedProject = projectFromPayload(payload);
       if (projectId(returnedProject)) commitProject(returnedProject);
       await loadProject(id, { quiet: true });
-      revealUserBrief("人工复核结果已经记录；最新阶段回报已就位。");
+      revealUserBrief("复核结果已经记录；领域简报与下一项科研决定已更新。");
     } catch (decisionError) {
-      setError(decisionError?.message ?? "复核意见没有写入，请重试。");
+      setError(decisionError ?? "复核意见没有记录，请重试。");
     } finally {
       setBusyAction("");
     }
@@ -4513,7 +4627,7 @@ export function ResearchAgentWorkbench({
     }
     if (status === "blocked") return { label: "已检查问题，继续研究", kind: "resume", disabled: busyAction !== "" };
     if (POLLING_STATUSES.has(status)) return { label: "正在整理研究材料…", kind: "busy", disabled: true };
-    if (status === "completed") return { label: "查看阶段科研回报", kind: "result", disabled: false };
+    if (status === "completed") return { label: "查看领域研究简报", kind: "result", disabled: false };
     if (status === "cancelled") return { label: "基于原问题新建研究", kind: "restart", disabled: false };
     if (["awaiting_approval", "awaiting_gate", "awaiting_review"].includes(status)) {
       return { label: "刷新待决定材料", kind: "refresh", disabled: busyAction !== "" };
@@ -4537,7 +4651,7 @@ export function ResearchAgentWorkbench({
       return;
     }
     if (primaryAction.kind === "result") {
-      revealUserBrief("已定位到本轮最新的阶段科研回报。");
+      revealUserBrief("已定位到本轮最新的领域研究简报。");
       return;
     }
     if (primaryAction.kind === "restart") {
@@ -4634,8 +4748,12 @@ export function ResearchAgentWorkbench({
               <div className="rawb-create-form__heading">
                 <div>
                   <small>{createStep === "review"
-                    ? `第 ${scopingRound} 轮 · 阶段报告`
-                    : `第 ${scopingRound} 轮 · ${createStep === "question" ? "1" : createStep === "strategy" ? "2" : "3"} / 4`}{initialScopingDraft ? " · 已恢复本机草稿" : ""}</small>
+                    ? "领域综述分析"
+                    : createStep === "question"
+                      ? (scopingRound === 1 ? "研究意向" : "收窄研究问题")
+                      : createStep === "strategy"
+                        ? "PubMed 检索策略"
+                        : "检索校准"}{initialScopingDraft ? " · 草稿已保留" : ""}</small>
                   <strong>{createStep === "question" ? (scopingRound === 1 ? "先说研究领域或大概问题" : "确认收窄后的研究问题") : createStep === "strategy" ? "确认检索初稿" : createStep === "calibration" ? "确认前 100 篇反馈与修订" : "查看近五年综述分析"}</strong>
                 </div>
                 <button type="button" onClick={() => { setCreateOpen(false); resetQueryPlanning(); }}>关闭</button>
@@ -4919,12 +5037,12 @@ export function ResearchAgentWorkbench({
         <main id="rawb-main" className="rawb-main" aria-busy={bootLoading || projectLoading}>
           {error ? (
             <div className="rawb-error" role="alert">
-              <div><strong>这一步没有完成</strong><p>{error}</p></div>
+              <div><strong>这一步没有完成</strong><p>{researcherFacingErrorMessage(error)}</p></div>
               <button type="button" onClick={refreshSelectedProject}>重试</button>
               <button type="button" className="rawb-error__dismiss" onClick={() => setError("")}>关闭</button>
             </div>
           ) : null}
-          {runtimeError && !error ? <p className="rawb-runtime-warning" role="status">{runtimeError} 项目仍可继续查看。</p> : null}
+          {runtimeError && !error ? <p className="rawb-runtime-warning" role="status">当前无法更新研究材料；已有领域简报仍可查看，详细原因见“技术审计”。</p> : null}
 
           {bootLoading || (projectLoading && !project) ? <LoadingWorkspace /> : !project ? <EmptyState onCreate={() => setCreateOpen(true)} /> : (
             <>
@@ -4950,14 +5068,16 @@ export function ResearchAgentWorkbench({
                     {primaryAction.kind === "busy" ? <span className="rawb-button-spinner" aria-hidden="true" /> : null}
                     {primaryAction.label}
                   </button>
-                  <div className="rawb-run-controls" aria-label="运行控制">
-                    {POLLING_STATUSES.has(status) ? (
-                      <button type="button" disabled={Boolean(busyAction)} onClick={() => performProjectAction("pause", { reason: "研究者从工作台暂停当前项目。" })}>暂停</button>
-                    ) : null}
-                    {!cancelArmed && (POLLING_STATUSES.has(status) || status === "paused") ? (
-                      <button className="is-danger" type="button" disabled={Boolean(busyAction)} onClick={() => setCancelArmed(true)}>停止本轮</button>
-                    ) : null}
-                  </div>
+                  {POLLING_STATUSES.has(status) || status === "paused" ? (
+                    <div className="rawb-run-controls" aria-label="当前检索控制">
+                      {POLLING_STATUSES.has(status) ? (
+                        <button type="button" disabled={Boolean(busyAction)} onClick={() => performProjectAction("pause", { reason: "研究者从工作台暂停当前项目。" })}>暂停</button>
+                      ) : null}
+                      {!cancelArmed ? (
+                        <button className="is-danger" type="button" disabled={Boolean(busyAction)} onClick={() => setCancelArmed(true)}>停止本轮</button>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {cancelArmed ? (
                     <div className="rawb-cancel-confirm" role="group" aria-label="确认停止当前运行">
                       <p>停止本轮，但保留项目和已有记录？</p>
@@ -5016,7 +5136,7 @@ export function ResearchAgentWorkbench({
                 ) : null}
                 {activeTab === "evidence" ? <EvidencePanel project={project} /> : null}
                 {activeTab === "writing" ? <WritingPanel project={project} /> : null}
-                {activeTab === "records" ? <RecordsPanel project={project} runtime={runtime} runtimeLoading={runtimeLoading} runtimeError={runtimeError} /> : null}
+                {activeTab === "records" ? <RecordsPanel project={project} runtime={runtime} runtimeLoading={runtimeLoading} runtimeError={runtimeError} actionError={lastTechnicalError} /> : null}
               </section>
             </>
           )}

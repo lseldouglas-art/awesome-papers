@@ -9,7 +9,6 @@ import {
 import {
   buildMentorBrief,
   buildResearchReviewReportModel,
-  buildScopingRoundComparison,
   reportChapterIdForKey,
   researchReportChapterEvidenceRows,
   researchReportBindingStatus,
@@ -46,6 +45,12 @@ function decisionGroupSummary(groupId) {
     unmapped_themes: "这些主题还没有进入既有决策链，需要人工复核后再用于选题。",
   };
   return summaries[groupId] ?? "这些数字只表示当前样本覆盖；正式选题仍需回到具体人群、比较和结局。";
+}
+
+function conciseTrendConclusion(item) {
+  return conclusion(item)
+    .replace(/这是题名或核心目的\/结论字段的主轴信号，不是全文提及计数或全领域发文量。?/g, "")
+    .trim();
 }
 
 function directionOrganization(direction) {
@@ -142,34 +147,6 @@ function DecisionStructure({ groups, total }) {
   );
 }
 
-function RoundComparison({ comparison }) {
-  if (!comparison) return null;
-  return (
-    <section className="rawb-report-rounds" aria-labelledby="rawb-report-rounds-title">
-      <header>
-        <div>
-          <h3 id="rawb-report-rounds-title">问题如何从领域扫描收窄到聚焦检索</h3>
-        </div>
-        <p>{comparison.boundary}</p>
-      </header>
-      <div className="rawb-report-rounds__grid">
-        {[comparison.first, comparison.second].map((round, index) => (
-          <article key={index === 0 ? "first" : "second"}>
-            <span>{index === 0 ? "领域扫描" : "聚焦检索"}</span>
-            <strong>{round.question || "研究问题未返回"}</strong>
-            <dl>
-              <div><dt>分层样本</dt><dd>{round.sampledCount} 篇</dd></div>
-              <div><dt>摘要可用</dt><dd>{round.abstractCount} 篇</dd></div>
-              <div><dt>主题结构</dt><dd>{round.themeCount} 类</dd></div>
-              <div><dt>首要信号</dt><dd>{round.topTheme}</dd></div>
-            </dl>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function FieldLandscapeChapter({ model }) {
   const leadingThemes = model.themeDistribution.slice(0, 6);
   return (
@@ -216,15 +193,15 @@ function TrendChapter({ model }) {
     1,
     ...groups.flatMap((group) => list(group.items).map((item) => Number(item?.count) || 0)),
   );
-  const structuralInsights = [
-    ...model.selectionPatterns,
-    ...model.metadataPatternInsights,
-  ].slice(0, 3);
-  const structuralLabels = ["问题层级", "证据标准", "转化门槛"];
+  const structuralRows = [
+    { label: "问题层级", summary: "明确哪类患者、处于什么临床场景、采用何种比较；避免只写“是否相关、是否有效”。" },
+    { label: "证据标准", summary: "预先定义异质性来源、核心结局和随访窗口；避免只汇总平均效应。" },
+    { label: "转化门槛", summary: "同时核查阈值、校准、外部验证与临床净获益；避免把模型性能等同于可应用性。" },
+  ];
   const directInsights = [
     ...model.trendInsights,
     ...model.metadataPatternInsights,
-  ].slice(0, 5);
+  ].slice(0, 5).map((item) => ({ ...item, conclusion: conciseTrendConclusion(item) }));
   const finalJudgment = model.selectionPatterns[0]?.conclusion
     ?? "优先选择能够明确人群、比较条件、核心结局和验证门槛的问题，再用同题综述窄检索确认新增价值。";
 
@@ -274,18 +251,18 @@ function TrendChapter({ model }) {
 
           <section className="rawb-report-trend-section is-structure" aria-labelledby="rawb-report-trend-structure-title">
             <header>
-              <h3 id="rawb-report-trend-structure-title">二、近五年的结构性演变</h3>
-              <p>从描述主题，走向可以比较和验证的研究问题。</p>
+              <h3 id="rawb-report-trend-structure-title">二、把热点改写成可验证的研究问题</h3>
+              <p>这是选题方法判断，不冒充样本已经证明的时间演变。</p>
             </header>
             <dl>
-              {structuralInsights.map((item, index) => (
-                <div key={item?.id ?? `${item?.title}-${index}`}>
-                  <dt>{structuralLabels[index]}</dt>
-                  <dd><strong>{item?.title}</strong><span>{conclusion(item)}</span></dd>
+              {structuralRows.map((item) => (
+                <div key={item.label}>
+                  <dt>{item.label}</dt>
+                  <dd><span>{item.summary}</span></dd>
                 </div>
               ))}
             </dl>
-            <p className="rawb-report-trend-section__takeaway">选题价值不再由技术名词是否新决定，而由它能否减少一个具体科研或临床决定的不确定性决定。</p>
+            <p className="rawb-report-trend-section__takeaway">选题价值不由技术名词是否新决定，而由问题是否能减少一个具体科研或临床决定的不确定性决定。</p>
           </section>
         </div>
 
@@ -512,7 +489,7 @@ function EvidenceRowsTable({ rows, caption }) {
   );
 }
 
-function EvidenceDrawer({ model, evidenceRows, chapterLabel, comparison, open, onClose, drawerRef }) {
+function EvidenceDrawer({ model, evidenceRows, chapterLabel, open, onClose, drawerRef }) {
   return (
     <section
       className="rawb-report-evidence"
@@ -561,19 +538,6 @@ function EvidenceDrawer({ model, evidenceRows, chapterLabel, comparison, open, o
         </details>
       ) : null}
       <p className="rawb-report-evidence__boundary"><strong>结论边界：</strong>{model.reportBoundary}</p>
-      <details className="rawb-report-technical-audit">
-        <summary>技术审计信息</summary>
-        <p>以下内容供复现、故障诊断和版本核对使用，不参与前台的领域判断。</p>
-        {model.technicalIntegrityBoundary ? <p>{model.technicalIntegrityBoundary}</p> : null}
-        <dl className="rawb-report-binding">
-          <div><dt>项目标识</dt><dd>{model.binding?.projectId ?? "建项前预检"}</dd></div>
-          <div><dt>来源集合指纹</dt><dd>{model.binding?.sourceSetHash ? model.binding.sourceSetHash.slice(0, 12) : "尚未绑定"}</dd></div>
-          <div><dt>报告版本</dt><dd>{model.binding?.reportRevision ?? "建项后生成"}</dd></div>
-          <div><dt>内容指纹</dt><dd>{model.binding?.reportHash ? model.binding.reportHash.slice(0, 12) : "尚未生成"}</dd></div>
-          <div><dt>相关性检查</dt><dd>{model.relevanceGate?.status === "passed" ? "通过" : model.relevanceGate?.status === "blocked" ? "阻断" : "建项前检查"}</dd></div>
-        </dl>
-        <RoundComparison comparison={comparison} />
-      </details>
     </section>
   );
 }
@@ -634,10 +598,6 @@ export function ResearchReviewReport({
     selectedDirectionId,
     lockedDirection: lockedReviewDirection,
   }), [landscape, lockedReviewDirection, researchReport, selectedDirectionId]);
-  const comparison = useMemo(
-    () => buildScopingRoundComparison(firstRound, secondRound),
-    [firstRound, secondRound],
-  );
   const [activeChapter, setActiveChapter] = useState(() => {
     try {
       const saved = globalThis.localStorage?.getItem(`${storageKey}:chapter`);
@@ -825,8 +785,11 @@ export function ResearchReviewReport({
         ) : null}
       </footer>
 
-      <EvidenceDrawer model={model} evidenceRows={chapterEvidenceRows} chapterLabel={activeChapterConfig.label} comparison={comparison} open={evidenceOpen} onClose={closeEvidence} drawerRef={drawerRef} />
-      <p className="rawb-four-chapter-report__boundary"><strong>证据与责任边界：</strong>{model.reportBoundary}</p>
+      <EvidenceDrawer model={model} evidenceRows={chapterEvidenceRows} chapterLabel={activeChapterConfig.label} open={evidenceOpen} onClose={closeEvidence} drawerRef={drawerRef} />
+      <details className="rawb-four-chapter-report__boundary">
+        <summary>证据与责任边界</summary>
+        <p>{model.reportBoundary}</p>
+      </details>
     </section>
   );
 }

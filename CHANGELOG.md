@@ -16,7 +16,9 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Moved the Pi runtime badge, research-state journey, quality counters, versions, hashes, and tool logs into a dedicated technical-audit tab.
 - Removed the report workflow stepper and replaced it with the report purpose, observation unit, and scientific boundary.
 - Rewrote remaining Agent- and state-machine-oriented frontstage copy as researcher-facing actions and research judgments.
+- Kept pause, resume, retry, gate, and request-integrity details out of the field brief; raw error codes and runtime messages now remain in the technical audit only.
 - Gave the review report a field-specific title and preserved PMID-level evidence in bounded drawers instead of a primary evidence wall.
+- Deepened the trend chapter with sample-derived recent-versus-earlier topic ratios, journal-dispersion limits, and explicit separation between observed time signals and general topic-design advice.
 
 ### Security and scientific integrity
 
@@ -26,8 +28,8 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Verification
 
-- Passed 285 core tests, 9 workbench-model tests, 13 report-UI tests, and the API end-to-end test.
-- Passed the production build, diff check, 1448×1086 desktop review, and 390×844 no-overflow review.
+- Passed 285 core tests, 9 workbench-model tests, 14 report-UI tests, and the API end-to-end test.
+- Passed the production build, diff check, 1448×1086 desktop review, and 724×543 plus 390×844 no-overflow reviews.
 
 ## [0.1.2] - 2026-08-28
 

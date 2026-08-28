@@ -327,15 +327,17 @@ test("relevance and ledger integrity failures disable report actions with a reco
   t.after(() => vite.close());
   const { ResearchReviewReport } = await vite.ssrLoadModule("/src/components/ResearchReviewReport.jsx");
   const selectedDirectionId = gastricReport.derivedAnalysis.reviewSynthesis.professorReport.studentReviewDirections[0].id;
-  for (const failure of ["relevance", "ledger"]) {
+  for (const failure of ["relevance", "ledger", "missing_contract_rows"]) {
     const report = structuredClone(gastricReport);
+    const landscape = landscapeFromReport(report);
     if (failure === "relevance") report.relevanceGate.status = "blocked";
     if (failure === "ledger") report.ledger.analyzedRowCount += 1;
+    if (failure === "missing_contract_rows") delete report.ledger.rows;
     const storage = memoryStorage();
     storage.setItem(`${failure}:chapter`, "opportunities");
     globalThis.localStorage = storage;
     const markup = renderToStaticMarkup(React.createElement(ResearchReviewReport, {
-      landscape: landscapeFromReport(report),
+      landscape,
       selectedDirectionId,
       onDirectionSelect() {},
       onPrimaryAction() {},
@@ -355,6 +357,43 @@ test("chapter keyboard navigation follows the accessible tab order", () => {
   assert.equal(reportChapterIdForKey("opportunities", "Home"), "landscape");
   assert.equal(reportChapterIdForKey("trends", "End"), "plan");
   assert.equal(reportChapterIdForKey("trends", "Enter"), null);
+});
+
+test("researcher-facing decisions and errors do not expose runtime state language", async (t) => {
+  const vite = await createServer({ server: { middlewareMode: true }, appType: "custom", logLevel: "silent" });
+  t.after(() => vite.close());
+  const {
+    researcherFacingErrorMessage,
+    researcherFacingNextDecision,
+  } = await vite.ssrLoadModule("/src/components/ResearchAgentWorkbench.jsx");
+  const forbidden = /Agent|安全保存点|安全边界|阶段边界|人工边界|内部执行状态|计划指纹|方向选择指纹|哈希|校验码/;
+
+  const projects = [
+    { status: "awaiting_gate", pendingGate: { status: "pending", userLabel: "确认研究范围" } },
+    { status: "running", currentTask: { userLabel: "核对综述样本" } },
+    { status: "created", currentTask: { userLabel: "核对综述样本" } },
+    { status: "paused", userBrief: { nextStepOrUserDecision: "项目停在安全保存点。" } },
+    { status: "blocked", blocker: { retryClass: "protocol_revision_required", reason: "计划指纹无效" } },
+  ];
+  for (const project of projects) {
+    assert.doesNotMatch(researcherFacingNextDecision(project), forbidden);
+  }
+  assert.match(researcherFacingNextDecision(projects[3]), /已有材料|检索式/);
+  assert.match(researcherFacingNextDecision(projects[4]), /主题词|同义词|检索式/);
+
+  const staleError = {
+    code: "INVALID_DIRECTION_SELECTION_HASH",
+    message: "方向选择指纹无效；请重新提交方向决定。",
+    payload: { code: "INVALID_DIRECTION_SELECTION_HASH" },
+  };
+  assert.equal(
+    researcherFacingErrorMessage(staleError),
+    "当前研究材料与最新记录不一致，请刷新后重新核对；详细原因见“技术审计”。",
+  );
+  assert.doesNotMatch(researcherFacingErrorMessage(staleError), forbidden);
+  assert.equal(staleError.payload.code, "INVALID_DIRECTION_SELECTION_HASH");
+  assert.match(researcherFacingErrorMessage({ code: "PUBMED_NO_RESULTS", message: "零结果" }), /修改检索式/);
+  assert.match(researcherFacingErrorMessage({ code: "NETWORK_ERROR", message: "无法连接科研运行时" }), /已有简报仍可查看/);
 });
 
 test("two-round comparison reports sample structure without claiming novelty", () => {
@@ -434,6 +473,7 @@ test("rendered report accepts object claim labels, exposes one chapter CTA and o
   assert.doesNotMatch(markup, /rawb-report-claim-legend/);
   assert.match(markup, /rawb-report-scope-summary/);
   assert.match(markup, /用途：领域扫描与综述选题/);
+  assert.doesNotMatch(markup, /技术审计信息|来源集合指纹|内容指纹|reportHash|sourceSetHash/);
   assert.doesNotMatch(markup, /\[object Object\]/);
   assert.equal((markup.match(/rawb-report-primary/g) ?? []).length, 1);
   assert.equal((markup.match(/rawb-report-evidence-entry/g) ?? []).length, 1);
@@ -467,7 +507,8 @@ test("rendered report accepts object claim labels, exposes one chapter CTA and o
   }));
   assert.match(trendsMarkup, /近五年，研究重点如何变化/);
   assert.match(trendsMarkup, /rawb-report-trend-columns/);
-  assert.match(trendsMarkup, /近五年的结构性演变/);
+  assert.match(trendsMarkup, /把热点改写成可验证的研究问题/);
+  assert.match(trendsMarkup, /不冒充样本已经证明的时间演变/);
   assert.match(trendsMarkup, /从当前样本中直接得到的选题结论/);
   assert.match(trendsMarkup, /不代表全领域发文量/);
   assert.doesNotMatch(trendsMarkup, /rawb-report-analysis-grid/);
@@ -512,6 +553,8 @@ test("rendered report accepts object claim labels, exposes one chapter CTA and o
 
 test("responsive report CSS includes 390px, 200% zoom, focus, local overflow, and reduced-motion safeguards", () => {
   const css = readFileSync(new URL("../src/components/research-review-report.css", import.meta.url), "utf8");
+  const workbench = readFileSync(new URL("../src/components/ResearchAgentWorkbench.jsx", import.meta.url), "utf8");
+  const workbenchCss = readFileSync(new URL("../src/research-agent-workbench.css", import.meta.url), "utf8");
   assert.match(css, /@media \(max-width: 460px\)/);
   assert.match(css, /\.rawb-four-chapter-report\s*\{[\s\S]*?width:\s*100%/);
   assert.match(css, /\.rawb-report-trend-columns\s*\{[\s\S]*?grid-template-columns/);
@@ -520,4 +563,12 @@ test("responsive report CSS includes 390px, 200% zoom, focus, local overflow, an
   assert.match(css, /:focus-visible/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(css, /animation-duration:\s*0\.01ms\s*!important/);
+  assert.match(workbench, /rawb-technical-report-audit/);
+  assert.match(workbench, /这些字段只用于复现、故障诊断和版本核对，不参与领域现状、趋势或选题判断/);
+  assert.match(workbench, /不展示旧版自动候选方向/);
+  assert.match(workbench, /继续完成本轮文献调研/);
+  assert.doesNotMatch(workbench, /成功后会保存新的检索式并从这个安全位置继续/);
+  assert.doesNotMatch(workbench, /后台按科研边界推进|内部执行状态不占用前台简报空间/);
+  assert.doesNotMatch(workbench, /function IntegrityRecord|技术审计信息|失败代码未记录/);
+  assert.doesNotMatch(workbenchCss, /\.rawb-decision,\s*\n\s*\.rawb-review\s*\{[^}]*grid-row:\s*1/);
 });

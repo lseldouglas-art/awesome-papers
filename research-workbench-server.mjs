@@ -802,11 +802,11 @@ function contentMaturityFor(result, status) {
     const formal = authority.formalResearchComplete;
     return {
       code: formal ? "live_pubmed_audited_signed" : "live_pubmed_guided_analysis",
-      label: formal ? "PubMed 实时研究 · 已审计签署" : "PubMed 真实检索 · Agent 受限分析",
+      label: formal ? "PubMed 实时研究 · 已审计签署" : "PubMed 真实检索 · 受限分析",
       formalResearchComplete: formal,
       boundary: formal
-        ? "已完成实时 Agent 运行、审计与作者签署；结论仍只适用于本轮已保存来源及其实际访问层级。"
-        : authority.boundary,
+        ? "已完成来源核查、科研审计与作者签署；结论仍只适用于本轮已保存来源及其实际访问层级。"
+        : "当前材料尚未同时完成最终文献库冻结、来源核查、科研审计与作者确认，因此只能作为受限研究材料使用。",
     };
   }
   if (result.project?.researchMode === "live_pubmed") {
@@ -819,9 +819,9 @@ function contentMaturityFor(result, status) {
   }
   return {
     code: "guided_draft",
-    label: "结构化流程草案",
+    label: "结构化研究草案",
     formalResearchComplete: false,
-    boundary: "当前项目没有绑定最终 PubMed 文献库；即使模型流程已运行，也只能证明流程、门禁和可追溯记录，不能升格为正式研究成果。",
+    boundary: "当前项目尚未形成最终 PubMed 文献库；已有材料只能支持方法与结构检查，不能升格为正式研究结论。",
   };
 }
 
@@ -1038,20 +1038,20 @@ function userBriefFor({
   ]);
 
   const nextStepOrUserDecision = pendingGate
-    ? `需要你确认「${pendingGate.userLabel}」；决定写入后，Agent 才会进入下一步。`
+    ? `请确认「${pendingGate.userLabel}」；确认后将继续下一项科研工作。`
     : pendingReview
-      ? `需要你复核「${pendingReview.userLabel}」的当前材料版本，并选择接受或要求修订。`
+      ? `请复核「${pendingReview.userLabel}」的当前研究材料，并选择接受或要求修订。`
       : status === "completed"
         ? "本轮约定的交付目标已经完成。请查看完整科研成果，并按这里记录的证据边界使用。"
         : status === "cancelled"
           ? "本轮已经停止且不会原地恢复。需要继续时，请基于原研究问题建立一个新项目。"
           : status === "paused"
-            ? "项目停在安全保存点。确认当前输入和失败原因后，可以恢复执行。"
+            ? "研究已暂停，已有材料均已保留；核对当前输入与失败原因后可以继续。"
             : status === "blocked"
-              ? currentBlocker?.reason ?? "当前步骤需要研究者检查失败原因并选择恢复方式。"
+              ? "当前研究需要处理；请核对研究问题、检索式与证据范围后选择重试或修订。"
               : status === "running"
-                ? `Agent 正在执行「${node.userLabel}」；到达新的人工边界后，这里会自动更新。`
-                : `可以继续执行「${node.userLabel}」；下一次人工边界出现前不会替你做研究决定。`;
+                ? `正在开展「${node.userLabel}」；形成新的可核查材料后，本页会更新。`
+                : `可以继续开展「${node.userLabel}」；涉及范围、选题或结论边界时仍需研究者确认。`;
 
   return {
     schemaVersion: "research-user-brief/v1",

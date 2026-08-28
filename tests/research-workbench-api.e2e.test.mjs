@@ -537,7 +537,8 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
   assert.match(created.body.userBrief.currentResearchPeriod, /问题成形/);
   assert.deepEqual(created.body.userBrief.newConclusions, []);
   assert.match(created.body.userBrief.mainEvidenceAndBoundaries.accessSummary, /综述扫描/);
-  assert.match(created.body.userBrief.nextStepOrUserDecision, /需要你确认/);
+  assert.match(created.body.userBrief.nextStepOrUserDecision, /请确认/);
+  assert.doesNotMatch(created.body.userBrief.nextStepOrUserDecision, /Agent|安全保存点|阶段边界|人工边界/);
   assert.equal(created.body.question, directionSelection.body.narrowedBrief.question);
   assert.equal(created.body.queryPreviewSelection.query, secondPreview.body.candidates[0].query);
   assert.equal(created.body.queryPreviewSelection.samples[0].sourceId, "pubmed:12345678");
@@ -744,6 +745,7 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
   assert.match(completed.userBrief.mainEvidenceAndBoundaries.accessSummary, /证据提取记录/);
   assert.ok(completed.userBrief.mainEvidenceAndBoundaries.boundaries.length > 0);
   assert.match(completed.userBrief.nextStepOrUserDecision, /已经完成/);
+  assert.doesNotMatch(completed.userBrief.nextStepOrUserDecision, /Agent|安全保存点|安全边界|阶段边界|人工边界/);
   assert.equal(
     mock.calls.filter((call) => call.pathname.endsWith("/esearch.fcgi")).length -
       allSearchCallsBeforeCreate,
@@ -818,6 +820,8 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
   assert.equal(failed.body.recoverable, true);
   assert.equal(failed.body.project.id, failed.body.projectId);
   assert.equal(failed.body.project.status, "paused");
+  assert.doesNotMatch(failed.body.project.userBrief.nextStepOrUserDecision, /Agent|安全保存点|安全边界|阶段边界|人工边界/);
+  assert.match(failed.body.project.userBrief.nextStepOrUserDecision, /已有材料均已保留/);
 
   const retried = await requestJson(
     workbench.baseUrl,
@@ -903,6 +907,8 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
   assert.equal(formalBlocked.blocker.retryClass, "protocol_revision_required");
   assert.equal(formalBlocked.blocker.failedRequest.query, formalFailureQuery);
   assert.equal(formalBlocked.recovery.action, "revise_protocol");
+  assert.doesNotMatch(formalBlocked.userBrief.nextStepOrUserDecision, /Agent|安全保存点|安全边界|阶段边界|人工边界|指纹|哈希/);
+  assert.match(formalBlocked.userBrief.nextStepOrUserDecision, /研究需要处理/);
   assert.match(formalBlocked.recovery.safeCheckpoint.message, /已保存/);
   const oldFormalQueryCalls = mock.calls.filter(
     (call) => call.pathname.endsWith("/esearch.fcgi") && call.query.term === formalFailureQuery,

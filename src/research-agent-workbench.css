@@ -5943,6 +5943,55 @@ button.rawb-review-evidence-path__node.is-selected {
   color: var(--rawb-ink);
 }
 
+.rawb-technical-report-audit > p {
+  margin: 0 0 10px;
+  color: var(--rawb-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.rawb-technical-binding {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 14px 0 0;
+  overflow: hidden;
+  background: var(--rawb-border-soft);
+  border: 1px solid var(--rawb-border-soft);
+  border-radius: 10px;
+}
+
+.rawb-technical-binding > div {
+  min-width: 0;
+  padding: 10px 12px;
+  background: #fff;
+}
+
+.rawb-technical-binding dt,
+.rawb-technical-binding dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.rawb-technical-binding dt {
+  color: var(--rawb-muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.rawb-technical-binding dd {
+  margin-top: 4px;
+  color: var(--rawb-ink);
+  font-size: 11px;
+  font-weight: 760;
+}
+
+@media (max-width: 620px) {
+  .rawb-technical-binding {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .rawb-timeline {
   position: relative;
   display: grid;
@@ -7834,6 +7883,27 @@ button.rawb-review-evidence-path__node.is-selected {
   line-height: 1.7;
 }
 
+.rawb-evidence-overview__legacy {
+  margin: -4px 0 20px;
+  padding: 13px 15px;
+  background: #fffaf0;
+  border: 1px solid #ead7a7;
+  border-left: 3px solid #b98a2f;
+  color: var(--rawb-copy);
+}
+
+.rawb-evidence-overview__legacy strong {
+  color: var(--rawb-ink);
+  font-size: 12px;
+}
+
+.rawb-evidence-overview__legacy p {
+  margin: 4px 0 0;
+  color: var(--rawb-muted);
+  font-size: 11px;
+  line-height: 1.65;
+}
+
 .rawb-technical-runtime {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(260px, 420px);
@@ -7861,33 +7931,6 @@ button.rawb-review-evidence-path__node.is-selected {
   background: #fff;
   border: 1px solid var(--rawb-border);
   border-radius: var(--rawb-radius-lg);
-}
-
-.rawb-integrity-record {
-  display: block;
-}
-
-.rawb-integrity-record > summary {
-  color: var(--rawb-muted);
-  font-size: 9px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.rawb-integrity-record > div {
-  gap: 4px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--rawb-border-soft);
-}
-
-.rawb-integrity-record code {
-  display: block;
-  max-width: 100%;
-  margin-top: 4px;
-  overflow-wrap: anywhere;
-  color: var(--rawb-copy);
-  font-size: 9px;
 }
 
 .rawb-evidence-overview__heading,
@@ -8236,7 +8279,6 @@ button.rawb-review-evidence-path__node.is-selected {
   .rawb-decision,
   .rawb-review {
     position: static;
-    grid-row: 1;
   }
 }
 

@@ -117,7 +117,7 @@ function normalizedRow(source, index) {
 
 function normalizedLedger({ contract, landscape, sources }) {
   const contractRows = list(contract?.ledger?.rows);
-  if (contractRows.length) {
+  if (contract && typeof contract === "object") {
     const screeningRows = contractRows.map(normalizedRow);
     return {
       screeningRows,
