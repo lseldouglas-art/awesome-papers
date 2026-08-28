@@ -28,6 +28,7 @@ import {
 import {
   buildResearchDirectionSelection,
 } from "./research-core/research-direction-selection-v1.js";
+import { assertResearchReportSelectionBinding } from "./research-core/research-report-contract-v1.js";
 import {
   createQueryStrategyModel,
   generatePromptDrivenPubMedQueryPlan,
@@ -341,6 +342,18 @@ function queryPreviewSelectionForBody(body) {
     accessLevel: sample.accessLevel,
     locator: sample.locator ?? null,
   }));
+  const mappedConcepts = Array.isArray(entry.preview.mappings)
+    ? entry.preview.mappings
+    : [];
+  const subjectMappings = mappedConcepts.filter((mapping) => mapping?.role === "subject");
+  const subjectConcepts = (subjectMappings.length > 0 ? subjectMappings : mappedConcepts)
+    .map((mapping) => ({
+      conceptId: mapping.conceptId,
+      sourceTerm: mapping.sourceTerm,
+      role: mapping.role,
+      mappedTerms: Array.isArray(mapping.mappedTerms) ? mapping.mappedTerms : [],
+      meshTerms: Array.isArray(mapping.meshTerms) ? mapping.meshTerms : [],
+    }));
   const selection = {
     schemaVersion: "research-query-preview-selection/v1",
     planHash: entry.preview.planHash,
@@ -353,6 +366,13 @@ function queryPreviewSelectionForBody(body) {
     ...(candidate.error ? { error: candidate.error } : {}),
     samples,
     sampleSourceIds: samples.map((sample) => sample.sourceId),
+    subjectConcepts,
+    ...(entry.preview.directionSeed
+      ? { directionSeed: structuredClone(entry.preview.directionSeed) }
+      : {}),
+    ...(entry.preview.directionBinding
+      ? { directionBinding: structuredClone(entry.preview.directionBinding) }
+      : {}),
     ...(entry.preview.reviewLandscape
       ? { reviewLandscape: structuredClone(entry.preview.reviewLandscape) }
       : {}),
@@ -389,8 +409,40 @@ function scopingContextForCreate(body, finalPreviewSelection) {
       { code: "SECOND_ROUND_PREVIEW_REQUIRED" },
     );
   }
+  const decision = context.decision;
+  const expectedFocusHash = sha256(decision.narrowedBrief?.focusMapping ?? null);
+  const expectedQuery = String(decision.narrowedBrief?.suggestedQuery ?? "").trim();
+  const binding = finalPreviewSelection.directionBinding;
+  if (
+    !binding
+    || binding.decisionHash !== decision.decisionHash
+    || binding.selectedDirectionId !== decision.selectedDirection.id
+    || binding.sourcePreviewPlanHash !== decision.sourcePreviewPlanHash
+    || binding.reportHash !== (decision.reportBinding?.reportHash ?? null)
+    || binding.focusMappingHash !== expectedFocusHash
+    || binding.focusedQueryHash !== sha256(expectedQuery)
+    || finalPreviewSelection.query !== expectedQuery
+  ) {
+    throw Object.assign(
+      new Error("第二轮调查未完整绑定方向决定、科研简报和受控方向词群，不能建立正式项目。"),
+      { code: "SECOND_ROUND_DIRECTION_BINDING_MISMATCH" },
+    );
+  }
   return {
     scopingDecision: context.decision,
+    scopingVerification: {
+      schemaVersion: "research-scoping-verification/v1",
+      status: "exploratory_unverified",
+      sameTopicReviewOverlapVerified: false,
+      primaryStudyVolumeVerified: false,
+      verdict: "unknown",
+      requiredChecks: [
+        "独立执行近两年同题综述检索，并按 PICO/PCC 与评价轴逐篇比较重叠。",
+        "排除综述与指南后执行原始研究量预检、去重和初筛，重新估算工作量。",
+        "记录 retain / revise / drop / unknown 结论及其可定位证据。",
+      ],
+      boundary: "本次第二轮仍是题名摘要级聚焦样本，只能支持继续调查，不能证明创新度、50–100 篇文献量或正式立题可行性。",
+    },
     scopingRounds: [
       {
         round: 1,
@@ -1455,6 +1507,18 @@ function serializeProject(result) {
     })),
     completionProfileId: result.project.completionProfileId,
     version: result.state.revision,
+    reportRevision: Number.isInteger(result.project.reportRevision)
+      ? result.project.reportRevision
+      : 0,
+    sourceSetHash: typeof result.project.sourceSetHash === "string"
+      ? result.project.sourceSetHash
+      : null,
+    researchReport: result.project.researchReport
+      ? structuredClone(result.project.researchReport)
+      : null,
+    finalLibraryScreening: result.project.finalLibraryScreening
+      ? structuredClone(result.project.finalLibraryScreening)
+      : null,
     status,
     currentPhaseId: phase?.id ?? node.phaseId,
     currentNode: { id: node.id, phaseId: node.phaseId, userLabel: node.userLabel },
@@ -1476,12 +1540,16 @@ function serializeProject(result) {
           executedAt: previewSelection(result.project).executedAt,
           planHash: previewSelection(result.project).planHash,
           selectionHash: previewSelection(result.project).selectionHash,
+          subjectConcepts: previewSelection(result.project).subjectConcepts ?? [],
           samples: previewSelection(result.project).samples,
           reviewLandscape: previewSelection(result.project).reviewLandscape ?? null,
         }
       : null,
     scopingDecision: result.project.scopingDecision
       ? structuredClone(result.project.scopingDecision)
+      : null,
+    scopingVerification: result.project.scopingVerification
+      ? structuredClone(result.project.scopingVerification)
       : null,
     scopingRounds: Array.isArray(result.project.scopingRounds)
       ? result.project.scopingRounds.map((round) => ({
@@ -1628,9 +1696,11 @@ function errorStatus(error) {
   if (error?.code === "PROJECT_RUN_ACTIVE") return 409;
   if (error?.code === "EXPORT_NOT_READY") return 409;
   if (error?.code === "STALE_REVIEW_MATERIAL") return 409;
+  if (error?.code === "STALE_RESEARCH_REPORT_BINDING") return 409;
   if (String(error?.code ?? "").startsWith("QUERY_PREVIEW_")) return 409;
   if (error?.code === "QUERY_CANDIDATE_NOT_READY") return 409;
   if (error?.code === "PUBMED_NO_RESULTS") return 422;
+  if (error?.code === "RESEARCH_SUBJECT_RELEVANCE_BLOCKED") return 422;
   if (String(error?.code ?? "").startsWith("PUBMED_")) return 502;
   if (
     error instanceof ResearchEngineError ||
@@ -1850,6 +1920,8 @@ async function apiHandler(request, response, pathname) {
       });
     }
     let strategyCalibration = null;
+    let directionBinding = null;
+    let seededPlan = null;
     if (typeof body.calibrationHash === "string") {
       const calibration = requireExpiring(queryCalibrations, body.calibrationHash, {
         staleCode: "QUERY_CALIBRATION_STALE",
@@ -1859,6 +1931,46 @@ async function apiHandler(request, response, pathname) {
         throw Object.assign(new Error("研究问题已改变；请重新执行前 100 篇反馈。"), {
           code: "QUERY_CALIBRATION_STALE",
         });
+      }
+      seededPlan = calibration.revisedPlan?.directionSeed
+        ? calibration.revisedPlan
+        : null;
+      if (seededPlan) {
+        const seed = seededPlan.directionSeed;
+        const context = requireExpiring(directionSelections, seed.decisionHash, {
+          staleCode: "DIRECTION_SELECTION_STALE",
+          staleMessage: "第二轮方向选择记录不存在或已过期；请从首轮综述重新确认方向。",
+        });
+        const decision = context.decision;
+        const expectedCandidate = seededPlan.candidates?.find(
+          (candidate) => candidate.id === body.reviewScanCandidateId,
+        ) ?? seededPlan.candidates?.[0];
+        const suppliedCandidate = Array.isArray(body.candidateQueries)
+          ? body.candidateQueries.find((candidate) => candidate.id === expectedCandidate?.id)
+          : null;
+        if (
+          !expectedCandidate
+          || !suppliedCandidate
+          || suppliedCandidate.query !== expectedCandidate.query
+          || seed.selectedDirectionId !== decision.selectedDirection.id
+          || seed.sourcePreviewPlanHash !== decision.sourcePreviewPlanHash
+          || seed.decisionHash !== decision.decisionHash
+        ) {
+          throw Object.assign(
+            new Error("第二轮候选检索式或方向绑定已改变；请重新执行方向收窄与校准。"),
+            { code: "SECOND_ROUND_DIRECTION_BINDING_MISMATCH" },
+          );
+        }
+        directionBinding = {
+          schemaVersion: "research-second-round-direction-binding/v1",
+          decisionHash: decision.decisionHash,
+          selectedDirectionId: decision.selectedDirection.id,
+          themeId: decision.selectedDirection.themeId ?? null,
+          sourcePreviewPlanHash: decision.sourcePreviewPlanHash,
+          reportHash: decision.reportBinding?.reportHash ?? null,
+          focusMappingHash: sha256(decision.narrowedBrief?.focusMapping ?? null),
+          focusedQueryHash: sha256(expectedCandidate.query),
+        };
       }
       strategyCalibration = {
         schemaVersion: calibration.schemaVersion,
@@ -1871,6 +1983,8 @@ async function apiHandler(request, response, pathname) {
         revision: calibration.revision,
         accessBoundary: calibration.accessBoundary,
         stageBrief: calibration.stageBrief,
+        ...(seededPlan ? { directionSeed: structuredClone(seededPlan.directionSeed) } : {}),
+        ...(directionBinding ? { directionBinding: structuredClone(directionBinding) } : {}),
       };
     }
     const generatedPreview = await previewPubMedQueryPlan({
@@ -1885,6 +1999,12 @@ async function apiHandler(request, response, pathname) {
     });
     const preview = rememberQueryPreview({
       ...generatedPreview,
+      ...(seededPlan ? {
+        mappings: structuredClone(seededPlan.mappings ?? []),
+        conceptGroups: structuredClone(seededPlan.conceptGroups ?? []),
+        directionSeed: structuredClone(seededPlan.directionSeed),
+      } : {}),
+      ...(directionBinding ? { directionBinding } : {}),
       ...(strategyCalibration ? { strategyCalibration } : {}),
     });
     sendJson(response, 200, preview);
@@ -1906,6 +2026,17 @@ async function apiHandler(request, response, pathname) {
       });
     }
     const preview = structuredClone(entry.preview);
+    const researchReport = preview.reviewLandscape?.researchReport ?? null;
+    if (researchReport) {
+      try {
+        assertResearchReportSelectionBinding({ reportBinding: body.reportBinding }, researchReport);
+      } catch (error) {
+        throw Object.assign(
+          new Error(`方向选择绑定的科研简报已变化：${error.message}`),
+          { code: "STALE_RESEARCH_REPORT_BINDING" },
+        );
+      }
+    }
     const selectedCandidateId = preview.reviewLandscape?.selectedCandidateId
       ?? preview.candidates?.find((candidate) => candidate.status === "ready")?.id;
     const roundOnePreviewSelection = queryPreviewSelectionForBody({

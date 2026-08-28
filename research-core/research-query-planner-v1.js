@@ -1,5 +1,5 @@
 import { sha256 } from "./event-engine-v1.js";
-import { analyzeReviewAbstracts } from "./research-review-synthesis-v1.js";
+import { buildResearchReportContract } from "./research-report-contract-v1.js";
 
 const QUERY_PLAN_SCHEMA = "research-query-plan/v2";
 const DEFAULT_SAMPLE_LIMIT = 3;
@@ -7,13 +7,13 @@ const MAX_SAMPLE_LIMIT = 5;
 const DEFAULT_REVIEW_WINDOW_YEARS = 5;
 const MAX_REVIEW_WINDOW_YEARS = 10;
 const DEFAULT_REVIEW_SAMPLE_LIMIT = 20;
-const METHOD_FOCUSED_REVIEW_CLAUSE = [
+const METHOD_FOCUSED_REVIEW_CLAUSE = `(${[
   "systematic[sb]",
   "meta-analysis[Publication Type]",
   '"systematic review"[Title/Abstract]',
   '"scoping review"[Title/Abstract]',
   '"umbrella review"[Title/Abstract]',
-].join(" OR ");
+].join(" OR ")}) NOT guideline[Publication Type] NOT practice guideline[Publication Type]`;
 
 const CONCEPT_DICTIONARY = Object.freeze([
   { source: "围术期", patterns: [/围术期/g], terms: ["perioperative", "postoperative"] },
@@ -571,7 +571,7 @@ function reviewWindow({ now = () => new Date(), years = DEFAULT_REVIEW_WINDOW_YE
   fromDate.setUTCFullYear(fromDate.getUTCFullYear() - normalizedYears);
   const from = pubMedDate(fromDate);
   const to = pubMedDate(toDate);
-  const publicationTypeClause = [
+  const positivePublicationTypes = [
     "systematic[sb]",
     "meta-analysis[Publication Type]",
     "review[Publication Type]",
@@ -584,7 +584,7 @@ function reviewWindow({ now = () => new Date(), years = DEFAULT_REVIEW_WINDOW_YE
     basis: "rolling_publication_date",
     from,
     to,
-    publicationTypeClause: `(${publicationTypeClause})`,
+    publicationTypeClause: `(${positivePublicationTypes}) NOT guideline[Publication Type] NOT practice guideline[Publication Type]`,
     dateClause,
     boundary: `近 ${normalizedYears} 年按 PubMed 发表日期滚动计算；综述类型使用 PubMed Publication Type、systematic 子集及题名摘要补充词识别。`,
   };
@@ -625,6 +625,31 @@ export function generatePubMedQueryPlan({ question, now = () => new Date() } = {
     accessBoundary: "本步只生成检索策略，不访问 PubMed，也不创建项目。研究者确认后才执行真实检索。",
   };
   return { ...plan, planHash: sha256(plan) };
+}
+
+export function inferResearchSubjectConcepts({ question, queryPlan = null } = {}) {
+  const planMappings = Array.isArray(queryPlan?.mappings)
+    ? queryPlan.mappings
+    : hasText(question)
+      ? generatePubMedQueryPlan({ question }).mappings
+      : [];
+  const subjectMappings = planMappings.filter((mapping) => mapping?.role === "subject");
+  const concepts = subjectMappings.map((mapping) => ({
+    conceptId: mapping.conceptId,
+    sourceTerm: mapping.sourceTerm,
+    role: mapping.role,
+    mappedTerms: Array.isArray(mapping.mappedTerms) ? [...mapping.mappedTerms] : [],
+    meshTerms: Array.isArray(mapping.meshTerms) ? [...mapping.meshTerms] : [],
+  }));
+  return {
+    status: concepts.length > 0 ? "derived" : "unresolved",
+    concepts,
+    basis: Array.isArray(queryPlan?.mappings) ? "stored_query_plan" : "project_question",
+    reason: concepts.length > 0
+      ? "已从旧项目的研究问题或已存检索计划明确识别研究对象词群。"
+      : "旧项目没有冻结研究对象词群，且无法从研究问题或已存检索计划明确识别；请重新确认研究对象后再生成最终文献库。",
+    boundary: "兼容推导只使用可审计词典中角色为 subject 的概念；不会把现象、干预或上下文词冒充研究对象。",
+  };
 }
 
 function normalizeProvidedCandidates(candidateQueries) {
@@ -726,22 +751,37 @@ function distribution(records, valueFor) {
   return [...counts.values()].sort((left, right) => right.count - left.count || left.label.localeCompare(right.label));
 }
 
-function yearStratifiedReviewBuckets(window, sampleLimit) {
-  const fromYear = Number(String(window?.from ?? "").slice(0, 4));
-  const toYear = Number(String(window?.to ?? "").slice(0, 4));
-  if (!Number.isInteger(fromYear) || !Number.isInteger(toYear) || fromYear > toYear) return [];
-  const years = [];
-  for (let year = toYear; year >= fromYear; year -= 1) years.push(year);
-  const baseQuota = Math.floor(sampleLimit / years.length);
-  let remainder = sampleLimit % years.length;
-  return years.map((year) => {
+function rollingReviewBuckets(window, sampleLimit) {
+  const parse = (value) => {
+    const match = String(value ?? "").match(/^(\d{4})[/-](\d{2})[/-](\d{2})$/);
+    return match ? new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))) : null;
+  };
+  const fromDate = parse(window?.from);
+  const toDate = parse(window?.to);
+  const bucketCount = Number(window?.years);
+  if (!fromDate || !toDate || !Number.isInteger(bucketCount) || bucketCount < 1 || fromDate > toDate) return [];
+  const starts = Array.from({ length: bucketCount }, (_, index) => {
+    const value = new Date(fromDate.getTime());
+    value.setUTCFullYear(value.getUTCFullYear() + index);
+    return value;
+  });
+  const windows = starts.map((start, index) => {
+    const nextStart = starts[index + 1];
+    const end = nextStart
+      ? new Date(nextStart.getTime() - 24 * 60 * 60 * 1000)
+      : toDate;
+    return { start, end };
+  }).reverse();
+  const baseQuota = Math.floor(sampleLimit / windows.length);
+  let remainder = sampleLimit % windows.length;
+  return windows.map(({ start, end }, index) => {
     const quota = baseQuota + (remainder > 0 ? 1 : 0);
     remainder = Math.max(0, remainder - 1);
     return {
-      id: String(year),
-      label: String(year),
-      from: year === fromYear ? window.from : `${year}/01/01`,
-      to: year === toYear ? window.to : `${year}/12/31`,
+      id: `rolling_window_${index + 1}`,
+      label: `${pubMedDate(start)}—${pubMedDate(end)}`,
+      from: pubMedDate(start),
+      to: pubMedDate(end),
       quota,
     };
   }).filter((bucket) => bucket.quota > 0);
@@ -759,6 +799,8 @@ function appendUniqueIds(target, ids, limit) {
 async function buildRecentReviewLandscape({
   gateway,
   candidate,
+  question,
+  subjectConcepts,
   signal,
   now,
   years,
@@ -795,7 +837,7 @@ async function buildRecentReviewLandscape({
     }
     const ids = [];
     const samplingBuckets = [];
-    for (const bucket of yearStratifiedReviewBuckets(window, normalizedSampleLimit)) {
+    for (const bucket of rollingReviewBuckets(window, normalizedSampleLimit)) {
       const dateClause = `("${bucket.from}"[Date - Publication] : "${bucket.to}"[Date - Publication])`;
       const methodFocusedQuery = `(${candidate.query}) AND (${METHOD_FOCUSED_REVIEW_CLAUSE}) AND ${dateClause}`;
       try {
@@ -825,9 +867,41 @@ async function buildRecentReviewLandscape({
     appendUniqueIds(ids, overallIds, normalizedSampleLimit);
     const fetched = await gateway.fetchPubMed({ resultIds: ids }, signal);
     const records = (Array.isArray(fetched?.records) ? fetched.records : []).slice(0, normalizedSampleLimit);
-    const synthesis = analyzeReviewAbstracts(records, { reviewWindow: window });
+    const samplingStrategy = {
+      id: "method_focused_rolling_windows",
+      label: "连续 12 个月分层 · 方法明确综述优先",
+      description: "把滚动时间窗切分为连续且不重叠的 12 个月窗口，按窗口分配样本名额；优先读取系统综述、Meta 分析、范围综述与伞状综述，并排除指南；不足部分才由总体当前排序补齐。",
+      buckets: samplingBuckets,
+      boundary: "这是检索时冻结 PMID 的分层目的样本，不是随机抽样，也不等同于 AMSTAR 2 或全文质量筛选。PubMed Best Match/相关性排序算法可能变化，未来重跑不承诺得到相同顺序或相同 PMID。",
+    };
+    const researchReport = buildResearchReportContract({
+      projectId: null,
+      question,
+      records,
+      subjectConcepts,
+      reportRevision: 1,
+      generatedAt: fetched?.fetchedAt ?? search?.executedAt ?? null,
+      reviewWindow: window,
+      bindingAuthority: "preproject_preview",
+      samplingMetadata: {
+        schemaVersion: "pubmed-preview-stratified-sample/v1",
+        database: "PubMed",
+        query,
+        sampleLimit: normalizedSampleLimit,
+        strategy: samplingStrategy,
+        boundary: "命中总数与分层样本分开保存；样本主题分布不能替代全领域发文计量。",
+      },
+    });
+    const synthesis = researchReport.derivedAnalysis.reviewSynthesis;
+    const includedSourceIds = new Set(researchReport.derivedAnalysis.analyzedSourceIds);
+    const relevantRecords = records.filter((record) => includedSourceIds.has(
+      record?.sourceId ?? (record?.pmid ? `pubmed:${record.pmid}` : null),
+    ));
     const sourceAnalysisById = new Map(
-      synthesis.sourceAnalyses.map((analysis) => [analysis.sourceId, analysis]),
+      (synthesis?.sourceAnalyses ?? []).map((analysis) => [analysis.sourceId, analysis]),
+    );
+    const relevanceById = new Map(
+      researchReport.relevanceGate.rows.map((row) => [row.sourceId, row]),
     );
     const sources = records.map((record) => {
       const type = reviewTypeFor(record);
@@ -843,16 +917,51 @@ async function buildRecentReviewLandscape({
         abstractSnippet: abstract ? abstract.slice(0, 500) : null,
         accessLevel: record?.accessLevel ?? (abstract ? "abstract_only" : "title_only"),
         locator: record?.locator ?? null,
+        relevance: relevanceById.get(sourceId) ?? null,
         abstractAnalysis: sourceAnalysisById.get(sourceId) ?? null,
       };
     });
-    const yearsDistribution = distribution(records, yearFor)
+    const yearsDistribution = distribution(relevantRecords, yearFor)
       .sort((left, right) => right.label.localeCompare(left.label));
-    const typeDistribution = distribution(records, reviewTypeFor);
-    const titleTerms = frequentTitleTerms(records);
-    const abstractAvailableCount = sources.filter((source) => source.accessLevel === "abstract_only").length;
+    const typeDistribution = distribution(relevantRecords, reviewTypeFor);
+    const titleTerms = frequentTitleTerms(relevantRecords);
+    const abstractAvailableCount = sources.filter(
+      (source) => source.relevance?.status === "relevant" && source.accessLevel === "abstract_only",
+    ).length;
     const typeSummary = typeDistribution.slice(0, 3).map((item) => `${item.label} ${item.count} 篇`).join("、");
     const termSummary = titleTerms.slice(0, 5).map((item) => `${item.term}（${item.count}）`).join("、");
+    if (researchReport.relevanceGate.status === "blocked") {
+      return {
+        status: "relevance_blocked",
+        selectedCandidateId: candidate.id,
+        baseQuery: candidate.query,
+        query,
+        executedAt: search?.executedAt ?? null,
+        fetchedAt: fetched?.fetchedAt ?? null,
+        total: Number(search?.total ?? ids.length),
+        sampledCount: sources.length,
+        analyzedCount: 0,
+        abstractAvailableCount: 0,
+        reviewWindow: window,
+        samplingStrategy,
+        yearDistribution: [],
+        reviewTypeDistribution: [],
+        frequentTitleTerms: [],
+        synthesis: null,
+        researchReport,
+        relevanceGate: researchReport.relevanceGate,
+        sources,
+        stageBrief: {
+          currentResearchPeriod: "检索策略确认 · 研究对象相关性核查",
+          newFindings: [
+            `本轮读取 ${sources.length} 篇题名与可用摘要，但 0 篇命中已冻结研究对象词群。`,
+            "系统已停止主题分析、方向生成和后续正式文献库冻结。",
+          ],
+          evidenceBoundary: researchReport.relevanceGate.boundary,
+          nextDecision: "修订研究对象词群或检索式并重新执行真实PubMed预检；不能把当前结果解释为领域没有研究。",
+        },
+      };
+    }
     return {
       status: "ready",
       selectedCandidateId: candidate.id,
@@ -862,24 +971,21 @@ async function buildRecentReviewLandscape({
       fetchedAt: fetched?.fetchedAt ?? null,
       total: Number(search?.total ?? ids.length),
       sampledCount: sources.length,
+      analyzedCount: relevantRecords.length,
       abstractAvailableCount,
       reviewWindow: window,
-      samplingStrategy: {
-        id: "method_focused_year_stratified",
-        label: "按年份分层 · 方法明确综述优先",
-        description: "在滚动五年时间窗内按发表年份分配样本名额，优先读取系统综述、Meta 分析、范围综述与伞状综述；不足部分才由总体当前排序补齐。",
-        buckets: samplingBuckets,
-        boundary: "这是为了获得跨年份比较样本，不是随机抽样，也不等同于 AMSTAR 2 或全文质量筛选。",
-      },
+      samplingStrategy,
       yearDistribution: yearsDistribution,
       reviewTypeDistribution: typeDistribution,
       frequentTitleTerms: titleTerms,
       synthesis,
+      researchReport,
+      relevanceGate: researchReport.relevanceGate,
       sources,
       stageBrief: {
         currentResearchPeriod: "检索策略确认 · 近五年综述扫描",
         newFindings: [
-          `PubMed 当前命中 ${Number(search?.total ?? ids.length)} 篇近 ${window.years} 年综述，本轮读取前 ${sources.length} 篇题录与可用摘要。`,
+          `PubMed 当前命中 ${Number(search?.total ?? ids.length)} 篇近 ${window.years} 年综述，本轮读取 ${sources.length} 篇题录与可用摘要，其中 ${relevantRecords.length} 篇进入派生分析。`,
           `本轮采用“按年份分层、方法明确综述优先”的样本策略；${samplingBuckets.filter((bucket) => bucket.sampledCount > 0).length}/${samplingBuckets.length} 个年度分层取得样本。`,
           synthesis.summaries.coverage,
           synthesis.summaries.change,
@@ -890,7 +996,7 @@ async function buildRecentReviewLandscape({
           reviewTypeSummary: typeSummary || null,
           frequentTitleTermSummary: termSummary || null,
         },
-        evidenceBoundary: `本轮只分析 PubMed 当前排序前 ${sources.length} 篇样本，其中 ${abstractAvailableCount} 篇有摘要。${synthesis.boundary}`,
+        evidenceBoundary: `本轮只分析 ${relevantRecords.length} 篇研究对象相关样本，其中 ${abstractAvailableCount} 篇有摘要；其余来源保留在逐条账本但不进入统计。${synthesis.boundary}`,
         nextDecision: synthesis.breakthroughCandidates.length
           ? "先核对摘要分析与来源，再从候选突破口中选择一个更窄问题进入下一轮选题调查；本步不会自动替你确定选题。"
           : "当前摘要没有形成可追溯的候选突破口；先核对检索覆盖或扩大综述样本，再决定是否进入下一轮选题调查。",
@@ -1001,6 +1107,11 @@ export async function previewPubMedQueryPlan({
     ? await buildRecentReviewLandscape({
         gateway,
         candidate: reviewCandidate,
+        question: generatedPlan.question,
+        subjectConcepts: (() => {
+          const subjects = generatedPlan.mappings.filter((mapping) => mapping.role === "subject");
+          return subjects.length > 0 ? subjects : generatedPlan.mappings;
+        })(),
         signal,
         now,
         years: reviewWindowYears,

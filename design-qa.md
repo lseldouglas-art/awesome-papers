@@ -1,4 +1,59 @@
-# 科研工作台 V3 设计验收记录
+# 科研工作台 v0.1.2 设计与科研验收记录
+
+- 验收日期：2026-08-28
+- 本地地址：http://127.0.0.1:5177/research-workbench
+- 参考设计：`/Users/lsel/Documents/design/work/research-workbench-redesign-2026-08-26/samples/annotation-v2-final/`
+- 实现截图：`docs/assets/research-report-v012-01-landscape.png` 至 `research-report-v012-04-plan.png`
+- 并排对照：`docs/assets/research-report-v012-comparison-01.jpg` 至 `research-report-v012-comparison-04.jpg`
+- 响应式截图：`docs/assets/research-report-v012-mobile.png`、`docs/assets/research-report-v012-zoom-200.png`
+- 验收环境：Codex 内置浏览器，1448 × 1086（4:3）、390 × 844、724 × 543（200% 等效）
+
+## 本轮目标流程
+
+1. 从“领域图景”理解样本能支持什么、不能支持什么。
+2. 在“趋势与选题”区分样本结构观察和研究机会推断。
+3. 在“研究机会”比较 5 个结构化候选，不把低频写成空白。
+4. 选择一个候选后，进入“综述方向”查看范围、文献组织、工作量和降级条件。
+5. 按需打开本章证据抽屉追溯 PMID；完整 20 篇账本保持独立折叠。
+
+## 视觉、内容与交互结论
+
+| 核查项 | 结果 | 说明 |
+| --- | --- | --- |
+| 文字简报优先 | 通过 | 每章先给研究判断和边界，可视化仅用于主题结构、分布和候选比较。 |
+| 四章信息架构 | 通过 | 领域图景 → 趋势与选题 → 研究机会 → 单方向执行方案；每章只有一个主动作。 |
+| SCI 级视觉语言 | 通过 | 白底、深海军蓝、克制的冷灰与少量赭金；与 4 张参考设计同视口并排复核。 |
+| 科研语言 | 通过 | 去除口语化和过度确定措辞；最后一处“成熟候选”已改为“结构化候选”。 |
+| 证据密度 | 通过 | PMID 保留但不形成证据墙；每章最多 8 条代表记录，完整账本另行展开。 |
+| 候选联动 | 通过 | 切换候选后，第四章的标题、范围、结局、工作量和降级条件同步更新。 |
+| 键盘交互 | 通过 | ArrowRight、Home、End 可切换章节；Escape 关闭依据并把焦点还给原按钮。 |
+| 390 px | 通过 | 文档宽度与视口同为 390 px，无页面级横向溢出。 |
+| 200% 等效 | 通过 | 724 × 543 下无页面级横向溢出，局部宽表保留局部滚动。 |
+| 控制台 | 通过 | 无页面 warning/error；仅有 Vite/React 开发信息。 |
+
+## 科研与证据链回归
+
+- 20 个 PMID、题名和 Review/Meta publication type 已与冻结的 NCBI 返回内容核对。
+- 主要问题均绑定 `sourceId`、字段和摘要原句；并列信号不排序、不自动形成优先级。
+- 胃癌、其他肿瘤和非肿瘤 taxonomy 隔离；未发现跨主题术语泄漏。
+- 外部同题综述状态保持 fail-closed，调用方不能伪造“已核查”。
+- 第二轮完整绑定首次报告、候选方向、研究者理由、聚焦映射和精确查询；编辑或绕过会被拒绝。
+- `reportHash` 仅作为内容指纹，不被描述为签名或独立可信根。
+
+## 自动化验证
+
+- `npm run test:core`：285/285 通过。
+- `npm run test:model`：9/9 通过。
+- `npm run test:ui`：13/13 通过。
+- `npm run test:api`：1/1 通过。
+- 合计：308/308 通过。
+- 冻结夹具密封校验、真实 EFetch XML 分类器重放、`npm run build` 与 `git diff --check`：通过。
+
+final result: passed
+
+---
+
+# 科研工作台 V3 设计验收记录（历史）
 
 - 验收日期：2026-08-24
 - 本地地址：http://127.0.0.1:5177/research-workbench

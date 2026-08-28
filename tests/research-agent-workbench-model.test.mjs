@@ -84,33 +84,94 @@ test("new research sends the exact preview plan and selected query candidate", (
 });
 
 test("direction selection binds reasons to a candidate from the visible first-round report", () => {
+  const reportBinding = {
+    projectId: null,
+    sourceSetHash: "b".repeat(64),
+    reportRevision: 1,
+    frozenSourceManifestHash: "e".repeat(64),
+    derivedAnalysisHash: "f".repeat(64),
+    reportHash: "c".repeat(64),
+    authority: "preview",
+  };
   const payload = buildResearchWorkbenchDirectionSelectionPayload({
     queryPreview: {
       planHash: "d".repeat(64),
       reviewLandscape: {
+        researchReport: { binding: reportBinding },
         synthesis: {
-          directionReport: {
-            directions: [
-              { id: "direction_biomarker", direction: "分子标志物" },
-              { id: "direction_local", direction: "局部治疗" },
+          professorReport: {
+            studentReviewDirections: [
+              { id: "review_proposal_biomarker", suggestedTitle: "分子标志物综述" },
+              { id: "review_proposal_local", suggestedTitle: "局部治疗综述" },
             ],
           },
         },
       },
     },
-    selectedDirectionId: "direction_biomarker",
+    selectedDirectionId: "review_proposal_biomarker",
     selectionReason: " 更符合本轮可行性。 ",
     deferredReason: " 其余方向暂缓比较。 ",
   });
   assert.deepEqual(payload, {
     queryPlanHash: "d".repeat(64),
-    selectedDirectionId: "direction_biomarker",
+    selectedDirectionId: "review_proposal_biomarker",
     selectionReason: "更符合本轮可行性。",
     deferredReason: "其余方向暂缓比较。",
+    reportBinding,
   });
   assert.equal(buildResearchWorkbenchDirectionSelectionPayload({
-    queryPreview: { planHash: "d".repeat(64), reviewLandscape: { synthesis: { directionReport: { directions: [] } } } },
+    queryPreview: { planHash: "d".repeat(64), reviewLandscape: { synthesis: { professorReport: { studentReviewDirections: [] } } } },
     selectedDirectionId: "invented",
+    selectionReason: "理由足够明确。",
+    deferredReason: "其他方向暂缓。",
+  }), null);
+  assert.equal(buildResearchWorkbenchDirectionSelectionPayload({
+    queryPreview: {
+      planHash: "d".repeat(64),
+      reviewLandscape: {
+        researchReport: { binding: { ...reportBinding, derivedAnalysisHash: undefined } },
+        synthesis: { professorReport: { studentReviewDirections: [{ id: "review_proposal_biomarker" }] } },
+      },
+    },
+    selectedDirectionId: "review_proposal_biomarker",
+    selectionReason: "理由足够明确。",
+    deferredReason: "其他方向暂缓。",
+  }), null);
+  assert.equal(buildResearchWorkbenchDirectionSelectionPayload({
+    queryPreview: {
+      planHash: "d".repeat(64),
+      reviewLandscape: {
+        researchReport: { binding: { ...reportBinding, frozenSourceManifestHash: undefined } },
+        synthesis: { professorReport: { studentReviewDirections: [{ id: "review_proposal_biomarker" }] } },
+      },
+    },
+    selectedDirectionId: "review_proposal_biomarker",
+    selectionReason: "理由足够明确。",
+    deferredReason: "其他方向暂缓。",
+  }), null);
+  assert.equal(buildResearchWorkbenchDirectionSelectionPayload({
+    queryPreview: {
+      planHash: "d".repeat(64),
+      reviewLandscape: {
+        researchReport: { binding: { ...reportBinding, reportHash: undefined } },
+        synthesis: { professorReport: { studentReviewDirections: [{ id: "review_proposal_biomarker" }] } },
+      },
+    },
+    selectedDirectionId: "review_proposal_biomarker",
+    selectionReason: "理由足够明确。",
+    deferredReason: "其他方向暂缓。",
+  }), null);
+  assert.equal(buildResearchWorkbenchDirectionSelectionPayload({
+    queryPreview: {
+      planHash: "d".repeat(64),
+      reviewLandscape: {
+        synthesis: {
+          professorReport: { studentReviewDirections: [{ id: "review_proposal_biomarker" }] },
+          directionReport: { directions: [{ id: "legacy_original_research" }] },
+        },
+      },
+    },
+    selectedDirectionId: "legacy_original_research",
     selectionReason: "理由足够明确。",
     deferredReason: "其他方向暂缓。",
   }), null);

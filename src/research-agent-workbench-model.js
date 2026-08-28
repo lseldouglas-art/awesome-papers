@@ -60,9 +60,20 @@ export function buildResearchWorkbenchDirectionSelectionPayload({
   selectionReason,
   deferredReason,
 }) {
-  const directions = queryPreview?.reviewLandscape?.synthesis?.directionReport?.directions;
+  const directions = queryPreview?.reviewLandscape?.synthesis?.professorReport?.studentReviewDirections;
+  const reportBinding = queryPreview?.reviewLandscape?.researchReport?.binding ?? null;
+  const bindingComplete = Boolean(
+    reportBinding
+    && /^[a-f0-9]{64}$/i.test(reportBinding.sourceSetHash ?? "")
+    && Number.isInteger(Number(reportBinding.reportRevision))
+    && Number(reportBinding.reportRevision) > 0
+    && /^[a-f0-9]{64}$/i.test(reportBinding.frozenSourceManifestHash ?? "")
+    && /^[a-f0-9]{64}$/i.test(reportBinding.derivedAnalysisHash ?? "")
+    && /^[a-f0-9]{64}$/i.test(reportBinding.reportHash ?? ""),
+  );
   if (
     !/^[a-f0-9]{64}$/i.test(queryPreview?.planHash ?? "") ||
+    !bindingComplete ||
     !Array.isArray(directions) ||
     !directions.some((direction) => direction.id === selectedDirectionId)
   ) return null;
@@ -76,6 +87,7 @@ export function buildResearchWorkbenchDirectionSelectionPayload({
     selectedDirectionId,
     selectionReason: reason,
     deferredReason: deferred,
+    reportBinding,
   };
 }
 

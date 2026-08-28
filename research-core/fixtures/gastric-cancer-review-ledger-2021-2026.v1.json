@@ -1,0 +1,5306 @@
+{
+  "schemaVersion": "research-report-contract/v1",
+  "binding": {
+    "projectId": "fixture:gastric-cancer-review-landscape-2021-2026",
+    "sourceSetHash": "c799635f293ad994139a0fdacd2f3b48c5fe9a06b626c195320d07f52e35b712",
+    "reportRevision": 1,
+    "authority": "frozen_pubmed_fixture",
+    "frozenSourceManifestHash": "44add89d859c665329efd9ef62a4c908e13a2eb9e9cc554ae7962f5a068ea187",
+    "derivedAnalysisHash": "0af9b3f03e9c1cf6bc16dfa60af21ef122e567e55538491af59288a7e49da2d1",
+    "reportHash": "959061cd655500cc199ec3f5e0f44beb2fe7fcbea8280433d3594a8c9622ac16"
+  },
+  "question": "胃癌的研究现状",
+  "generatedAt": "2026-08-26T16:00:00.000Z",
+  "claimLabels": {
+    "sampleObservation": {
+      "id": "sample_observation",
+      "label": "分层样本观察",
+      "authority": "descriptive_sample_only",
+      "boundary": "只描述当前逐条账本中的样本，不代表全领域发文量、成熟度或临床有效性。"
+    },
+    "externalReviewCheck": {
+      "id": "external_review_check",
+      "label": "外部综述待核查",
+      "authority": "not_performed",
+      "boundary": "必须绑定可定位的外部综述或指南；未核查全文时只能报告题名摘要级信息。"
+    },
+    "researchOpportunityInference": {
+      "id": "research_opportunity_inference",
+      "label": "研究机会推断",
+      "authority": "hypothesis_for_recheck",
+      "boundary": "这是待第二轮窄检索证伪的选题假设，不是研究空白、创新性或可行性定论。"
+    }
+  },
+  "externalReviewVerification": {
+    "schemaVersion": "research-external-review-verification/v1",
+    "status": "not_performed",
+    "receipts": [],
+    "boundary": "当前合同不接受调用方自报的全局核查布尔值。只有未来按 directionId 绑定、含检索方法、时间、可解析定位符和来源快照哈希的独立回执，才能升级单个候选；本轮全部保持待核查。"
+  },
+  "relevanceGate": {
+    "schemaVersion": "research-subject-relevance/v1",
+    "status": "passed",
+    "threshold": {
+      "minimumRelevantSources": 1,
+      "policy": "zero_relevant_blocks"
+    },
+    "totalCount": 20,
+    "relevantCount": 20,
+    "notRelevantCount": 0,
+    "subjectConcepts": [
+      {
+        "id": "subject:gastric-cancer",
+        "sourceTerm": "胃癌",
+        "role": "subject",
+        "terms": [
+          "gastric cancer",
+          "stomach cancer",
+          "gastric carcinoma",
+          "stomach carcinoma",
+          "gastric adenocarcinoma",
+          "stomach adenocarcinoma",
+          "gastric neoplasm",
+          "stomach neoplasm"
+        ],
+        "meshTerms": [
+          "Stomach Neoplasms"
+        ]
+      }
+    ],
+    "rows": [
+      {
+        "sourceId": "pubmed:35481909",
+        "title": "Advances in screening and detection of gastric cancer.",
+        "status": "relevant",
+        "matches": [
+          {
+            "conceptId": "subject:gastric-cancer",
+            "sourceTerm": "胃癌",
+            "role": "subject",
+            "matched": [
+              {
+                "field": "title",
+                "term": "gastric cancer"
+              },
+              {
+                "field": "abstract",
+                "term": "gastric cancer"
+              }
+            ]
+          }
+        ],
+        "ruleVersion": "research-subject-relevance/v1",
+        "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+      },
+      {
+        "sourceId": "pubmed:35431510",
+        "title": "Epidemiology of stomach cancer.",
+        "status": "relevant",
+        "matches": [
+          {
+            "conceptId": "subject:gastric-cancer",
+            "sourceTerm": "胃癌",
+            "role": "subject",
+            "matched": [
+              {
+                "field": "title",
+                "term": "stomach cancer"
+              },
+              {
+                "field": "abstract",
+                "term": "stomach cancer"
+              }
+            ]
+          }
+        ],
+        "ruleVersion": "research-subject-relevance/v1",
+        "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+      },
+      {
+        "sourceId": "pubmed:35319717",
+        "title": "Surgical Management of Gastric Cancer: A Review.",
+        "status": "relevant",
+        "matches": [
+          {
+            "conceptId": "subject:gastric-cancer",
+            "sourceTerm": "胃癌",
+            "role": "subject",
+            "matched": [
+              {
+                "field": "title",
+                "term": "gastric cancer"
+              },
+              {
+                "field": "abstract",
+                "term": "gastric cancer"
+              }
+            ]
+          }
+        ],
+        "ruleVersion": "research-subject-relevance/v1",
+        "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+      },
+      {
+        "sourceId": "pubmed:34933124",
+        "title": "Molecular pathogenesis, targeted therapies, and future perspectives for gastric cancer.",
+        "status": "relevant",
+        "matches": [
+          {
+            "conceptId": "subject:gastric-cancer",
+            "sourceTerm": "胃癌",
+            "role": "subject",
+            "matched": [
+              {
+                "field": "title",
+                "term": "gastric cancer"
+              },
+              {
+                "field": "abstract",
+                "term": "gastric cancer"
+              }
+            ]
+          }
+        ],
+        "ruleVersion": "research-subject-relevance/v1",
+        "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+      },
+      {
+        "sourceId": "pubmed:37649615",
+        "title": "Evaluation of FAPI PET imaging in gastric cancer: a systematic review and meta-analysis.",
+        "status": "relevant",
+        "matches": [
+          {
+            "conceptId": "subject:gastric-cancer",
+            "sourceTerm": "胃癌",
+            "role": "subject",
+            "matched": [
+              {
+                "field": "title",
+                "term": "gastric cancer"
+              },
+              {
+                "field": "abstract",
+                "term": "gastric cancer"
+              }
+            ]
+          }
+        ],
+        "ruleVersion": "research-subject-relevance/v1",
+        "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+      },
+      {
+        "sourceId": "pubmed:37245017",
+        "title": "Gastric cancer treatment: recent progress and future perspectives.",
+        "status": "relevant",
+        "matches": [
+          {
+            "conceptId": "subject:gastric-cancer",
+            "sourceTerm": "胃癌",
+            "role": "subject",
+            "matched": [
+              {
+                "field": "title",
+                "term": "gastric cancer"
+              },
+              {
+                "field": "abstract",
+                "term": "gastric cancer"
+              }
+            ]
+          }
+        ],
+        "ruleVersion": "research-subject-relevance/v1",
+        "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+      },
+      {
+        "sourceId": "pubmed:37179585",
+        "title": "Updates on global epidemiology, risk and prognostic factors of gastric cancer.",
+        "status": "relevant",
+        "matches": [
+          {
+            "conceptId": "subject:gastric-cancer",
+            "sourceTerm": "胃癌",
+            "role": "subject",
+            "matched": [
+              {
+                "field": "title",
+                "term": "gastric cancer"
+              },
+              {
+                "field": "abstract",
+                "term": "gastric cancer"
+              }
+            ]
+          }
+        ],
+        "ruleVersion": "research-subject-relevance/v1",
+        "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+      },
+      {
+        "sourceId": "pubmed:36240980",
+        "title": "Characteristics of gastric cancer around the world.",
+        "status": "relevant",
+        "matches": [
+          {
+            "conceptId": "subject:gastric-cancer",
+            "sourceTerm": "胃癌",
+            "role": "subject",
+            "matched": [
+              {
+                "field": "title",
+                "term": "gastric cancer"
+              },
+              {
+                "field": "abstract",
+                "term": "gastric cancer"
+              }
+            ]
+          }
+        ],
+        "ruleVersion": "research-subject-relevance/v1",
+        "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+      },
+      {
+        "sourceId": "pubmed:38600020",
+        "title": "Gastric cancer immunosuppressive microenvironment heterogeneity: implications for therapy development.",
+        "status": "relevant",
+        "matches": [
+          {
+            "conceptId": "subject:gastric-cancer",
+            "sourceTerm": "胃癌",
+            "role": "subject",
+            "matched": [
+              {
+                "field": "title",
+                "term": "gastric cancer"
+              },
+              {
+                "field": "abstract",
+                "term": "gastric cancer"
+              }
+            ]
+          }
+        ],
+        "ruleVersion": "research-subject-relevance/v1",
+        "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+      },
+      {
+        "sourceId": "pubmed:38892067",
+        "title": "Bioinformatics Analysis and Validation of Potential Markers Associated with Prediction and Prognosis of Gastric Cancer.",
+        "status": "relevant",
+        "matches": [
+          {
+            "conceptId": "subject:gastric-cancer",
+            "sourceTerm": "胃癌",
+            "role": "subject",
+            "matched": [
+              {
+                "field": "title",
+                "term": "gastric cancer"
+              },
+              {
+                "field": "abstract",
+                "term": "gastric cancer"
+              }
+            ]
+          }
+        ],
+        "ruleVersion": "research-subject-relevance/v1",
+        "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+      },
+      {
+        "sourceId": "pubmed:38176660",
+        "title": "Global Prevalence of Helicobacter pylori Infection and Incidence of Gastric Cancer Between 1980 and 2022.",
+        "status": "relevant",
+        "matches": [
+          {
+            "conceptId": "subject:gastric-cancer",
+            "sourceTerm": "胃癌",
+            "role": "subject",
+            "matched": [
+              {
+                "field": "title",
+                "term": "gastric cancer"
+              },
+              {
+                "field": "abstract",
+                "term": "gastric cancer"
+              }
+            ]
+          }
+        ],
+        "ruleVersion": "research-subject-relevance/v1",
+        "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+      },
+      {
+        "sourceId": "pubmed:39357127",
+        "title": "Gastric cancer-Epidemiology, modifiable and non-modifiable risk factors, challenges and opportunities: An updated review.",
+        "status": "relevant",
+        "matches": [
+          {
+            "conceptId": "subject:gastric-cancer",
+            "sourceTerm": "胃癌",
+            "role": "subject",
+            "matched": [
+              {
+                "field": "title",
+                "term": "gastric cancer"
+              },
+              {
+                "field": "abstract",
+                "term": "gastric cancer"
+              }
+            ]
+          }
+        ],
+        "ruleVersion": "research-subject-relevance/v1",
+        "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+      },
+      {
+        "sourceId": "pubmed:39849657",
+        "title": "Helicobacter pylori and gastric cancer: mechanisms and new perspectives.",
+        "status": "relevant",
+        "matches": [
+          {
+            "conceptId": "subject:gastric-cancer",
+            "sourceTerm": "胃癌",
+            "role": "subject",
+            "matched": [
+              {
+                "field": "title",
+                "term": "gastric cancer"
+              },
+              {
+                "field": "abstract",
+                "term": "gastric cancer"
+              }
+            ]
+          }
+        ],
+        "ruleVersion": "research-subject-relevance/v1",
+        "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+      },
+      {
+        "sourceId": "pubmed:40319897",
+        "title": "Gastric cancer.",
+        "status": "relevant",
+        "matches": [
+          {
+            "conceptId": "subject:gastric-cancer",
+            "sourceTerm": "胃癌",
+            "role": "subject",
+            "matched": [
+              {
+                "field": "title",
+                "term": "gastric cancer"
+              },
+              {
+                "field": "abstract",
+                "term": "gastric cancer"
+              }
+            ]
+          }
+        ],
+        "ruleVersion": "research-subject-relevance/v1",
+        "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+      },
+      {
+        "sourceId": "pubmed:38886045",
+        "title": "Stomach microbiota in gastric cancer development and clinical implications.",
+        "status": "relevant",
+        "matches": [
+          {
+            "conceptId": "subject:gastric-cancer",
+            "sourceTerm": "胃癌",
+            "role": "subject",
+            "matched": [
+              {
+                "field": "title",
+                "term": "gastric cancer"
+              },
+              {
+                "field": "abstract",
+                "term": "gastric cancer"
+              }
+            ]
+          }
+        ],
+        "ruleVersion": "research-subject-relevance/v1",
+        "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+      },
+      {
+        "sourceId": "pubmed:39148190",
+        "title": "Emerging trends in early-onset gastric cancer.",
+        "status": "relevant",
+        "matches": [
+          {
+            "conceptId": "subject:gastric-cancer",
+            "sourceTerm": "胃癌",
+            "role": "subject",
+            "matched": [
+              {
+                "field": "title",
+                "term": "gastric cancer"
+              },
+              {
+                "field": "abstract",
+                "term": "gastric cancer"
+              }
+            ]
+          }
+        ],
+        "ruleVersion": "research-subject-relevance/v1",
+        "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+      },
+      {
+        "sourceId": "pubmed:41499132",
+        "title": "Gastric Cancer: A Review.",
+        "status": "relevant",
+        "matches": [
+          {
+            "conceptId": "subject:gastric-cancer",
+            "sourceTerm": "胃癌",
+            "role": "subject",
+            "matched": [
+              {
+                "field": "title",
+                "term": "gastric cancer"
+              },
+              {
+                "field": "abstract",
+                "term": "gastric cancer"
+              }
+            ]
+          }
+        ],
+        "ruleVersion": "research-subject-relevance/v1",
+        "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+      },
+      {
+        "sourceId": "pubmed:39928093",
+        "title": "Artificial intelligence-assisted diagnosis of early gastric cancer: present practice and future prospects.",
+        "status": "relevant",
+        "matches": [
+          {
+            "conceptId": "subject:gastric-cancer",
+            "sourceTerm": "胃癌",
+            "role": "subject",
+            "matched": [
+              {
+                "field": "title",
+                "term": "gastric cancer"
+              },
+              {
+                "field": "abstract",
+                "term": "gastric cancer"
+              }
+            ]
+          }
+        ],
+        "ruleVersion": "research-subject-relevance/v1",
+        "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+      },
+      {
+        "sourceId": "pubmed:40555635",
+        "title": "Gastric cancer: from biomarkers to functional precision medicine.",
+        "status": "relevant",
+        "matches": [
+          {
+            "conceptId": "subject:gastric-cancer",
+            "sourceTerm": "胃癌",
+            "role": "subject",
+            "matched": [
+              {
+                "field": "title",
+                "term": "gastric cancer"
+              },
+              {
+                "field": "abstract",
+                "term": "gastric cancer"
+              }
+            ]
+          }
+        ],
+        "ruleVersion": "research-subject-relevance/v1",
+        "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+      },
+      {
+        "sourceId": "pubmed:41044644",
+        "title": "Non-coding RNAs in gastric cancer: mechanisms and therapeutic prospects.",
+        "status": "relevant",
+        "matches": [
+          {
+            "conceptId": "subject:gastric-cancer",
+            "sourceTerm": "胃癌",
+            "role": "subject",
+            "matched": [
+              {
+                "field": "title",
+                "term": "gastric cancer"
+              },
+              {
+                "field": "abstract",
+                "term": "gastric cancer"
+              }
+            ]
+          }
+        ],
+        "ruleVersion": "research-subject-relevance/v1",
+        "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+      }
+    ],
+    "blockedArtifactTypes": [
+      "finalLibrary",
+      "LibraryManifest",
+      "EvidenceRecord",
+      "ResearchConclusionCard",
+      "research_direction"
+    ],
+    "reason": "至少一篇来源命中已冻结研究对象词群；仍需后续题名摘要筛选决定逐篇纳入。",
+    "boundary": "这是防止完全错题来源进入证据链的最低硬门禁，不替代双人筛选、全文评价或纳入排除判断。"
+  },
+  "ledger": {
+    "schemaVersion": "research-review-ledger/v1",
+    "rowCount": 20,
+    "analyzedRowCount": 20,
+    "classifierVersion": "research-review-classifier/v5",
+    "taxonomyProfile": "gastric_oncology_v1",
+    "rows": [
+      {
+        "rowNumber": 1,
+        "sourceId": "pubmed:35481909",
+        "pmid": "35481909",
+        "doi": "10.1002/jso.26844",
+        "title": "Advances in screening and detection of gastric cancer.",
+        "year": "2022",
+        "journal": "Journal of surgical oncology",
+        "accessLevel": "abstract_only",
+        "locator": {
+          "pmid": "35481909",
+          "doi": "10.1002/jso.26844",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/35481909/"
+        },
+        "sourceSnapshotHash": "97da2c2d565858832b2328498842b417a808293128baafb6553c8e63dce07b51",
+        "relevance": {
+          "sourceId": "pubmed:35481909",
+          "title": "Advances in screening and detection of gastric cancer.",
+          "status": "relevant",
+          "matches": [
+            {
+              "conceptId": "subject:gastric-cancer",
+              "sourceTerm": "胃癌",
+              "role": "subject",
+              "matched": [
+                {
+                  "field": "title",
+                  "term": "gastric cancer"
+                },
+                {
+                  "field": "abstract",
+                  "term": "gastric cancer"
+                }
+              ]
+            }
+          ],
+          "ruleVersion": "research-subject-relevance/v1",
+          "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+        },
+        "includedInDerivedAnalysis": true,
+        "themeIds": [
+          "early_detection_screening"
+        ],
+        "methodSignalIds": [],
+        "gapSignalIds": [],
+        "problemSignalIds": [],
+        "titlePatternId": "other_title",
+        "classifierAudit": {
+          "themes": [
+            {
+              "id": "early_detection_screening",
+              "label": "早筛、早诊与影像检测",
+              "matches": [
+                {
+                  "field": "title",
+                  "term": "screening"
+                }
+              ]
+            }
+          ],
+          "methods": [],
+          "gaps": [],
+          "problems": []
+        }
+      },
+      {
+        "rowNumber": 2,
+        "sourceId": "pubmed:35431510",
+        "pmid": "35431510",
+        "doi": "10.3748/wjg.v28.i12.1187",
+        "title": "Epidemiology of stomach cancer.",
+        "year": "2022",
+        "journal": "World journal of gastroenterology",
+        "accessLevel": "abstract_only",
+        "locator": {
+          "pmid": "35431510",
+          "doi": "10.3748/wjg.v28.i12.1187",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/35431510/"
+        },
+        "sourceSnapshotHash": "3a83ebe71bb06f2e117ee0a05fa9ba179ed15f92900b37b7844016b98f75c6d6",
+        "relevance": {
+          "sourceId": "pubmed:35431510",
+          "title": "Epidemiology of stomach cancer.",
+          "status": "relevant",
+          "matches": [
+            {
+              "conceptId": "subject:gastric-cancer",
+              "sourceTerm": "胃癌",
+              "role": "subject",
+              "matched": [
+                {
+                  "field": "title",
+                  "term": "stomach cancer"
+                },
+                {
+                  "field": "abstract",
+                  "term": "stomach cancer"
+                }
+              ]
+            }
+          ],
+          "ruleVersion": "research-subject-relevance/v1",
+          "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+        },
+        "includedInDerivedAnalysis": true,
+        "themeIds": [
+          "prevention_epidemiology"
+        ],
+        "methodSignalIds": [],
+        "gapSignalIds": [],
+        "problemSignalIds": [],
+        "titlePatternId": "other_title",
+        "classifierAudit": {
+          "themes": [
+            {
+              "id": "prevention_epidemiology",
+              "label": "危险因素、预防与流行病学",
+              "matches": [
+                {
+                  "field": "title",
+                  "term": "Epidemiology"
+                }
+              ]
+            }
+          ],
+          "methods": [],
+          "gaps": [],
+          "problems": []
+        }
+      },
+      {
+        "rowNumber": 3,
+        "sourceId": "pubmed:35319717",
+        "pmid": "35319717",
+        "doi": "10.1001/jamasurg.2022.0182",
+        "title": "Surgical Management of Gastric Cancer: A Review.",
+        "year": "2022",
+        "journal": "JAMA surgery",
+        "accessLevel": "abstract_only",
+        "locator": {
+          "pmid": "35319717",
+          "doi": "10.1001/jamasurg.2022.0182",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/35319717/"
+        },
+        "sourceSnapshotHash": "dfa3126eba5afb8af98e43574e94c3b6b351d6cf63043eef2b951d54280c59bb",
+        "relevance": {
+          "sourceId": "pubmed:35319717",
+          "title": "Surgical Management of Gastric Cancer: A Review.",
+          "status": "relevant",
+          "matches": [
+            {
+              "conceptId": "subject:gastric-cancer",
+              "sourceTerm": "胃癌",
+              "role": "subject",
+              "matched": [
+                {
+                  "field": "title",
+                  "term": "gastric cancer"
+                },
+                {
+                  "field": "abstract",
+                  "term": "gastric cancer"
+                }
+              ]
+            }
+          ],
+          "ruleVersion": "research-subject-relevance/v1",
+          "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+        },
+        "includedInDerivedAnalysis": true,
+        "themeIds": [
+          "local_treatment"
+        ],
+        "methodSignalIds": [],
+        "gapSignalIds": [],
+        "problemSignalIds": [
+          "treatment_sequence",
+          "local_treatment_long_term",
+          "east_asia_transferability"
+        ],
+        "titlePatternId": "narrative_review",
+        "classifierAudit": {
+          "themes": [
+            {
+              "id": "local_treatment",
+              "label": "手术、放疗与局部治疗",
+              "matches": [
+                {
+                  "field": "title",
+                  "term": "Surgical"
+                }
+              ]
+            }
+          ],
+          "methods": [],
+          "gaps": [],
+          "problems": [
+            {
+              "id": "treatment_sequence",
+              "label": "多模式治疗的最佳序列仍在探索",
+              "matches": [
+                {
+                  "field": "abstract",
+                  "term": "optimal sequencing of multimodality therapy is still being investigated"
+                }
+              ]
+            },
+            {
+              "id": "local_treatment_long_term",
+              "label": "保胃与前哨技术的长期结局仍待随访",
+              "matches": [
+                {
+                  "field": "abstract",
+                  "term": "studies of long-term outcomes are still ongoing"
+                }
+              ]
+            },
+            {
+              "id": "east_asia_transferability",
+              "label": "保胃与前哨技术在东亚外的外部适用性不足",
+              "matches": [
+                {
+                  "field": "abstract",
+                  "term": "experience with these techniques is rare outside of East Asia"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "rowNumber": 4,
+        "sourceId": "pubmed:34933124",
+        "pmid": "34933124",
+        "doi": "10.1016/j.semcancer.2021.12.004",
+        "title": "Molecular pathogenesis, targeted therapies, and future perspectives for gastric cancer.",
+        "year": "2022",
+        "journal": "Seminars in cancer biology",
+        "accessLevel": "abstract_only",
+        "locator": {
+          "pmid": "34933124",
+          "doi": "10.1016/j.semcancer.2021.12.004",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/34933124/"
+        },
+        "sourceSnapshotHash": "6b751b168e26300d6117c843aee9d19eb656e54b012871ee82aba1044a75fc7f",
+        "relevance": {
+          "sourceId": "pubmed:34933124",
+          "title": "Molecular pathogenesis, targeted therapies, and future perspectives for gastric cancer.",
+          "status": "relevant",
+          "matches": [
+            {
+              "conceptId": "subject:gastric-cancer",
+              "sourceTerm": "胃癌",
+              "role": "subject",
+              "matched": [
+                {
+                  "field": "title",
+                  "term": "gastric cancer"
+                },
+                {
+                  "field": "abstract",
+                  "term": "gastric cancer"
+                }
+              ]
+            }
+          ],
+          "ruleVersion": "research-subject-relevance/v1",
+          "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+        },
+        "includedInDerivedAnalysis": true,
+        "themeIds": [
+          "biomarkers_molecular",
+          "targeted_therapy",
+          "immunotherapy"
+        ],
+        "methodSignalIds": [],
+        "gapSignalIds": [],
+        "problemSignalIds": [],
+        "titlePatternId": "other_title",
+        "classifierAudit": {
+          "themes": [
+            {
+              "id": "biomarkers_molecular",
+              "label": "分子分型与生物标志物",
+              "matches": [
+                {
+                  "field": "title",
+                  "term": "Molecular"
+                }
+              ]
+            },
+            {
+              "id": "targeted_therapy",
+              "label": "靶向治疗",
+              "matches": [
+                {
+                  "field": "title",
+                  "term": "targeted therapies"
+                },
+                {
+                  "field": "objective",
+                  "term": "molecularly targeted"
+                }
+              ]
+            },
+            {
+              "id": "immunotherapy",
+              "label": "免疫治疗",
+              "matches": [
+                {
+                  "field": "objective",
+                  "term": "immunotherapies"
+                }
+              ]
+            }
+          ],
+          "methods": [],
+          "gaps": [],
+          "problems": []
+        }
+      },
+      {
+        "rowNumber": 5,
+        "sourceId": "pubmed:37649615",
+        "pmid": "37649615",
+        "doi": "10.7150/thno.88335",
+        "title": "Evaluation of FAPI PET imaging in gastric cancer: a systematic review and meta-analysis.",
+        "year": "2023",
+        "journal": "Theranostics",
+        "accessLevel": "abstract_only",
+        "locator": {
+          "pmid": "37649615",
+          "doi": "10.7150/thno.88335",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/37649615/"
+        },
+        "sourceSnapshotHash": "cb8be45cb1a3479bcb25a93b6c7b7f785157a009c35e916066a1ac229c0ac90b",
+        "relevance": {
+          "sourceId": "pubmed:37649615",
+          "title": "Evaluation of FAPI PET imaging in gastric cancer: a systematic review and meta-analysis.",
+          "status": "relevant",
+          "matches": [
+            {
+              "conceptId": "subject:gastric-cancer",
+              "sourceTerm": "胃癌",
+              "role": "subject",
+              "matched": [
+                {
+                  "field": "title",
+                  "term": "gastric cancer"
+                },
+                {
+                  "field": "abstract",
+                  "term": "gastric cancer"
+                }
+              ]
+            }
+          ],
+          "ruleVersion": "research-subject-relevance/v1",
+          "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+        },
+        "includedInDerivedAnalysis": true,
+        "themeIds": [
+          "early_detection_screening"
+        ],
+        "methodSignalIds": [
+          "systematic_review",
+          "meta_analysis",
+          "database_search"
+        ],
+        "gapSignalIds": [],
+        "problemSignalIds": [],
+        "titlePatternId": "systematic_meta",
+        "classifierAudit": {
+          "themes": [
+            {
+              "id": "early_detection_screening",
+              "label": "早筛、早诊与影像检测",
+              "matches": [
+                {
+                  "field": "title",
+                  "term": "FAPI PET imaging"
+                },
+                {
+                  "field": "conclusion",
+                  "term": "FAPI PET imaging"
+                }
+              ]
+            }
+          ],
+          "methods": [
+            {
+              "id": "systematic_review",
+              "label": "系统综述设计",
+              "matches": [
+                {
+                  "field": "title",
+                  "term": "systematic review"
+                }
+              ]
+            },
+            {
+              "id": "meta_analysis",
+              "label": "Meta 分析",
+              "matches": [
+                {
+                  "field": "title",
+                  "term": "meta-analysis"
+                },
+                {
+                  "field": "abstract",
+                  "term": "meta-analysis"
+                }
+              ]
+            },
+            {
+              "id": "database_search",
+              "label": "报告数据库检索",
+              "matches": [
+                {
+                  "field": "abstract",
+                  "term": "PubMed"
+                }
+              ]
+            }
+          ],
+          "gaps": [],
+          "problems": []
+        }
+      },
+      {
+        "rowNumber": 6,
+        "sourceId": "pubmed:37245017",
+        "pmid": "37245017",
+        "doi": "10.1186/s13045-023-01451-3",
+        "title": "Gastric cancer treatment: recent progress and future perspectives.",
+        "year": "2023",
+        "journal": "Journal of hematology & oncology",
+        "accessLevel": "abstract_only",
+        "locator": {
+          "pmid": "37245017",
+          "doi": "10.1186/s13045-023-01451-3",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/37245017/"
+        },
+        "sourceSnapshotHash": "8516adc4cd5959770f947eec3f35c6235e4eda4935f486a98de77e033fa17d53",
+        "relevance": {
+          "sourceId": "pubmed:37245017",
+          "title": "Gastric cancer treatment: recent progress and future perspectives.",
+          "status": "relevant",
+          "matches": [
+            {
+              "conceptId": "subject:gastric-cancer",
+              "sourceTerm": "胃癌",
+              "role": "subject",
+              "matched": [
+                {
+                  "field": "title",
+                  "term": "gastric cancer"
+                },
+                {
+                  "field": "abstract",
+                  "term": "gastric cancer"
+                }
+              ]
+            }
+          ],
+          "ruleVersion": "research-subject-relevance/v1",
+          "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+        },
+        "includedInDerivedAnalysis": true,
+        "themeIds": [
+          "systemic_treatment"
+        ],
+        "methodSignalIds": [],
+        "gapSignalIds": [],
+        "problemSignalIds": [],
+        "titlePatternId": "other_title",
+        "classifierAudit": {
+          "themes": [
+            {
+              "id": "systemic_treatment",
+              "label": "系统治疗与综合管理",
+              "matches": [
+                {
+                  "field": "title",
+                  "term": "Gastric cancer treatment"
+                },
+                {
+                  "field": "objective",
+                  "term": "systemic treatment"
+                }
+              ]
+            }
+          ],
+          "methods": [],
+          "gaps": [],
+          "problems": []
+        }
+      },
+      {
+        "rowNumber": 7,
+        "sourceId": "pubmed:37179585",
+        "pmid": "37179585",
+        "doi": "10.3748/wjg.v29.i16.2452",
+        "title": "Updates on global epidemiology, risk and prognostic factors of gastric cancer.",
+        "year": "2023",
+        "journal": "World journal of gastroenterology",
+        "accessLevel": "abstract_only",
+        "locator": {
+          "pmid": "37179585",
+          "doi": "10.3748/wjg.v29.i16.2452",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/37179585/"
+        },
+        "sourceSnapshotHash": "b146d9d5f96813c1318f27c659f3d3c58dad84df044278ff78eab93a039f65b0",
+        "relevance": {
+          "sourceId": "pubmed:37179585",
+          "title": "Updates on global epidemiology, risk and prognostic factors of gastric cancer.",
+          "status": "relevant",
+          "matches": [
+            {
+              "conceptId": "subject:gastric-cancer",
+              "sourceTerm": "胃癌",
+              "role": "subject",
+              "matched": [
+                {
+                  "field": "title",
+                  "term": "gastric cancer"
+                },
+                {
+                  "field": "abstract",
+                  "term": "gastric cancer"
+                }
+              ]
+            }
+          ],
+          "ruleVersion": "research-subject-relevance/v1",
+          "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+        },
+        "includedInDerivedAnalysis": true,
+        "themeIds": [
+          "prevention_epidemiology"
+        ],
+        "methodSignalIds": [],
+        "gapSignalIds": [],
+        "problemSignalIds": [],
+        "titlePatternId": "other_title",
+        "classifierAudit": {
+          "themes": [
+            {
+              "id": "prevention_epidemiology",
+              "label": "危险因素、预防与流行病学",
+              "matches": [
+                {
+                  "field": "title",
+                  "term": "epidemiology"
+                }
+              ]
+            }
+          ],
+          "methods": [],
+          "gaps": [],
+          "problems": []
+        }
+      },
+      {
+        "rowNumber": 8,
+        "sourceId": "pubmed:36240980",
+        "pmid": "36240980",
+        "doi": "10.1016/j.critrevonc.2022.103841",
+        "title": "Characteristics of gastric cancer around the world.",
+        "year": "2023",
+        "journal": "Critical reviews in oncology/hematology",
+        "accessLevel": "abstract_only",
+        "locator": {
+          "pmid": "36240980",
+          "doi": "10.1016/j.critrevonc.2022.103841",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/36240980/"
+        },
+        "sourceSnapshotHash": "ad80f4e5c5729be6d8af1f92c02b8f23fb6a18fcdc895badfd8418c1958245bc",
+        "relevance": {
+          "sourceId": "pubmed:36240980",
+          "title": "Characteristics of gastric cancer around the world.",
+          "status": "relevant",
+          "matches": [
+            {
+              "conceptId": "subject:gastric-cancer",
+              "sourceTerm": "胃癌",
+              "role": "subject",
+              "matched": [
+                {
+                  "field": "title",
+                  "term": "gastric cancer"
+                },
+                {
+                  "field": "abstract",
+                  "term": "gastric cancer"
+                }
+              ]
+            }
+          ],
+          "ruleVersion": "research-subject-relevance/v1",
+          "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+        },
+        "includedInDerivedAnalysis": true,
+        "themeIds": [
+          "prevention_epidemiology"
+        ],
+        "methodSignalIds": [],
+        "gapSignalIds": [],
+        "problemSignalIds": [
+          "latin_africa_representation"
+        ],
+        "titlePatternId": "other_title",
+        "classifierAudit": {
+          "themes": [
+            {
+              "id": "prevention_epidemiology",
+              "label": "危险因素、预防与流行病学",
+              "matches": [
+                {
+                  "field": "title",
+                  "term": "Characteristics of gastric cancer around the world"
+                }
+              ]
+            }
+          ],
+          "methods": [],
+          "gaps": [],
+          "problems": [
+            {
+              "id": "latin_africa_representation",
+              "label": "拉美与非洲人群的证据代表性不足",
+              "matches": [
+                {
+                  "field": "abstract",
+                  "term": "More research is needed in Latin America and Africa since these populations are underrepresented"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "rowNumber": 9,
+        "sourceId": "pubmed:38600020",
+        "pmid": "38600020",
+        "doi": "10.1016/j.trecan.2024.03.008",
+        "title": "Gastric cancer immunosuppressive microenvironment heterogeneity: implications for therapy development.",
+        "year": "2024",
+        "journal": "Trends in cancer",
+        "accessLevel": "abstract_only",
+        "locator": {
+          "pmid": "38600020",
+          "doi": "10.1016/j.trecan.2024.03.008",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/38600020/"
+        },
+        "sourceSnapshotHash": "b13ca6a7b3e5cb124a221c546fca3039fd881d24317b92c756b5a9536e70189b",
+        "relevance": {
+          "sourceId": "pubmed:38600020",
+          "title": "Gastric cancer immunosuppressive microenvironment heterogeneity: implications for therapy development.",
+          "status": "relevant",
+          "matches": [
+            {
+              "conceptId": "subject:gastric-cancer",
+              "sourceTerm": "胃癌",
+              "role": "subject",
+              "matched": [
+                {
+                  "field": "title",
+                  "term": "gastric cancer"
+                },
+                {
+                  "field": "abstract",
+                  "term": "gastric cancer"
+                }
+              ]
+            }
+          ],
+          "ruleVersion": "research-subject-relevance/v1",
+          "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+        },
+        "includedInDerivedAnalysis": true,
+        "themeIds": [
+          "immunotherapy"
+        ],
+        "methodSignalIds": [],
+        "gapSignalIds": [],
+        "problemSignalIds": [
+          "immunotherapy_benefit_resistance"
+        ],
+        "titlePatternId": "other_title",
+        "classifierAudit": {
+          "themes": [
+            {
+              "id": "immunotherapy",
+              "label": "免疫治疗",
+              "matches": [
+                {
+                  "field": "title",
+                  "term": "immunosuppressive microenvironment"
+                }
+              ]
+            }
+          ],
+          "methods": [],
+          "gaps": [],
+          "problems": [
+            {
+              "id": "immunotherapy_benefit_resistance",
+              "label": "免疫治疗持久获益分层与耐药解释不足",
+              "matches": [
+                {
+                  "field": "abstract",
+                  "term": "durable responses in gastric cancer (GC) remain limited"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "rowNumber": 10,
+        "sourceId": "pubmed:38892067",
+        "pmid": "38892067",
+        "doi": "10.3390/ijms25115880",
+        "title": "Bioinformatics Analysis and Validation of Potential Markers Associated with Prediction and Prognosis of Gastric Cancer.",
+        "year": "2024",
+        "journal": "International journal of molecular sciences",
+        "accessLevel": "abstract_only",
+        "locator": {
+          "pmid": "38892067",
+          "doi": "10.3390/ijms25115880",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/38892067/"
+        },
+        "sourceSnapshotHash": "c6623bd01b5fedee589c2470a93a09c2d23d94c32c4668b61676a1afb7edb6a8",
+        "relevance": {
+          "sourceId": "pubmed:38892067",
+          "title": "Bioinformatics Analysis and Validation of Potential Markers Associated with Prediction and Prognosis of Gastric Cancer.",
+          "status": "relevant",
+          "matches": [
+            {
+              "conceptId": "subject:gastric-cancer",
+              "sourceTerm": "胃癌",
+              "role": "subject",
+              "matched": [
+                {
+                  "field": "title",
+                  "term": "gastric cancer"
+                },
+                {
+                  "field": "abstract",
+                  "term": "gastric cancer"
+                }
+              ]
+            }
+          ],
+          "ruleVersion": "research-subject-relevance/v1",
+          "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+        },
+        "includedInDerivedAnalysis": true,
+        "themeIds": [
+          "biomarkers_molecular"
+        ],
+        "methodSignalIds": [],
+        "gapSignalIds": [],
+        "problemSignalIds": [
+          "multiomics_biomarker_translation"
+        ],
+        "titlePatternId": "other_title",
+        "classifierAudit": {
+          "themes": [
+            {
+              "id": "biomarkers_molecular",
+              "label": "分子分型与生物标志物",
+              "matches": [
+                {
+                  "field": "objective",
+                  "term": "biomarker"
+                }
+              ]
+            }
+          ],
+          "methods": [],
+          "gaps": [],
+          "problems": [
+            {
+              "id": "multiomics_biomarker_translation",
+              "label": "多组学标志物从发现、验证到临床整合仍有障碍",
+              "matches": [
+                {
+                  "field": "abstract",
+                  "term": "challenges and future perspectives to integrate multi-omics"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "rowNumber": 11,
+        "sourceId": "pubmed:38176660",
+        "pmid": "38176660",
+        "doi": "10.1053/j.gastro.2023.12.022",
+        "title": "Global Prevalence of Helicobacter pylori Infection and Incidence of Gastric Cancer Between 1980 and 2022.",
+        "year": "2024",
+        "journal": "Gastroenterology",
+        "accessLevel": "abstract_only",
+        "locator": {
+          "pmid": "38176660",
+          "doi": "10.1053/j.gastro.2023.12.022",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/38176660/"
+        },
+        "sourceSnapshotHash": "0bb97a36642529b9c85a51cee389d3a43171a1ba3272d50b26f581ed40d84375",
+        "relevance": {
+          "sourceId": "pubmed:38176660",
+          "title": "Global Prevalence of Helicobacter pylori Infection and Incidence of Gastric Cancer Between 1980 and 2022.",
+          "status": "relevant",
+          "matches": [
+            {
+              "conceptId": "subject:gastric-cancer",
+              "sourceTerm": "胃癌",
+              "role": "subject",
+              "matched": [
+                {
+                  "field": "title",
+                  "term": "gastric cancer"
+                },
+                {
+                  "field": "abstract",
+                  "term": "gastric cancer"
+                }
+              ]
+            }
+          ],
+          "ruleVersion": "research-subject-relevance/v1",
+          "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+        },
+        "includedInDerivedAnalysis": true,
+        "themeIds": [
+          "prevention_epidemiology"
+        ],
+        "methodSignalIds": [
+          "systematic_review",
+          "meta_analysis",
+          "subgroup_sensitivity"
+        ],
+        "gapSignalIds": [],
+        "problemSignalIds": [],
+        "titlePatternId": "other_title",
+        "classifierAudit": {
+          "themes": [
+            {
+              "id": "prevention_epidemiology",
+              "label": "危险因素、预防与流行病学",
+              "matches": [
+                {
+                  "field": "title",
+                  "term": "Global Prevalence"
+                }
+              ]
+            }
+          ],
+          "methods": [
+            {
+              "id": "systematic_review",
+              "label": "系统综述设计",
+              "matches": [
+                {
+                  "field": "abstract",
+                  "term": "systematic review"
+                }
+              ]
+            },
+            {
+              "id": "meta_analysis",
+              "label": "Meta 分析",
+              "matches": [
+                {
+                  "field": "abstract",
+                  "term": "meta-analysis"
+                }
+              ]
+            },
+            {
+              "id": "subgroup_sensitivity",
+              "label": "报告亚组、敏感性或回归分析",
+              "matches": [
+                {
+                  "field": "abstract",
+                  "term": "meta-regression"
+                }
+              ]
+            }
+          ],
+          "gaps": [],
+          "problems": []
+        }
+      },
+      {
+        "rowNumber": 12,
+        "sourceId": "pubmed:39357127",
+        "pmid": "39357127",
+        "doi": "10.1016/j.ctarc.2024.100845",
+        "title": "Gastric cancer-Epidemiology, modifiable and non-modifiable risk factors, challenges and opportunities: An updated review.",
+        "year": "2024",
+        "journal": "Cancer treatment and research communications",
+        "accessLevel": "abstract_only",
+        "locator": {
+          "pmid": "39357127",
+          "doi": "10.1016/j.ctarc.2024.100845",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/39357127/"
+        },
+        "sourceSnapshotHash": "1ea9958f298e690fef2bb953d71994b9e8a435c3f74e4fbd55ce7738d4bece9d",
+        "relevance": {
+          "sourceId": "pubmed:39357127",
+          "title": "Gastric cancer-Epidemiology, modifiable and non-modifiable risk factors, challenges and opportunities: An updated review.",
+          "status": "relevant",
+          "matches": [
+            {
+              "conceptId": "subject:gastric-cancer",
+              "sourceTerm": "胃癌",
+              "role": "subject",
+              "matched": [
+                {
+                  "field": "title",
+                  "term": "gastric cancer"
+                },
+                {
+                  "field": "abstract",
+                  "term": "gastric cancer"
+                }
+              ]
+            }
+          ],
+          "ruleVersion": "research-subject-relevance/v1",
+          "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+        },
+        "includedInDerivedAnalysis": true,
+        "themeIds": [
+          "early_detection_screening",
+          "immunotherapy",
+          "prevention_epidemiology"
+        ],
+        "methodSignalIds": [],
+        "gapSignalIds": [],
+        "problemSignalIds": [],
+        "titlePatternId": "narrative_review",
+        "classifierAudit": {
+          "themes": [
+            {
+              "id": "early_detection_screening",
+              "label": "早筛、早诊与影像检测",
+              "matches": [
+                {
+                  "field": "objective",
+                  "term": "screening"
+                }
+              ]
+            },
+            {
+              "id": "immunotherapy",
+              "label": "免疫治疗",
+              "matches": [
+                {
+                  "field": "conclusion",
+                  "term": "immune checkpoint"
+                }
+              ]
+            },
+            {
+              "id": "prevention_epidemiology",
+              "label": "危险因素、预防与流行病学",
+              "matches": [
+                {
+                  "field": "title",
+                  "term": "Epidemiology"
+                }
+              ]
+            }
+          ],
+          "methods": [],
+          "gaps": [],
+          "problems": []
+        }
+      },
+      {
+        "rowNumber": 13,
+        "sourceId": "pubmed:39849657",
+        "pmid": "39849657",
+        "doi": "10.1186/s13045-024-01654-2",
+        "title": "Helicobacter pylori and gastric cancer: mechanisms and new perspectives.",
+        "year": "2025",
+        "journal": "Journal of hematology & oncology",
+        "accessLevel": "abstract_only",
+        "locator": {
+          "pmid": "39849657",
+          "doi": "10.1186/s13045-024-01654-2",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/39849657/"
+        },
+        "sourceSnapshotHash": "6b5bca640caab67a0715fd7901b934fae3fc0ca44a8197231a2f9a89d16f8c14",
+        "relevance": {
+          "sourceId": "pubmed:39849657",
+          "title": "Helicobacter pylori and gastric cancer: mechanisms and new perspectives.",
+          "status": "relevant",
+          "matches": [
+            {
+              "conceptId": "subject:gastric-cancer",
+              "sourceTerm": "胃癌",
+              "role": "subject",
+              "matched": [
+                {
+                  "field": "title",
+                  "term": "gastric cancer"
+                },
+                {
+                  "field": "abstract",
+                  "term": "gastric cancer"
+                }
+              ]
+            }
+          ],
+          "ruleVersion": "research-subject-relevance/v1",
+          "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+        },
+        "includedInDerivedAnalysis": true,
+        "themeIds": [
+          "biomarkers_molecular"
+        ],
+        "methodSignalIds": [],
+        "gapSignalIds": [],
+        "problemSignalIds": [],
+        "titlePatternId": "other_title",
+        "classifierAudit": {
+          "themes": [
+            {
+              "id": "biomarkers_molecular",
+              "label": "分子分型与生物标志物",
+              "matches": [
+                {
+                  "field": "objective",
+                  "term": "molecular"
+                }
+              ]
+            }
+          ],
+          "methods": [],
+          "gaps": [],
+          "problems": []
+        }
+      },
+      {
+        "rowNumber": 14,
+        "sourceId": "pubmed:40319897",
+        "pmid": "40319897",
+        "doi": "10.1016/S0140-6736(25)00052-2",
+        "title": "Gastric cancer.",
+        "year": "2025",
+        "journal": "Lancet (London, England)",
+        "accessLevel": "abstract_only",
+        "locator": {
+          "pmid": "40319897",
+          "doi": "10.1016/S0140-6736(25)00052-2",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/40319897/"
+        },
+        "sourceSnapshotHash": "0f41cf39e6df02f0404160d7efa8f6366e507fbbc5719a8cd6fcc265db722502",
+        "relevance": {
+          "sourceId": "pubmed:40319897",
+          "title": "Gastric cancer.",
+          "status": "relevant",
+          "matches": [
+            {
+              "conceptId": "subject:gastric-cancer",
+              "sourceTerm": "胃癌",
+              "role": "subject",
+              "matched": [
+                {
+                  "field": "title",
+                  "term": "gastric cancer"
+                },
+                {
+                  "field": "abstract",
+                  "term": "gastric cancer"
+                }
+              ]
+            }
+          ],
+          "ruleVersion": "research-subject-relevance/v1",
+          "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+        },
+        "includedInDerivedAnalysis": true,
+        "themeIds": [],
+        "methodSignalIds": [],
+        "gapSignalIds": [],
+        "problemSignalIds": [],
+        "titlePatternId": "other_title",
+        "classifierAudit": {
+          "themes": [],
+          "methods": [],
+          "gaps": [],
+          "problems": []
+        }
+      },
+      {
+        "rowNumber": 15,
+        "sourceId": "pubmed:38886045",
+        "pmid": "38886045",
+        "doi": "10.1136/gutjnl-2024-332815",
+        "title": "Stomach microbiota in gastric cancer development and clinical implications.",
+        "year": "2024",
+        "journal": "Gut",
+        "accessLevel": "abstract_only",
+        "locator": {
+          "pmid": "38886045",
+          "doi": "10.1136/gutjnl-2024-332815",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/38886045/"
+        },
+        "sourceSnapshotHash": "aadea90e740945ed27a33a39aedc956a74bffeda85d97ba248c831bcab7bc1db",
+        "relevance": {
+          "sourceId": "pubmed:38886045",
+          "title": "Stomach microbiota in gastric cancer development and clinical implications.",
+          "status": "relevant",
+          "matches": [
+            {
+              "conceptId": "subject:gastric-cancer",
+              "sourceTerm": "胃癌",
+              "role": "subject",
+              "matched": [
+                {
+                  "field": "title",
+                  "term": "gastric cancer"
+                },
+                {
+                  "field": "abstract",
+                  "term": "gastric cancer"
+                }
+              ]
+            }
+          ],
+          "ruleVersion": "research-subject-relevance/v1",
+          "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+        },
+        "includedInDerivedAnalysis": true,
+        "themeIds": [
+          "prevention_epidemiology"
+        ],
+        "methodSignalIds": [],
+        "gapSignalIds": [],
+        "problemSignalIds": [
+          "microbiome_definition_translation"
+        ],
+        "titlePatternId": "other_title",
+        "classifierAudit": {
+          "themes": [
+            {
+              "id": "prevention_epidemiology",
+              "label": "危险因素、预防与流行病学",
+              "matches": [
+                {
+                  "field": "conclusion",
+                  "term": "prevention"
+                }
+              ]
+            }
+          ],
+          "methods": [],
+          "gaps": [],
+          "problems": [
+            {
+              "id": "microbiome_definition_translation",
+              "label": "胃微生物组概念边界与临床用途尚未标准化",
+              "matches": [
+                {
+                  "field": "abstract",
+                  "term": "conceptual haziness"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "rowNumber": 16,
+        "sourceId": "pubmed:39148190",
+        "pmid": "39148190",
+        "doi": "10.1097/CM9.0000000000003259",
+        "title": "Emerging trends in early-onset gastric cancer.",
+        "year": "2024",
+        "journal": "Chinese medical journal",
+        "accessLevel": "abstract_only",
+        "locator": {
+          "pmid": "39148190",
+          "doi": "10.1097/CM9.0000000000003259",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/39148190/"
+        },
+        "sourceSnapshotHash": "ef2741cb526e5886157b857dd2c0a8f032328ae7e928a0d3687b011a039d6d8c",
+        "relevance": {
+          "sourceId": "pubmed:39148190",
+          "title": "Emerging trends in early-onset gastric cancer.",
+          "status": "relevant",
+          "matches": [
+            {
+              "conceptId": "subject:gastric-cancer",
+              "sourceTerm": "胃癌",
+              "role": "subject",
+              "matched": [
+                {
+                  "field": "title",
+                  "term": "gastric cancer"
+                },
+                {
+                  "field": "abstract",
+                  "term": "gastric cancer"
+                }
+              ]
+            }
+          ],
+          "ruleVersion": "research-subject-relevance/v1",
+          "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+        },
+        "includedInDerivedAnalysis": true,
+        "themeIds": [
+          "early_onset",
+          "biomarkers_molecular",
+          "prevention_epidemiology"
+        ],
+        "methodSignalIds": [],
+        "gapSignalIds": [],
+        "problemSignalIds": [],
+        "titlePatternId": "other_title",
+        "classifierAudit": {
+          "themes": [
+            {
+              "id": "early_onset",
+              "label": "早发与青年发病人群",
+              "matches": [
+                {
+                  "field": "title",
+                  "term": "early-onset"
+                },
+                {
+                  "field": "objective",
+                  "term": "EOGC"
+                }
+              ]
+            },
+            {
+              "id": "biomarkers_molecular",
+              "label": "分子分型与生物标志物",
+              "matches": [
+                {
+                  "field": "objective",
+                  "term": "molecular"
+                }
+              ]
+            },
+            {
+              "id": "prevention_epidemiology",
+              "label": "危险因素、预防与流行病学",
+              "matches": [
+                {
+                  "field": "objective",
+                  "term": "epidemiological"
+                }
+              ]
+            }
+          ],
+          "methods": [],
+          "gaps": [],
+          "problems": []
+        }
+      },
+      {
+        "rowNumber": 17,
+        "sourceId": "pubmed:41499132",
+        "pmid": "41499132",
+        "doi": "10.1001/jama.2025.20034",
+        "title": "Gastric Cancer: A Review.",
+        "year": "2026",
+        "journal": "JAMA",
+        "accessLevel": "abstract_only",
+        "locator": {
+          "pmid": "41499132",
+          "doi": "10.1001/jama.2025.20034",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/41499132/"
+        },
+        "sourceSnapshotHash": "e1fc1fa53b6a7476a1e4eeecc7767e0473757e3b168cc17f03d56f7f4d662cf4",
+        "relevance": {
+          "sourceId": "pubmed:41499132",
+          "title": "Gastric Cancer: A Review.",
+          "status": "relevant",
+          "matches": [
+            {
+              "conceptId": "subject:gastric-cancer",
+              "sourceTerm": "胃癌",
+              "role": "subject",
+              "matched": [
+                {
+                  "field": "title",
+                  "term": "gastric cancer"
+                },
+                {
+                  "field": "abstract",
+                  "term": "gastric cancer"
+                }
+              ]
+            }
+          ],
+          "ruleVersion": "research-subject-relevance/v1",
+          "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+        },
+        "includedInDerivedAnalysis": true,
+        "themeIds": [],
+        "methodSignalIds": [],
+        "gapSignalIds": [],
+        "problemSignalIds": [],
+        "titlePatternId": "narrative_review",
+        "classifierAudit": {
+          "themes": [],
+          "methods": [],
+          "gaps": [],
+          "problems": []
+        }
+      },
+      {
+        "rowNumber": 18,
+        "sourceId": "pubmed:39928093",
+        "pmid": "39928093",
+        "doi": "10.1080/07853890.2025.2461679",
+        "title": "Artificial intelligence-assisted diagnosis of early gastric cancer: present practice and future prospects.",
+        "year": "2025",
+        "journal": "Annals of medicine",
+        "accessLevel": "abstract_only",
+        "locator": {
+          "pmid": "39928093",
+          "doi": "10.1080/07853890.2025.2461679",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/39928093/"
+        },
+        "sourceSnapshotHash": "4d88449f8c0a906164625a370c364a43ae8e2b98e211c6c1f7b96d9f60ca167e",
+        "relevance": {
+          "sourceId": "pubmed:39928093",
+          "title": "Artificial intelligence-assisted diagnosis of early gastric cancer: present practice and future prospects.",
+          "status": "relevant",
+          "matches": [
+            {
+              "conceptId": "subject:gastric-cancer",
+              "sourceTerm": "胃癌",
+              "role": "subject",
+              "matched": [
+                {
+                  "field": "title",
+                  "term": "gastric cancer"
+                },
+                {
+                  "field": "abstract",
+                  "term": "gastric cancer"
+                }
+              ]
+            }
+          ],
+          "ruleVersion": "research-subject-relevance/v1",
+          "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+        },
+        "includedInDerivedAnalysis": true,
+        "themeIds": [
+          "early_detection_screening",
+          "ai_digital"
+        ],
+        "methodSignalIds": [],
+        "gapSignalIds": [],
+        "problemSignalIds": [
+          "ai_clinical_implementation"
+        ],
+        "titlePatternId": "other_title",
+        "classifierAudit": {
+          "themes": [
+            {
+              "id": "early_detection_screening",
+              "label": "早筛、早诊与影像检测",
+              "matches": [
+                {
+                  "field": "title",
+                  "term": "diagnosis of early"
+                }
+              ]
+            },
+            {
+              "id": "ai_digital",
+              "label": "人工智能与数字化工具",
+              "matches": [
+                {
+                  "field": "title",
+                  "term": "Artificial intelligence"
+                }
+              ]
+            }
+          ],
+          "methods": [],
+          "gaps": [],
+          "problems": [
+            {
+              "id": "ai_clinical_implementation",
+              "label": "AI 早诊从模型表现到临床实施仍面临障碍",
+              "matches": [
+                {
+                  "field": "abstract",
+                  "term": "major challenges"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "rowNumber": 19,
+        "sourceId": "pubmed:40555635",
+        "pmid": "40555635",
+        "doi": "10.1016/j.molmed.2025.05.007",
+        "title": "Gastric cancer: from biomarkers to functional precision medicine.",
+        "year": "2025",
+        "journal": "Trends in molecular medicine",
+        "accessLevel": "abstract_only",
+        "locator": {
+          "pmid": "40555635",
+          "doi": "10.1016/j.molmed.2025.05.007",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/40555635/"
+        },
+        "sourceSnapshotHash": "022c72fe250ed40b32d9a92cc2ee6544ea80550db15e89a0b8eb1edcb627e064",
+        "relevance": {
+          "sourceId": "pubmed:40555635",
+          "title": "Gastric cancer: from biomarkers to functional precision medicine.",
+          "status": "relevant",
+          "matches": [
+            {
+              "conceptId": "subject:gastric-cancer",
+              "sourceTerm": "胃癌",
+              "role": "subject",
+              "matched": [
+                {
+                  "field": "title",
+                  "term": "gastric cancer"
+                },
+                {
+                  "field": "abstract",
+                  "term": "gastric cancer"
+                }
+              ]
+            }
+          ],
+          "ruleVersion": "research-subject-relevance/v1",
+          "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+        },
+        "includedInDerivedAnalysis": true,
+        "themeIds": [
+          "biomarkers_molecular"
+        ],
+        "methodSignalIds": [],
+        "gapSignalIds": [],
+        "problemSignalIds": [
+          "advanced_treatment_options",
+          "targeted_agent_failures"
+        ],
+        "titlePatternId": "other_title",
+        "classifierAudit": {
+          "themes": [
+            {
+              "id": "biomarkers_molecular",
+              "label": "分子分型与生物标志物",
+              "matches": [
+                {
+                  "field": "title",
+                  "term": "biomarkers"
+                }
+              ]
+            }
+          ],
+          "methods": [],
+          "gaps": [],
+          "problems": [
+            {
+              "id": "advanced_treatment_options",
+              "label": "晚期胃癌可用治疗选择仍有限",
+              "matches": [
+                {
+                  "field": "abstract",
+                  "term": "limited treatment options at advanced stages"
+                }
+              ]
+            },
+            {
+              "id": "targeted_agent_failures",
+              "label": "部分靶向药物未能转化为有效治疗",
+              "matches": [
+                {
+                  "field": "abstract",
+                  "term": "failure of several targeted agents"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "rowNumber": 20,
+        "sourceId": "pubmed:41044644",
+        "pmid": "41044644",
+        "doi": "10.1186/s12943-025-02467-8",
+        "title": "Non-coding RNAs in gastric cancer: mechanisms and therapeutic prospects.",
+        "year": "2025",
+        "journal": "Molecular cancer",
+        "accessLevel": "abstract_only",
+        "locator": {
+          "pmid": "41044644",
+          "doi": "10.1186/s12943-025-02467-8",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/41044644/"
+        },
+        "sourceSnapshotHash": "844aa7a076bc1eb12488a6acf920012512da25c5bf32ba435c117da4391afc36",
+        "relevance": {
+          "sourceId": "pubmed:41044644",
+          "title": "Non-coding RNAs in gastric cancer: mechanisms and therapeutic prospects.",
+          "status": "relevant",
+          "matches": [
+            {
+              "conceptId": "subject:gastric-cancer",
+              "sourceTerm": "胃癌",
+              "role": "subject",
+              "matched": [
+                {
+                  "field": "title",
+                  "term": "gastric cancer"
+                },
+                {
+                  "field": "abstract",
+                  "term": "gastric cancer"
+                }
+              ]
+            }
+          ],
+          "ruleVersion": "research-subject-relevance/v1",
+          "boundary": "相关性来自题名与当前可见摘要对全部冻结研究对象概念组的透明词项命中；它不代表纳入资格、研究质量或结论支持。"
+        },
+        "includedInDerivedAnalysis": true,
+        "themeIds": [
+          "biomarkers_molecular"
+        ],
+        "methodSignalIds": [],
+        "gapSignalIds": [],
+        "problemSignalIds": [
+          "targeted_benefit_subset",
+          "early_detection_markers_targets"
+        ],
+        "titlePatternId": "other_title",
+        "classifierAudit": {
+          "themes": [
+            {
+              "id": "biomarkers_molecular",
+              "label": "分子分型与生物标志物",
+              "matches": [
+                {
+                  "field": "title",
+                  "term": "Non-coding RNAs"
+                }
+              ]
+            }
+          ],
+          "methods": [],
+          "gaps": [],
+          "problems": [
+            {
+              "id": "targeted_benefit_subset",
+              "label": "靶向治疗获益仅覆盖部分患者",
+              "matches": [
+                {
+                  "field": "abstract",
+                  "term": "effective for a limited subset of patients"
+                }
+              ]
+            },
+            {
+              "id": "early_detection_markers_targets",
+              "label": "无创早检标志物与新治疗靶点仍缺乏",
+              "matches": [
+                {
+                  "field": "abstract",
+                  "term": "painless and precise markers for the early detection of gastric cancer and new targets for its treatment are unavailable"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "sourceSetHash": "c799635f293ad994139a0fdacd2f3b48c5fe9a06b626c195320d07f52e35b712",
+    "retrievalSourceSetHash": "c799635f293ad994139a0fdacd2f3b48c5fe9a06b626c195320d07f52e35b712",
+    "samplingMetadata": {
+      "schemaVersion": "pubmed-stratified-review-sample/v1",
+      "database": "PubMed",
+      "provider": "NCBI E-utilities",
+      "executedOn": "2026-08-27",
+      "timeZone": "Asia/Shanghai",
+      "baseQuery": "((\"gastric cancer\"[Title]) OR (\"stomach cancer\"[Title]) OR (\"gastric neoplasm\"[Title]) OR (\"gastric neoplasms\"[Title]) OR (\"gastric carcinoma\"[Title])) AND (review[Publication Type] OR systematic review[Publication Type]) NOT guideline[Publication Type] NOT practice guideline[Publication Type]",
+      "dateClauseTemplate": "AND (\"{from}\"[Date - Publication] : \"{to}\"[Date - Publication])",
+      "sort": "relevance",
+      "pubMedSortLabel": "Best Match",
+      "selectionRule": "将2021-08-27至2026-08-26分为5个连续12个月窗；每窗按PubMed Best Match取前4篇，合计20篇。",
+      "excludedPublicationTypes": [
+        "Guideline",
+        "Practice Guideline"
+      ],
+      "windows": [
+        {
+          "from": "2021-08-27",
+          "to": "2022-08-26",
+          "totalHits": 546,
+          "selectedPmids": [
+            "35481909",
+            "35431510",
+            "35319717",
+            "34933124"
+          ]
+        },
+        {
+          "from": "2022-08-27",
+          "to": "2023-08-26",
+          "totalHits": 571,
+          "selectedPmids": [
+            "37649615",
+            "37245017",
+            "37179585",
+            "36240980"
+          ]
+        },
+        {
+          "from": "2023-08-27",
+          "to": "2024-08-26",
+          "totalHits": 510,
+          "selectedPmids": [
+            "38600020",
+            "38892067",
+            "38176660",
+            "39357127"
+          ]
+        },
+        {
+          "from": "2024-08-27",
+          "to": "2025-08-26",
+          "totalHits": 632,
+          "selectedPmids": [
+            "39849657",
+            "40319897",
+            "38886045",
+            "39148190"
+          ]
+        },
+        {
+          "from": "2025-08-27",
+          "to": "2026-08-26",
+          "totalHits": 591,
+          "selectedPmids": [
+            "41499132",
+            "39928093",
+            "40555635",
+            "41044644"
+          ]
+        }
+      ],
+      "totalHitsByWindow": [
+        {
+          "from": "2021-08-27",
+          "to": "2022-08-26",
+          "totalHits": 546
+        },
+        {
+          "from": "2022-08-27",
+          "to": "2023-08-26",
+          "totalHits": 571
+        },
+        {
+          "from": "2023-08-27",
+          "to": "2024-08-26",
+          "totalHits": 510
+        },
+        {
+          "from": "2024-08-27",
+          "to": "2025-08-26",
+          "totalHits": 632
+        },
+        {
+          "from": "2025-08-27",
+          "to": "2026-08-26",
+          "totalHits": 591
+        }
+      ],
+      "sourceDocuments": [
+        {
+          "role": "efetch_primary",
+          "transportDocumentSha256": "38c3eabcf48c861de8ac11474fe5b3f3de0442773e44f707c01e08c08cd134fa",
+          "hashMeaning": "标识本次输入的完整 EFetch XML 传输文档；它不是单篇记录的语义快照哈希，也不单独决定分类是否漂移。"
+        }
+      ],
+      "refetchVerification": {
+        "provider": "NCBI E-utilities EFetch",
+        "database": "pubmed",
+        "pmids": [
+          "35481909",
+          "35431510",
+          "35319717",
+          "34933124",
+          "37649615",
+          "37245017",
+          "37179585",
+          "36240980",
+          "38600020",
+          "38892067",
+          "38176660",
+          "39357127",
+          "39849657",
+          "40319897",
+          "38886045",
+          "39148190",
+          "41499132",
+          "39928093",
+          "40555635",
+          "41044644"
+        ],
+        "replayCommand": "node research-core/scripts/build-gastric-review-ledger-fixture.mjs --verify-only --input <efetch.xml>",
+        "sealedIntegrityCommand": "node research-core/scripts/build-gastric-review-ledger-fixture.mjs --verify-only",
+        "hashPolicy": "重取后以规范化单篇记录的 sourceSnapshotHash 重放分类；任一记录语义快照变化均阻断复用。transportDocumentSha256 只标识确切 XML 输入，重取时可因传输层变化而不同。",
+        "publicDataBoundary": "仓库不保存完整出版商摘要；无 --input 时只能验证已封存账本和 reportHash 的内部完整性，不能声称重放原文分类。"
+      },
+      "boundary": "各窗口命中总数是检索规模元数据；20篇是 2026-08-27 检索时按 PubMed Best Match 冻结 PMID 的时间分层题名摘要样本，不是随机样本、全量发文计数或领域成熟度评分。相关性排序算法可能变化，未来重跑不承诺得到相同顺序或相同 PMID。"
+    },
+    "reproducibility": {
+      "mode": "metadata_hash_and_refetch_verification",
+      "statement": "公开账本不保存完整出版商摘要；保留定位符、访问层级、逐条快照哈希、分类器版本、命中字段与匹配词。重取题名摘要后必须先校验快照哈希，来源变化时阻断并要求新修订。",
+      "offlineLimit": "没有同一哈希的题名摘要快照时，只能重算冻结分类结果的聚合，不能声称离线重放原文分类。"
+    },
+    "boundary": "逐条账本用于审计并可在重取同一快照后验证当前样本；命中总数与20篇分层样本必须分开解释，样本主题分布不能替代全领域文献计量。"
+  },
+  "derivedAnalysis": {
+    "schemaVersion": "research-review-derived-analysis/v1",
+    "classifierVersion": "research-review-classifier/v5",
+    "sourceSetHash": "c799635f293ad994139a0fdacd2f3b48c5fe9a06b626c195320d07f52e35b712",
+    "reportRevision": 1,
+    "analyzedSourceIds": [
+      "pubmed:35481909",
+      "pubmed:35431510",
+      "pubmed:35319717",
+      "pubmed:34933124",
+      "pubmed:37649615",
+      "pubmed:37245017",
+      "pubmed:37179585",
+      "pubmed:36240980",
+      "pubmed:38600020",
+      "pubmed:38892067",
+      "pubmed:38176660",
+      "pubmed:39357127",
+      "pubmed:39849657",
+      "pubmed:40319897",
+      "pubmed:38886045",
+      "pubmed:39148190",
+      "pubmed:41499132",
+      "pubmed:39928093",
+      "pubmed:40555635",
+      "pubmed:41044644"
+    ],
+    "yearDistribution": [
+      {
+        "label": "2024",
+        "count": 6
+      },
+      {
+        "label": "2025",
+        "count": 5
+      },
+      {
+        "label": "2022",
+        "count": 4
+      },
+      {
+        "label": "2023",
+        "count": 4
+      },
+      {
+        "label": "2026",
+        "count": 1
+      }
+    ],
+    "journalDistribution": [
+      {
+        "label": "Journal of hematology & oncology",
+        "count": 2
+      },
+      {
+        "label": "World journal of gastroenterology",
+        "count": 2
+      },
+      {
+        "label": "Annals of medicine",
+        "count": 1
+      },
+      {
+        "label": "Cancer treatment and research communications",
+        "count": 1
+      },
+      {
+        "label": "Chinese medical journal",
+        "count": 1
+      },
+      {
+        "label": "Critical reviews in oncology/hematology",
+        "count": 1
+      },
+      {
+        "label": "Gastroenterology",
+        "count": 1
+      },
+      {
+        "label": "Gut",
+        "count": 1
+      },
+      {
+        "label": "International journal of molecular sciences",
+        "count": 1
+      },
+      {
+        "label": "JAMA",
+        "count": 1
+      },
+      {
+        "label": "JAMA surgery",
+        "count": 1
+      },
+      {
+        "label": "Journal of surgical oncology",
+        "count": 1
+      },
+      {
+        "label": "Lancet (London, England)",
+        "count": 1
+      },
+      {
+        "label": "Molecular cancer",
+        "count": 1
+      },
+      {
+        "label": "Seminars in cancer biology",
+        "count": 1
+      },
+      {
+        "label": "Theranostics",
+        "count": 1
+      },
+      {
+        "label": "Trends in cancer",
+        "count": 1
+      },
+      {
+        "label": "Trends in molecular medicine",
+        "count": 1
+      }
+    ],
+    "themeDistribution": [
+      {
+        "id": "prevention_epidemiology",
+        "label": "危险因素、预防与流行病学",
+        "count": 7,
+        "sourceIds": [
+          "pubmed:35431510",
+          "pubmed:37179585",
+          "pubmed:36240980",
+          "pubmed:38176660",
+          "pubmed:39357127",
+          "pubmed:38886045",
+          "pubmed:39148190"
+        ]
+      },
+      {
+        "id": "biomarkers_molecular",
+        "label": "分子分型与生物标志物",
+        "count": 6,
+        "sourceIds": [
+          "pubmed:34933124",
+          "pubmed:38892067",
+          "pubmed:39849657",
+          "pubmed:39148190",
+          "pubmed:40555635",
+          "pubmed:41044644"
+        ]
+      },
+      {
+        "id": "early_detection_screening",
+        "label": "早筛、早诊与影像检测",
+        "count": 4,
+        "sourceIds": [
+          "pubmed:35481909",
+          "pubmed:37649615",
+          "pubmed:39357127",
+          "pubmed:39928093"
+        ]
+      },
+      {
+        "id": "immunotherapy",
+        "label": "免疫治疗",
+        "count": 3,
+        "sourceIds": [
+          "pubmed:34933124",
+          "pubmed:38600020",
+          "pubmed:39357127"
+        ]
+      },
+      {
+        "id": "ai_digital",
+        "label": "人工智能与数字化工具",
+        "count": 1,
+        "sourceIds": [
+          "pubmed:39928093"
+        ]
+      },
+      {
+        "id": "local_treatment",
+        "label": "手术、放疗与局部治疗",
+        "count": 1,
+        "sourceIds": [
+          "pubmed:35319717"
+        ]
+      },
+      {
+        "id": "early_onset",
+        "label": "早发与青年发病人群",
+        "count": 1,
+        "sourceIds": [
+          "pubmed:39148190"
+        ]
+      },
+      {
+        "id": "systemic_treatment",
+        "label": "系统治疗与综合管理",
+        "count": 1,
+        "sourceIds": [
+          "pubmed:37245017"
+        ]
+      },
+      {
+        "id": "targeted_therapy",
+        "label": "靶向治疗",
+        "count": 1,
+        "sourceIds": [
+          "pubmed:34933124"
+        ]
+      }
+    ],
+    "titlePatternDistribution": [
+      {
+        "label": "其他题名结构",
+        "count": 16
+      },
+      {
+        "label": "叙述性或一般综述",
+        "count": 3
+      },
+      {
+        "label": "系统综述与 Meta 分析",
+        "count": 1
+      }
+    ],
+    "reviewSynthesis": {
+      "schemaVersion": "research-review-synthesis/v1",
+      "classifierVersion": "research-review-classifier/v5",
+      "taxonomyProfile": "gastric_oncology_v1",
+      "taxonomyBoundary": "研究对象明确为胃癌，启用肿瘤主题编码和胃癌专属问题规则；主题与问题仍仅描述当前样本。",
+      "analysisLevel": "title_abstract",
+      "analyzedSourceCount": 20,
+      "abstractAvailableCount": 20,
+      "titleOnlyCount": 0,
+      "reviewWindow": {
+        "years": 5,
+        "from": "2021-08-27",
+        "to": "2026-08-26"
+      },
+      "observedYears": {
+        "from": 2022,
+        "to": 2026
+      },
+      "comparisonPeriods": {
+        "recent": {
+          "from": 2025,
+          "to": 2026,
+          "count": 6
+        },
+        "earlier": {
+          "from": 2022,
+          "to": 2024,
+          "count": 14
+        }
+      },
+      "themeCoverage": [
+        {
+          "id": "prevention_epidemiology",
+          "label": "危险因素、预防与流行病学",
+          "count": 7,
+          "share": 35,
+          "years": [
+            "2024",
+            "2023",
+            "2022"
+          ],
+          "sourceIds": [
+            "pubmed:35431510",
+            "pubmed:37179585",
+            "pubmed:36240980",
+            "pubmed:38176660",
+            "pubmed:39357127",
+            "pubmed:38886045",
+            "pubmed:39148190"
+          ],
+          "representativeSourceIds": [
+            "pubmed:35431510",
+            "pubmed:37179585",
+            "pubmed:36240980",
+            "pubmed:38176660",
+            "pubmed:39357127",
+            "pubmed:38886045",
+            "pubmed:39148190"
+          ],
+          "exampleTitles": [
+            "Epidemiology of stomach cancer.",
+            "Updates on global epidemiology, risk and prognostic factors of gastric cancer."
+          ]
+        },
+        {
+          "id": "biomarkers_molecular",
+          "label": "分子分型与生物标志物",
+          "count": 6,
+          "share": 30,
+          "years": [
+            "2025",
+            "2024",
+            "2022"
+          ],
+          "sourceIds": [
+            "pubmed:34933124",
+            "pubmed:38892067",
+            "pubmed:39849657",
+            "pubmed:39148190",
+            "pubmed:40555635",
+            "pubmed:41044644"
+          ],
+          "representativeSourceIds": [
+            "pubmed:34933124",
+            "pubmed:38892067",
+            "pubmed:39849657",
+            "pubmed:39148190",
+            "pubmed:40555635",
+            "pubmed:41044644"
+          ],
+          "exampleTitles": [
+            "Molecular pathogenesis, targeted therapies, and future perspectives for gastric cancer.",
+            "Bioinformatics Analysis and Validation of Potential Markers Associated with Prediction and Prognosis of Gastric Cancer."
+          ]
+        },
+        {
+          "id": "early_detection_screening",
+          "label": "早筛、早诊与影像检测",
+          "count": 4,
+          "share": 20,
+          "years": [
+            "2025",
+            "2024",
+            "2023",
+            "2022"
+          ],
+          "sourceIds": [
+            "pubmed:35481909",
+            "pubmed:37649615",
+            "pubmed:39357127",
+            "pubmed:39928093"
+          ],
+          "representativeSourceIds": [
+            "pubmed:35481909",
+            "pubmed:37649615",
+            "pubmed:39357127",
+            "pubmed:39928093"
+          ],
+          "exampleTitles": [
+            "Advances in screening and detection of gastric cancer.",
+            "Evaluation of FAPI PET imaging in gastric cancer: a systematic review and meta-analysis."
+          ]
+        },
+        {
+          "id": "immunotherapy",
+          "label": "免疫治疗",
+          "count": 3,
+          "share": 15,
+          "years": [
+            "2024",
+            "2022"
+          ],
+          "sourceIds": [
+            "pubmed:34933124",
+            "pubmed:38600020",
+            "pubmed:39357127"
+          ],
+          "representativeSourceIds": [
+            "pubmed:34933124",
+            "pubmed:38600020",
+            "pubmed:39357127"
+          ],
+          "exampleTitles": [
+            "Molecular pathogenesis, targeted therapies, and future perspectives for gastric cancer.",
+            "Gastric cancer immunosuppressive microenvironment heterogeneity: implications for therapy development."
+          ]
+        },
+        {
+          "id": "ai_digital",
+          "label": "人工智能与数字化工具",
+          "count": 1,
+          "share": 5,
+          "years": [
+            "2025"
+          ],
+          "sourceIds": [
+            "pubmed:39928093"
+          ],
+          "representativeSourceIds": [
+            "pubmed:39928093"
+          ],
+          "exampleTitles": [
+            "Artificial intelligence-assisted diagnosis of early gastric cancer: present practice and future prospects."
+          ]
+        },
+        {
+          "id": "local_treatment",
+          "label": "手术、放疗与局部治疗",
+          "count": 1,
+          "share": 5,
+          "years": [
+            "2022"
+          ],
+          "sourceIds": [
+            "pubmed:35319717"
+          ],
+          "representativeSourceIds": [
+            "pubmed:35319717"
+          ],
+          "exampleTitles": [
+            "Surgical Management of Gastric Cancer: A Review."
+          ]
+        },
+        {
+          "id": "early_onset",
+          "label": "早发与青年发病人群",
+          "count": 1,
+          "share": 5,
+          "years": [
+            "2024"
+          ],
+          "sourceIds": [
+            "pubmed:39148190"
+          ],
+          "representativeSourceIds": [
+            "pubmed:39148190"
+          ],
+          "exampleTitles": [
+            "Emerging trends in early-onset gastric cancer."
+          ]
+        },
+        {
+          "id": "systemic_treatment",
+          "label": "系统治疗与综合管理",
+          "count": 1,
+          "share": 5,
+          "years": [
+            "2023"
+          ],
+          "sourceIds": [
+            "pubmed:37245017"
+          ],
+          "representativeSourceIds": [
+            "pubmed:37245017"
+          ],
+          "exampleTitles": [
+            "Gastric cancer treatment: recent progress and future perspectives."
+          ]
+        },
+        {
+          "id": "targeted_therapy",
+          "label": "靶向治疗",
+          "count": 1,
+          "share": 5,
+          "years": [
+            "2022"
+          ],
+          "sourceIds": [
+            "pubmed:34933124"
+          ],
+          "representativeSourceIds": [
+            "pubmed:34933124"
+          ],
+          "exampleTitles": [
+            "Molecular pathogenesis, targeted therapies, and future perspectives for gastric cancer."
+          ]
+        }
+      ],
+      "unclassifiedThemeSources": {
+        "count": 2,
+        "sourceIds": [
+          "pubmed:40319897",
+          "pubmed:41499132"
+        ],
+        "representativeSourceIds": [
+          "pubmed:40319897",
+          "pubmed:41499132"
+        ],
+        "boundary": "这些来源通过研究对象相关性门禁，但题名与核心目的/结论字段没有命中当前受控主题规则；保留为未分类而不强行归类。未编码不等于摘要没有涉及相关主题。"
+      },
+      "themeCodingBoundary": "主题覆盖与时间信号表示题名、核心目的或结论字段是否把该主题作为可审计主轴；它不是全文内容提及计数。未编码为主轴不等于摘要或全文未涉及。",
+      "temporalSignals": [
+        {
+          "id": "biomarkers_molecular",
+          "label": "分子分型与生物标志物",
+          "recentCount": 3,
+          "recentTotal": 6,
+          "earlierCount": 3,
+          "earlierTotal": 14,
+          "recentShare": 50,
+          "earlierShare": 21,
+          "direction": {
+            "id": "persistent",
+            "label": "近五年持续编码为题名或核心摘要主轴"
+          },
+          "sourceIds": [
+            "pubmed:39849657",
+            "pubmed:40555635",
+            "pubmed:41044644",
+            "pubmed:34933124",
+            "pubmed:38892067",
+            "pubmed:39148190"
+          ],
+          "representativeSourceIds": [
+            "pubmed:39849657",
+            "pubmed:40555635",
+            "pubmed:41044644",
+            "pubmed:34933124",
+            "pubmed:38892067",
+            "pubmed:39148190"
+          ]
+        },
+        {
+          "id": "early_detection_screening",
+          "label": "早筛、早诊与影像检测",
+          "recentCount": 1,
+          "recentTotal": 6,
+          "earlierCount": 3,
+          "earlierTotal": 14,
+          "recentShare": 17,
+          "earlierShare": 21,
+          "direction": {
+            "id": "stable_signal",
+            "label": "题名或核心摘要主轴编码持续出现"
+          },
+          "sourceIds": [
+            "pubmed:39928093",
+            "pubmed:35481909",
+            "pubmed:37649615",
+            "pubmed:39357127"
+          ],
+          "representativeSourceIds": [
+            "pubmed:39928093",
+            "pubmed:35481909",
+            "pubmed:37649615",
+            "pubmed:39357127"
+          ]
+        },
+        {
+          "id": "prevention_epidemiology",
+          "label": "危险因素、预防与流行病学",
+          "recentCount": 0,
+          "recentTotal": 6,
+          "earlierCount": 7,
+          "earlierTotal": 14,
+          "recentShare": 0,
+          "earlierShare": 50,
+          "direction": {
+            "id": "earlier_only",
+            "label": "仅较早样本编码为核心主轴；近期未形成主轴信号"
+          },
+          "sourceIds": [
+            "pubmed:35431510",
+            "pubmed:37179585",
+            "pubmed:36240980",
+            "pubmed:38176660",
+            "pubmed:39357127",
+            "pubmed:38886045",
+            "pubmed:39148190"
+          ],
+          "representativeSourceIds": [
+            "pubmed:35431510",
+            "pubmed:37179585",
+            "pubmed:36240980",
+            "pubmed:38176660",
+            "pubmed:39357127",
+            "pubmed:38886045",
+            "pubmed:39148190"
+          ]
+        },
+        {
+          "id": "immunotherapy",
+          "label": "免疫治疗",
+          "recentCount": 0,
+          "recentTotal": 6,
+          "earlierCount": 3,
+          "earlierTotal": 14,
+          "recentShare": 0,
+          "earlierShare": 21,
+          "direction": {
+            "id": "earlier_only",
+            "label": "仅较早样本编码为核心主轴；近期未形成主轴信号"
+          },
+          "sourceIds": [
+            "pubmed:34933124",
+            "pubmed:38600020",
+            "pubmed:39357127"
+          ],
+          "representativeSourceIds": [
+            "pubmed:34933124",
+            "pubmed:38600020",
+            "pubmed:39357127"
+          ]
+        }
+      ],
+      "methodSignals": [
+        {
+          "id": "meta_analysis",
+          "label": "Meta 分析",
+          "category": "design",
+          "count": 2,
+          "sourceIds": [
+            "pubmed:37649615",
+            "pubmed:38176660"
+          ],
+          "representativeSourceIds": [
+            "pubmed:37649615",
+            "pubmed:38176660"
+          ]
+        },
+        {
+          "id": "systematic_review",
+          "label": "系统综述设计",
+          "category": "design",
+          "count": 2,
+          "sourceIds": [
+            "pubmed:37649615",
+            "pubmed:38176660"
+          ],
+          "representativeSourceIds": [
+            "pubmed:37649615",
+            "pubmed:38176660"
+          ]
+        },
+        {
+          "id": "subgroup_sensitivity",
+          "label": "报告亚组、敏感性或回归分析",
+          "category": "analysis",
+          "count": 1,
+          "sourceIds": [
+            "pubmed:38176660"
+          ],
+          "representativeSourceIds": [
+            "pubmed:38176660"
+          ]
+        },
+        {
+          "id": "database_search",
+          "label": "报告数据库检索",
+          "category": "transparency",
+          "count": 1,
+          "sourceIds": [
+            "pubmed:37649615"
+          ],
+          "representativeSourceIds": [
+            "pubmed:37649615"
+          ]
+        }
+      ],
+      "methodVisibility": {
+        "moreCompleteCount": 0,
+        "partialCount": 2,
+        "notReportedCount": 18,
+        "assessedCount": 20,
+        "boundary": "这里只评价摘要中可见的方法报告信号，不等同于 AMSTAR 2、ROBIS 或全文质量评价；摘要未报告不能写成没有实施。"
+      },
+      "gapClusters": [],
+      "problemClusters": [
+        {
+          "id": "ai_clinical_implementation",
+          "category": "implementation_and_translation",
+          "label": "AI 早诊从模型表现到临床实施仍面临障碍",
+          "count": 1,
+          "sourceIds": [
+            "pubmed:39928093"
+          ],
+          "representativeSourceIds": [
+            "pubmed:39928093"
+          ],
+          "evidenceExcerpts": [
+            {
+              "sourceId": "pubmed:39928093",
+              "text": "Although AI has a better application prospect in the early diagnosis of ECG, there are still major challenges, and the prospects and limitations of AI application need to be further discussed."
+            }
+          ]
+        },
+        {
+          "id": "east_asia_transferability",
+          "category": "external_validity_and_representation",
+          "label": "保胃与前哨技术在东亚外的外部适用性不足",
+          "count": 1,
+          "sourceIds": [
+            "pubmed:35319717"
+          ],
+          "representativeSourceIds": [
+            "pubmed:35319717"
+          ],
+          "evidenceExcerpts": [
+            {
+              "sourceId": "pubmed:35319717",
+              "text": "…ld improve quality of life without compromising oncologic outcomes; however, experience with these techniques is rare outside of East Asia, and studies of long-term outcomes are still ongoing."
+            }
+          ]
+        },
+        {
+          "id": "local_treatment_long_term",
+          "category": "clinical_unresolved_problem",
+          "label": "保胃与前哨技术的长期结局仍待随访",
+          "count": 1,
+          "sourceIds": [
+            "pubmed:35319717"
+          ],
+          "representativeSourceIds": [
+            "pubmed:35319717"
+          ],
+          "evidenceExcerpts": [
+            {
+              "sourceId": "pubmed:35319717",
+              "text": "…however, experience with these techniques is rare outside of East Asia, and studies of long-term outcomes are still ongoing."
+            }
+          ]
+        },
+        {
+          "id": "immunotherapy_benefit_resistance",
+          "category": "benefit_stratification_and_resistance",
+          "label": "免疫治疗持久获益分层与耐药解释不足",
+          "count": 1,
+          "sourceIds": [
+            "pubmed:38600020"
+          ],
+          "representativeSourceIds": [
+            "pubmed:38600020"
+          ],
+          "evidenceExcerpts": [
+            {
+              "sourceId": "pubmed:38600020",
+              "text": "Although immunotherapy has revolutionized solid tumor treatment, durable responses in gastric cancer (GC) remain limited."
+            }
+          ]
+        },
+        {
+          "id": "treatment_sequence",
+          "category": "clinical_unresolved_problem",
+          "label": "多模式治疗的最佳序列仍在探索",
+          "count": 1,
+          "sourceIds": [
+            "pubmed:35319717"
+          ],
+          "representativeSourceIds": [
+            "pubmed:35319717"
+          ],
+          "evidenceExcerpts": [
+            {
+              "sourceId": "pubmed:35319717",
+              "text": "There have been recent advances in chemotherapy that have led to improved survival, but the optimal sequencing of multimodality therapy is still being investigated."
+            }
+          ]
+        },
+        {
+          "id": "multiomics_biomarker_translation",
+          "category": "implementation_and_translation",
+          "label": "多组学标志物从发现、验证到临床整合仍有障碍",
+          "count": 1,
+          "sourceIds": [
+            "pubmed:38892067"
+          ],
+          "representativeSourceIds": [
+            "pubmed:38892067"
+          ],
+          "evidenceExcerpts": [
+            {
+              "sourceId": "pubmed:38892067",
+              "text": "Finally, we discuss the current challenges and future perspectives to integrate multi-omics analysis for improving biomarker implementation."
+            }
+          ]
+        },
+        {
+          "id": "latin_africa_representation",
+          "category": "external_validity_and_representation",
+          "label": "拉美与非洲人群的证据代表性不足",
+          "count": 1,
+          "sourceIds": [
+            "pubmed:36240980"
+          ],
+          "representativeSourceIds": [
+            "pubmed:36240980"
+          ],
+          "evidenceExcerpts": [
+            {
+              "sourceId": "pubmed:36240980",
+              "text": "More research is needed in Latin America and Africa since these populations are underrepresented."
+            }
+          ]
+        },
+        {
+          "id": "early_detection_markers_targets",
+          "category": "diagnosis_and_target_discovery",
+          "label": "无创早检标志物与新治疗靶点仍缺乏",
+          "count": 1,
+          "sourceIds": [
+            "pubmed:41044644"
+          ],
+          "representativeSourceIds": [
+            "pubmed:41044644"
+          ],
+          "evidenceExcerpts": [
+            {
+              "sourceId": "pubmed:41044644",
+              "text": "Furthermore, painless and precise markers for the early detection of gastric cancer and new targets for its treatment are unavailable."
+            }
+          ]
+        },
+        {
+          "id": "advanced_treatment_options",
+          "category": "clinical_unresolved_problem",
+          "label": "晚期胃癌可用治疗选择仍有限",
+          "count": 1,
+          "sourceIds": [
+            "pubmed:40555635"
+          ],
+          "representativeSourceIds": [
+            "pubmed:40555635"
+          ],
+          "evidenceExcerpts": [
+            {
+              "sourceId": "pubmed:40555635",
+              "text": "Gastric cancer (GC) remains a deadly disease because of late detection and limited treatment options at advanced stages."
+            }
+          ]
+        },
+        {
+          "id": "microbiome_definition_translation",
+          "category": "definition_and_standardization",
+          "label": "胃微生物组概念边界与临床用途尚未标准化",
+          "count": 1,
+          "sourceIds": [
+            "pubmed:38886045"
+          ],
+          "representativeSourceIds": [
+            "pubmed:38886045"
+          ],
+          "evidenceExcerpts": [
+            {
+              "sourceId": "pubmed:38886045",
+              "text": "Potential translational and clinical implications of using gastric microbes for GC diagnosis, prognosis and therapeutics are also evaluated, with further discussion on conceptual haziness and limitations at present."
+            }
+          ]
+        },
+        {
+          "id": "targeted_agent_failures",
+          "category": "clinical_unresolved_problem",
+          "label": "部分靶向药物未能转化为有效治疗",
+          "count": 1,
+          "sourceIds": [
+            "pubmed:40555635"
+          ],
+          "representativeSourceIds": [
+            "pubmed:40555635"
+          ],
+          "evidenceExcerpts": [
+            {
+              "sourceId": "pubmed:40555635",
+              "text": "Despite the failure of several targeted agents, the landscape of GC therapy is evolving rapidly, facilitated by umbrella or platform precision medicine trials."
+            }
+          ]
+        },
+        {
+          "id": "targeted_benefit_subset",
+          "category": "benefit_stratification_and_resistance",
+          "label": "靶向治疗获益仅覆盖部分患者",
+          "count": 1,
+          "sourceIds": [
+            "pubmed:41044644"
+          ],
+          "representativeSourceIds": [
+            "pubmed:41044644"
+          ],
+          "evidenceExcerpts": [
+            {
+              "sourceId": "pubmed:41044644",
+              "text": "Targeted monoclonal antibodies approved for the treatment of gastric cancer are effective for a limited subset of patients."
+            }
+          ]
+        }
+      ],
+      "breakthroughCandidates": [],
+      "directionReport": {
+        "title": "从综述现象到下一步研究方案",
+        "executiveSummary": "当前摘要证据还不足以提出可追溯的解决方案；应先补充更窄检索或全文核查。",
+        "solutionPrinciple": "优先选择“临床或机制问题明确、摘要缺口可追溯、结局可测量、设计能够提升现有证据确定性”的方向。",
+        "directions": [],
+        "nextDecision": "先修订检索式或补充摘要样本，再决定是否进入下一轮选题调查。",
+        "boundary": "方向排序和解决方案来自当前 PubMed 综述样本的题名摘要信号，未核查全文、指南、试验注册或本地数据可行性；它们是选题假设，不是研究空白定论或临床建议。"
+      },
+      "professorReport": {
+        "schemaVersion": "research-professor-report/v1",
+        "title": "领域发展现状、主要问题与综述选题报告",
+        "periodLabel": "2021-08-27—2026-08-26",
+        "analysisLevel": "题名与摘要级",
+        "executiveSummary": "本轮分析 20 篇近五年综述，其中 20 篇有摘要。当前样本题名或核心摘要主轴主要编码为危险因素、预防与流行病学（7/20）、分子分型与生物标志物（6/20）、早筛、早诊与影像检测（4/20）、免疫治疗（3/20）、人工智能与数字化工具（1/20）。2 篇摘要明确属于 Meta 分析；当前样本中并列出现的代表性领域问题包括“AI 早诊从模型表现到临床实施仍面临障碍”、“保胃与前哨技术在东亚外的外部适用性不足”、“保胃与前哨技术的长期结局仍待随访”、“免疫治疗持久获益分层与耐药解释不足”（均 1 篇）；并列计数不构成科研优先级。 下一步应围绕具体决策与评价轴做窄检索，而不是从宽泛领域描述直接宣布创新点。",
+        "majorProblemOrderingBoundary": "主要问题按摘要命中计数与预设规则顺序稳定展示，仅供代表性阅读；同计数项目没有科研优先级、严重性或创新性排序含义。",
+        "developmentStatus": [
+          {
+            "id": "topic_structure",
+            "title": "主题结构",
+            "conclusion": "当前样本题名或核心摘要主轴主要编码为危险因素、预防与流行病学（7/20）、分子分型与生物标志物（6/20）、早筛、早诊与影像检测（4/20）、免疫治疗（3/20）、人工智能与数字化工具（1/20）；一个摘要可以进入多个主题，因此这些数字表示主轴覆盖度，不是互斥分类，也不是全文提及计数。",
+            "sourceIds": [
+              "pubmed:35431510",
+              "pubmed:37179585",
+              "pubmed:36240980",
+              "pubmed:38176660",
+              "pubmed:39357127",
+              "pubmed:38886045",
+              "pubmed:39148190",
+              "pubmed:34933124",
+              "pubmed:38892067",
+              "pubmed:39849657",
+              "pubmed:40555635",
+              "pubmed:41044644",
+              "pubmed:35481909",
+              "pubmed:37649615",
+              "pubmed:39928093",
+              "pubmed:38600020"
+            ],
+            "representativeSourceIds": [
+              "pubmed:35431510",
+              "pubmed:37179585",
+              "pubmed:36240980",
+              "pubmed:38176660",
+              "pubmed:39357127",
+              "pubmed:38886045",
+              "pubmed:39148190",
+              "pubmed:34933124"
+            ]
+          },
+          {
+            "id": "review_maturity",
+            "title": "当前样本的综述类型",
+            "conclusion": "2 篇摘要明确报告 Meta 分析，2 篇明确报告系统综述设计。这些计数只描述当前分层样本，不能据此判断领域成熟度、同题重复程度或效应汇总是否充分。",
+            "sourceIds": [
+              "pubmed:37649615",
+              "pubmed:38176660"
+            ],
+            "representativeSourceIds": [
+              "pubmed:37649615",
+              "pubmed:38176660"
+            ]
+          },
+          {
+            "id": "method_visibility",
+            "title": "方法报告",
+            "conclusion": "0/20 篇摘要的方法报告信号较完整，2 篇部分可见，18 篇摘要未充分报告。摘要未报告不能写成没有实施。",
+            "sourceIds": [
+              "pubmed:37649615",
+              "pubmed:38176660"
+            ],
+            "representativeSourceIds": [
+              "pubmed:37649615",
+              "pubmed:38176660"
+            ]
+          }
+        ],
+        "trendInsights": [
+          {
+            "id": "trend_biomarkers_molecular",
+            "title": "分子分型与生物标志物",
+            "conclusion": "近五年持续编码为题名或核心摘要主轴：近两年主轴编码 3/6，较早样本 3/14。这是题名或核心目的/结论字段的主轴信号，不是全文提及计数或全领域发文量。",
+            "sourceIds": [
+              "pubmed:39849657",
+              "pubmed:40555635",
+              "pubmed:41044644",
+              "pubmed:34933124",
+              "pubmed:38892067",
+              "pubmed:39148190"
+            ],
+            "representativeSourceIds": [
+              "pubmed:39849657",
+              "pubmed:40555635",
+              "pubmed:41044644",
+              "pubmed:34933124",
+              "pubmed:38892067",
+              "pubmed:39148190"
+            ]
+          },
+          {
+            "id": "trend_early_detection_screening",
+            "title": "早筛、早诊与影像检测",
+            "conclusion": "题名或核心摘要主轴编码持续出现：近两年主轴编码 1/6，较早样本 3/14。这是题名或核心目的/结论字段的主轴信号，不是全文提及计数或全领域发文量。",
+            "sourceIds": [
+              "pubmed:39928093",
+              "pubmed:35481909",
+              "pubmed:37649615",
+              "pubmed:39357127"
+            ],
+            "representativeSourceIds": [
+              "pubmed:39928093",
+              "pubmed:35481909",
+              "pubmed:37649615",
+              "pubmed:39357127"
+            ]
+          },
+          {
+            "id": "trend_prevention_epidemiology",
+            "title": "危险因素、预防与流行病学",
+            "conclusion": "仅较早样本编码为核心主轴；近期未形成主轴信号：近两年主轴编码 0/6，较早样本 7/14。这是题名或核心目的/结论字段的主轴信号，不是全文提及计数或全领域发文量。",
+            "sourceIds": [
+              "pubmed:35431510",
+              "pubmed:37179585",
+              "pubmed:36240980",
+              "pubmed:38176660",
+              "pubmed:39357127",
+              "pubmed:38886045",
+              "pubmed:39148190"
+            ],
+            "representativeSourceIds": [
+              "pubmed:35431510",
+              "pubmed:37179585",
+              "pubmed:36240980",
+              "pubmed:38176660",
+              "pubmed:39357127",
+              "pubmed:38886045",
+              "pubmed:39148190"
+            ]
+          },
+          {
+            "id": "trend_immunotherapy",
+            "title": "免疫治疗",
+            "conclusion": "仅较早样本编码为核心主轴；近期未形成主轴信号：近两年主轴编码 0/6，较早样本 3/14。这是题名或核心目的/结论字段的主轴信号，不是全文提及计数或全领域发文量。",
+            "sourceIds": [
+              "pubmed:34933124",
+              "pubmed:38600020",
+              "pubmed:39357127"
+            ],
+            "representativeSourceIds": [
+              "pubmed:34933124",
+              "pubmed:38600020",
+              "pubmed:39357127"
+            ]
+          }
+        ],
+        "majorProblems": [
+          {
+            "id": "domain_problem_ai_clinical_implementation",
+            "category": "implementation_and_translation",
+            "title": "AI 早诊从模型表现到临床实施仍面临障碍",
+            "conclusion": "1 篇可用摘要明确出现这一领域问题信号；它不自动等于证据数量或质量不足。代表性摘要表述：Although AI has a better application prospect in the early diagnosis of ECG, there are still major challenges, and the prospects and limitations of AI application need to be further discussed.",
+            "directObservation": "1 篇可用摘要命中“AI 早诊从模型表现到临床实施仍面临障碍”的预设问题规则。",
+            "interpretation": "该计数是摘要直接问题信号；是否构成综述增量价值仍属于待窄检索验证的推断。",
+            "displayRole": "representative_problem_not_priority_rank",
+            "supportingEvidence": [
+              {
+                "sourceId": "pubmed:39928093",
+                "field": "abstract",
+                "excerpt": "Although AI has a better application prospect in the early diagnosis of ECG, there are still major challenges, and the prospects and limitations of AI application need to be further discussed.",
+                "claimRole": "directly_reported_domain_problem_signal"
+              }
+            ],
+            "sourceIds": [
+              "pubmed:39928093"
+            ],
+            "representativeSourceIds": [
+              "pubmed:39928093"
+            ]
+          },
+          {
+            "id": "domain_problem_east_asia_transferability",
+            "category": "external_validity_and_representation",
+            "title": "保胃与前哨技术在东亚外的外部适用性不足",
+            "conclusion": "1 篇可用摘要明确出现这一领域问题信号；它不自动等于证据数量或质量不足。代表性摘要表述：…ld improve quality of life without compromising oncologic outcomes; however, experience with these techniques is rare outside of East Asia, and studies of long-term outcomes are still ongoing.",
+            "directObservation": "1 篇可用摘要命中“保胃与前哨技术在东亚外的外部适用性不足”的预设问题规则。",
+            "interpretation": "该计数是摘要直接问题信号；是否构成综述增量价值仍属于待窄检索验证的推断。",
+            "displayRole": "representative_problem_not_priority_rank",
+            "supportingEvidence": [
+              {
+                "sourceId": "pubmed:35319717",
+                "field": "abstract",
+                "excerpt": "…ld improve quality of life without compromising oncologic outcomes; however, experience with these techniques is rare outside of East Asia, and studies of long-term outcomes are still ongoing.",
+                "claimRole": "directly_reported_domain_problem_signal"
+              }
+            ],
+            "sourceIds": [
+              "pubmed:35319717"
+            ],
+            "representativeSourceIds": [
+              "pubmed:35319717"
+            ]
+          },
+          {
+            "id": "domain_problem_local_treatment_long_term",
+            "category": "clinical_unresolved_problem",
+            "title": "保胃与前哨技术的长期结局仍待随访",
+            "conclusion": "1 篇可用摘要明确出现这一领域问题信号；它不自动等于证据数量或质量不足。代表性摘要表述：…however, experience with these techniques is rare outside of East Asia, and studies of long-term outcomes are still ongoing.",
+            "directObservation": "1 篇可用摘要命中“保胃与前哨技术的长期结局仍待随访”的预设问题规则。",
+            "interpretation": "该计数是摘要直接问题信号；是否构成综述增量价值仍属于待窄检索验证的推断。",
+            "displayRole": "representative_problem_not_priority_rank",
+            "supportingEvidence": [
+              {
+                "sourceId": "pubmed:35319717",
+                "field": "abstract",
+                "excerpt": "…however, experience with these techniques is rare outside of East Asia, and studies of long-term outcomes are still ongoing.",
+                "claimRole": "directly_reported_domain_problem_signal"
+              }
+            ],
+            "sourceIds": [
+              "pubmed:35319717"
+            ],
+            "representativeSourceIds": [
+              "pubmed:35319717"
+            ]
+          },
+          {
+            "id": "domain_problem_immunotherapy_benefit_resistance",
+            "category": "benefit_stratification_and_resistance",
+            "title": "免疫治疗持久获益分层与耐药解释不足",
+            "conclusion": "1 篇可用摘要明确出现这一领域问题信号；它不自动等于证据数量或质量不足。代表性摘要表述：Although immunotherapy has revolutionized solid tumor treatment, durable responses in gastric cancer (GC) remain limited.",
+            "directObservation": "1 篇可用摘要命中“免疫治疗持久获益分层与耐药解释不足”的预设问题规则。",
+            "interpretation": "该计数是摘要直接问题信号；是否构成综述增量价值仍属于待窄检索验证的推断。",
+            "displayRole": "representative_problem_not_priority_rank",
+            "supportingEvidence": [
+              {
+                "sourceId": "pubmed:38600020",
+                "field": "abstract",
+                "excerpt": "Although immunotherapy has revolutionized solid tumor treatment, durable responses in gastric cancer (GC) remain limited.",
+                "claimRole": "directly_reported_domain_problem_signal"
+              }
+            ],
+            "sourceIds": [
+              "pubmed:38600020"
+            ],
+            "representativeSourceIds": [
+              "pubmed:38600020"
+            ]
+          },
+          {
+            "id": "domain_problem_treatment_sequence",
+            "category": "clinical_unresolved_problem",
+            "title": "多模式治疗的最佳序列仍在探索",
+            "conclusion": "1 篇可用摘要明确出现这一领域问题信号；它不自动等于证据数量或质量不足。代表性摘要表述：There have been recent advances in chemotherapy that have led to improved survival, but the optimal sequencing of multimodality therapy is still being investigated.",
+            "directObservation": "1 篇可用摘要命中“多模式治疗的最佳序列仍在探索”的预设问题规则。",
+            "interpretation": "该计数是摘要直接问题信号；是否构成综述增量价值仍属于待窄检索验证的推断。",
+            "displayRole": "representative_problem_not_priority_rank",
+            "supportingEvidence": [
+              {
+                "sourceId": "pubmed:35319717",
+                "field": "abstract",
+                "excerpt": "There have been recent advances in chemotherapy that have led to improved survival, but the optimal sequencing of multimodality therapy is still being investigated.",
+                "claimRole": "directly_reported_domain_problem_signal"
+              }
+            ],
+            "sourceIds": [
+              "pubmed:35319717"
+            ],
+            "representativeSourceIds": [
+              "pubmed:35319717"
+            ]
+          },
+          {
+            "id": "domain_problem_multiomics_biomarker_translation",
+            "category": "implementation_and_translation",
+            "title": "多组学标志物从发现、验证到临床整合仍有障碍",
+            "conclusion": "1 篇可用摘要明确出现这一领域问题信号；它不自动等于证据数量或质量不足。代表性摘要表述：Finally, we discuss the current challenges and future perspectives to integrate multi-omics analysis for improving biomarker implementation.",
+            "directObservation": "1 篇可用摘要命中“多组学标志物从发现、验证到临床整合仍有障碍”的预设问题规则。",
+            "interpretation": "该计数是摘要直接问题信号；是否构成综述增量价值仍属于待窄检索验证的推断。",
+            "displayRole": "representative_problem_not_priority_rank",
+            "supportingEvidence": [
+              {
+                "sourceId": "pubmed:38892067",
+                "field": "abstract",
+                "excerpt": "Finally, we discuss the current challenges and future perspectives to integrate multi-omics analysis for improving biomarker implementation.",
+                "claimRole": "directly_reported_domain_problem_signal"
+              }
+            ],
+            "sourceIds": [
+              "pubmed:38892067"
+            ],
+            "representativeSourceIds": [
+              "pubmed:38892067"
+            ]
+          },
+          {
+            "id": "domain_problem_latin_africa_representation",
+            "category": "external_validity_and_representation",
+            "title": "拉美与非洲人群的证据代表性不足",
+            "conclusion": "1 篇可用摘要明确出现这一领域问题信号；它不自动等于证据数量或质量不足。代表性摘要表述：More research is needed in Latin America and Africa since these populations are underrepresented.",
+            "directObservation": "1 篇可用摘要命中“拉美与非洲人群的证据代表性不足”的预设问题规则。",
+            "interpretation": "该计数是摘要直接问题信号；是否构成综述增量价值仍属于待窄检索验证的推断。",
+            "displayRole": "representative_problem_not_priority_rank",
+            "supportingEvidence": [
+              {
+                "sourceId": "pubmed:36240980",
+                "field": "abstract",
+                "excerpt": "More research is needed in Latin America and Africa since these populations are underrepresented.",
+                "claimRole": "directly_reported_domain_problem_signal"
+              }
+            ],
+            "sourceIds": [
+              "pubmed:36240980"
+            ],
+            "representativeSourceIds": [
+              "pubmed:36240980"
+            ]
+          },
+          {
+            "id": "domain_problem_early_detection_markers_targets",
+            "category": "diagnosis_and_target_discovery",
+            "title": "无创早检标志物与新治疗靶点仍缺乏",
+            "conclusion": "1 篇可用摘要明确出现这一领域问题信号；它不自动等于证据数量或质量不足。代表性摘要表述：Furthermore, painless and precise markers for the early detection of gastric cancer and new targets for its treatment are unavailable.",
+            "directObservation": "1 篇可用摘要命中“无创早检标志物与新治疗靶点仍缺乏”的预设问题规则。",
+            "interpretation": "该计数是摘要直接问题信号；是否构成综述增量价值仍属于待窄检索验证的推断。",
+            "displayRole": "representative_problem_not_priority_rank",
+            "supportingEvidence": [
+              {
+                "sourceId": "pubmed:41044644",
+                "field": "abstract",
+                "excerpt": "Furthermore, painless and precise markers for the early detection of gastric cancer and new targets for its treatment are unavailable.",
+                "claimRole": "directly_reported_domain_problem_signal"
+              }
+            ],
+            "sourceIds": [
+              "pubmed:41044644"
+            ],
+            "representativeSourceIds": [
+              "pubmed:41044644"
+            ]
+          },
+          {
+            "id": "domain_problem_advanced_treatment_options",
+            "category": "clinical_unresolved_problem",
+            "title": "晚期胃癌可用治疗选择仍有限",
+            "conclusion": "1 篇可用摘要明确出现这一领域问题信号；它不自动等于证据数量或质量不足。代表性摘要表述：Gastric cancer (GC) remains a deadly disease because of late detection and limited treatment options at advanced stages.",
+            "directObservation": "1 篇可用摘要命中“晚期胃癌可用治疗选择仍有限”的预设问题规则。",
+            "interpretation": "该计数是摘要直接问题信号；是否构成综述增量价值仍属于待窄检索验证的推断。",
+            "displayRole": "representative_problem_not_priority_rank",
+            "supportingEvidence": [
+              {
+                "sourceId": "pubmed:40555635",
+                "field": "abstract",
+                "excerpt": "Gastric cancer (GC) remains a deadly disease because of late detection and limited treatment options at advanced stages.",
+                "claimRole": "directly_reported_domain_problem_signal"
+              }
+            ],
+            "sourceIds": [
+              "pubmed:40555635"
+            ],
+            "representativeSourceIds": [
+              "pubmed:40555635"
+            ]
+          },
+          {
+            "id": "domain_problem_microbiome_definition_translation",
+            "category": "definition_and_standardization",
+            "title": "胃微生物组概念边界与临床用途尚未标准化",
+            "conclusion": "1 篇可用摘要明确出现这一领域问题信号；它不自动等于证据数量或质量不足。代表性摘要表述：Potential translational and clinical implications of using gastric microbes for GC diagnosis, prognosis and therapeutics are also evaluated, with further discussion on conceptual haziness and limitations at present.",
+            "directObservation": "1 篇可用摘要命中“胃微生物组概念边界与临床用途尚未标准化”的预设问题规则。",
+            "interpretation": "该计数是摘要直接问题信号；是否构成综述增量价值仍属于待窄检索验证的推断。",
+            "displayRole": "representative_problem_not_priority_rank",
+            "supportingEvidence": [
+              {
+                "sourceId": "pubmed:38886045",
+                "field": "abstract",
+                "excerpt": "Potential translational and clinical implications of using gastric microbes for GC diagnosis, prognosis and therapeutics are also evaluated, with further discussion on conceptual haziness and limitations at present.",
+                "claimRole": "directly_reported_domain_problem_signal"
+              }
+            ],
+            "sourceIds": [
+              "pubmed:38886045"
+            ],
+            "representativeSourceIds": [
+              "pubmed:38886045"
+            ]
+          },
+          {
+            "id": "domain_problem_targeted_agent_failures",
+            "category": "clinical_unresolved_problem",
+            "title": "部分靶向药物未能转化为有效治疗",
+            "conclusion": "1 篇可用摘要明确出现这一领域问题信号；它不自动等于证据数量或质量不足。代表性摘要表述：Despite the failure of several targeted agents, the landscape of GC therapy is evolving rapidly, facilitated by umbrella or platform precision medicine trials.",
+            "directObservation": "1 篇可用摘要命中“部分靶向药物未能转化为有效治疗”的预设问题规则。",
+            "interpretation": "该计数是摘要直接问题信号；是否构成综述增量价值仍属于待窄检索验证的推断。",
+            "displayRole": "representative_problem_not_priority_rank",
+            "supportingEvidence": [
+              {
+                "sourceId": "pubmed:40555635",
+                "field": "abstract",
+                "excerpt": "Despite the failure of several targeted agents, the landscape of GC therapy is evolving rapidly, facilitated by umbrella or platform precision medicine trials.",
+                "claimRole": "directly_reported_domain_problem_signal"
+              }
+            ],
+            "sourceIds": [
+              "pubmed:40555635"
+            ],
+            "representativeSourceIds": [
+              "pubmed:40555635"
+            ]
+          },
+          {
+            "id": "domain_problem_targeted_benefit_subset",
+            "category": "benefit_stratification_and_resistance",
+            "title": "靶向治疗获益仅覆盖部分患者",
+            "conclusion": "1 篇可用摘要明确出现这一领域问题信号；它不自动等于证据数量或质量不足。代表性摘要表述：Targeted monoclonal antibodies approved for the treatment of gastric cancer are effective for a limited subset of patients.",
+            "directObservation": "1 篇可用摘要命中“靶向治疗获益仅覆盖部分患者”的预设问题规则。",
+            "interpretation": "该计数是摘要直接问题信号；是否构成综述增量价值仍属于待窄检索验证的推断。",
+            "displayRole": "representative_problem_not_priority_rank",
+            "supportingEvidence": [
+              {
+                "sourceId": "pubmed:41044644",
+                "field": "abstract",
+                "excerpt": "Targeted monoclonal antibodies approved for the treatment of gastric cancer are effective for a limited subset of patients.",
+                "claimRole": "directly_reported_domain_problem_signal"
+              }
+            ],
+            "sourceIds": [
+              "pubmed:41044644"
+            ],
+            "representativeSourceIds": [
+              "pubmed:41044644"
+            ]
+          }
+        ],
+        "evidenceProblems": [],
+        "newcomerGuide": [
+          {
+            "id": "decision_first",
+            "title": "先选决策问题，再选技术名词",
+            "advice": "把主题收窄为明确的人群、干预或暴露、比较条件和核心结局；宽泛的“研究进展”通常难以形成新价值。"
+          },
+          {
+            "id": "review_type",
+            "title": "让综述类型服从问题",
+            "advice": "定义和证据地图适合范围综述；窄疗效问题适合系统综述或 Meta 分析；已有大量综述时先考虑伞状综述或重叠度分析。"
+          },
+          {
+            "id": "evidence_quality",
+            "title": "不要用影响因子代替证据评价",
+            "advice": "期刊指标只能作为来源元数据。研究设计、偏倚风险、适用性和证据确定性才决定一篇论文能支持多强的结论。"
+          },
+          {
+            "id": "unknowns",
+            "title": "把未知保留下来",
+            "advice": "摘要没有报告的方法、样本量、数值或阴性结果必须记为未知，不能补写，也不能写成没有实施。"
+          },
+          {
+            "id": "protocol",
+            "title": "短周期项目也要预注册和留痕",
+            "advice": "先冻结问题、纳排标准、检索式、提取表和偏倚评价工具，再开始正式筛选；所有改动保留版本和理由。"
+          }
+        ],
+        "selectionPatterns": [
+          {
+            "id": "narrow_decision",
+            "title": "更有价值的题目围绕一个可行动的决策点",
+            "conclusion": "优先选择能够明确比较条件、患者分层、阈值或实施门槛的问题，避免再次覆盖整个领域。",
+            "sourceIds": [
+              "pubmed:35431510",
+              "pubmed:37179585",
+              "pubmed:36240980",
+              "pubmed:38176660",
+              "pubmed:39357127",
+              "pubmed:38886045",
+              "pubmed:39148190",
+              "pubmed:34933124",
+              "pubmed:38892067",
+              "pubmed:39849657",
+              "pubmed:40555635",
+              "pubmed:41044644",
+              "pubmed:35481909",
+              "pubmed:37649615",
+              "pubmed:39928093"
+            ],
+            "representativeSourceIds": [
+              "pubmed:35431510",
+              "pubmed:37179585",
+              "pubmed:36240980",
+              "pubmed:38176660",
+              "pubmed:39357127",
+              "pubmed:38886045",
+              "pubmed:39148190",
+              "pubmed:34933124"
+            ]
+          },
+          {
+            "id": "incremental_value",
+            "title": "新意通常来自评价框架，而不只是检索更新",
+            "conclusion": "标准化定义、外部验证、患者重要结局、真实世界实施、公平性和因果偏倚可作为候选评价轴；是否形成增量价值必须通过同题综述窄检索验证。",
+            "sourceIds": [
+              "pubmed:39928093",
+              "pubmed:35319717",
+              "pubmed:38600020"
+            ],
+            "representativeSourceIds": [
+              "pubmed:39928093",
+              "pubmed:35319717",
+              "pubmed:38600020"
+            ]
+          }
+        ],
+        "researcherIdeas": [
+          {
+            "id": "researcher_review_proposal_biomarkers_molecular",
+            "title": "胃癌：从生物标志物发现到临床决策：检测标准化、外部验证与临床净获益",
+            "value": "主题轨迹为“近五年持续编码为题名或核心摘要主轴”。其中 1 篇出现“多组学标志物从发现、验证到临床整合仍有障碍”的领域问题信号；这不是证据数量不足的同义词。 可验证的增量假设是围绕“多组学标志物从发现、验证到临床整合仍有障碍”重构提取与比较框架，而不是再次做宽泛进展综述。 未完成同题综述窄检索前，创新度与可发表性均为未知。",
+            "sourceIds": [
+              "pubmed:38892067",
+              "pubmed:34933124",
+              "pubmed:39849657",
+              "pubmed:39148190",
+              "pubmed:40555635",
+              "pubmed:41044644"
+            ],
+            "representativeSourceIds": [
+              "pubmed:38892067",
+              "pubmed:34933124",
+              "pubmed:39849657",
+              "pubmed:39148190",
+              "pubmed:40555635",
+              "pubmed:41044644"
+            ]
+          },
+          {
+            "id": "researcher_review_proposal_immunotherapy",
+            "title": "胃癌：免疫治疗的获益—风险分层：预测标志物、耐药与患者重要结局",
+            "value": "主题轨迹为“仅较早样本编码为核心主轴；近期未形成主轴信号”。其中 1 篇出现“免疫治疗持久获益分层与耐药解释不足”的领域问题信号；这不是证据数量不足的同义词。 可验证的增量假设是围绕“免疫治疗持久获益分层与耐药解释不足”重构提取与比较框架，而不是再次做宽泛进展综述。 未完成同题综述窄检索前，创新度与可发表性均为未知。",
+            "sourceIds": [
+              "pubmed:38600020",
+              "pubmed:34933124",
+              "pubmed:39357127"
+            ],
+            "representativeSourceIds": [
+              "pubmed:38600020",
+              "pubmed:34933124",
+              "pubmed:39357127"
+            ]
+          },
+          {
+            "id": "researcher_review_proposal_early_onset",
+            "title": "早发胃癌的定义与年龄界值：地区差异、筛查路径与临床管理的范围综述",
+            "value": "当前样本尚不足以判断时间变化。当前摘要未形成可稳定归类的问题或证据缺口信号，因此不能直接宣布该方向存在研究空白。 可验证的增量假设是围绕“早发与青年发病人群”建立更窄的人群、比较和结局矩阵；当前仅为探索性候选。 未完成同题综述窄检索前，创新度与可发表性均为未知。",
+            "sourceIds": [
+              "pubmed:39148190"
+            ],
+            "representativeSourceIds": [
+              "pubmed:39148190"
+            ]
+          },
+          {
+            "id": "researcher_review_proposal_local_treatment",
+            "title": "胃癌：局部治疗路径的东西方适用性：患者选择、治疗序列与长期结局的系统综述",
+            "value": "当前样本尚不足以判断时间变化。其中 1 篇出现“保胃与前哨技术在东亚外的外部适用性不足”的领域问题信号；这不是证据数量不足的同义词。 可验证的增量假设是围绕“保胃与前哨技术在东亚外的外部适用性不足”重构提取与比较框架，而不是再次做宽泛进展综述。 未完成同题综述窄检索前，创新度与可发表性均为未知。",
+            "sourceIds": [
+              "pubmed:35319717"
+            ],
+            "representativeSourceIds": [
+              "pubmed:35319717"
+            ]
+          },
+          {
+            "id": "researcher_review_proposal_ai_digital",
+            "title": "胃癌：人工智能从模型性能到临床实施：外部验证、校准、公平性与临床净获益",
+            "value": "当前样本尚不足以判断时间变化。其中 1 篇出现“AI 早诊从模型表现到临床实施仍面临障碍”的领域问题信号；这不是证据数量不足的同义词。 可验证的增量假设是围绕“AI 早诊从模型表现到临床实施仍面临障碍”重构提取与比较框架，而不是再次做宽泛进展综述。 未完成同题综述窄检索前，创新度与可发表性均为未知。",
+            "sourceIds": [
+              "pubmed:39928093"
+            ],
+            "representativeSourceIds": [
+              "pubmed:39928093"
+            ]
+          }
+        ],
+        "studentReviewDirections": [
+          {
+            "id": "review_proposal_biomarkers_molecular",
+            "rank": 1,
+            "priority": "样本高覆盖重构",
+            "portfolioRole": "sample_high_coverage_reframing",
+            "themeId": "biomarkers_molecular",
+            "theme": "分子分型与生物标志物",
+            "taxonomyProfile": "gastric_oncology_v1",
+            "subjectLabel": "胃癌",
+            "suggestedTitle": "胃癌：从生物标志物发现到临床决策：检测标准化、外部验证与临床净获益",
+            "existingCoverage": {
+              "count": 6,
+              "total": 20,
+              "competitionStatus": "unverified_pending_same_topic_review_search",
+              "sampleCoverageSignal": "higher",
+              "interpretation": "当前分层样本覆盖 6/20，属于样本内较高覆盖信号；首轮不能据此给出竞争风险等级，必须在第二轮定位并逐篇比较同题综述。"
+            },
+            "incrementalValueHypothesis": "可验证的增量假设是围绕“多组学标志物从发现、验证到临床整合仍有障碍”重构提取与比较框架，而不是再次做宽泛进展综述。",
+            "problemBasis": {
+              "id": "multiomics_biomarker_translation",
+              "category": "implementation_and_translation",
+              "label": "多组学标志物从发现、验证到临床整合仍有障碍",
+              "sourceIds": [
+                "pubmed:38892067"
+              ],
+              "supportingEvidence": {
+                "sourceId": "pubmed:38892067",
+                "field": "abstract",
+                "excerpt": "Finally, we discuss the current challenges and future perspectives to integrate multi-omics analysis for improving biomarker implementation."
+              },
+              "representativeExcerpt": "Finally, we discuss the current challenges and future perspectives to integrate multi-omics analysis for improving biomarker implementation."
+            },
+            "whyNotFullyReviewed": "待核假设：既有综述可能尚未以“多组学标志物从发现、验证到临床整合仍有障碍”为主轴，同时比较本题的人群边界、定义和结局；必须经同题综述窄检索逐篇比较后才能保留。",
+            "noveltyStatus": "unverified_pending_same_topic_review_search",
+            "whyPotentiallyValuable": "主题轨迹为“近五年持续编码为题名或核心摘要主轴”。其中 1 篇出现“多组学标志物从发现、验证到临床整合仍有障碍”的领域问题信号；这不是证据数量不足的同义词。 可验证的增量假设是围绕“多组学标志物从发现、验证到临床整合仍有障碍”重构提取与比较框架，而不是再次做宽泛进展综述。 未完成同题综述窄检索前，创新度与可发表性均为未知。",
+            "outline": [
+              "标志物用途与检测平台",
+              "阈值、采样时间和人群差异",
+              "开发队列与独立外部验证",
+              "预测价值、临床净获益与实施门槛"
+            ],
+            "reviewPlan": {
+              "reviewType": "按临床用途分层的预后或预测标志物系统综述。",
+              "populationAndComparison": "区分诊断、预后、疗效预测和监测用途，再按检测平台、阈值、采样时间及验证层级分层。",
+              "coreOutcomes": [
+                "判别能力与校准",
+                "临床净获益",
+                "外部验证表现",
+                "与生存、应答或毒性的关联"
+              ],
+              "organization": [
+                "把模型开发、内部验证和独立外部验证分开编码。",
+                "比较检测平台、阈值和采样时点。",
+                "同时综合校准、决策曲线和失败样本，不只汇总 AUC。"
+              ]
+            },
+            "workload": {
+              "targetCoreLiterature": "候选发现与工作量估算目标 50–100 篇；最终纳入量由预设标准决定",
+              "timeline": "10–12 周目标周期（须经窄检索与团队资源核定，不构成完成承诺）",
+              "difficulty": "中高",
+              "plan": [
+                "第 1–2 周冻结问题、方案和检索式",
+                "第 3–6 周筛选并提取证据",
+                "第 7–9 周完成综合与图表",
+                "第 10–12 周写作、核查和修订"
+              ]
+            },
+            "discardConditions": [
+              "近两年已有范围、评价轴与结局框架高度重合的高质量综述，且没有可说明的更新价值。",
+              "以 50–100 篇作为候选发现与工作量估算目标后，仍无法通过调整综述类型或范围形成兼顾深度与周期的可执行文献集；最终纳入量始终由预设标准决定，不以该目标作硬阈值。",
+              "关键人群、比较条件或结局定义无法形成可复核的纳入排除标准。"
+            ],
+            "sourceIds": [
+              "pubmed:38892067",
+              "pubmed:34933124",
+              "pubmed:39849657",
+              "pubmed:39148190",
+              "pubmed:40555635",
+              "pubmed:41044644"
+            ],
+            "representativeSourceIds": [
+              "pubmed:38892067",
+              "pubmed:34933124",
+              "pubmed:39849657",
+              "pubmed:39148190",
+              "pubmed:40555635",
+              "pubmed:41044644"
+            ],
+            "verificationGate": "正式选题前必须进入下一轮窄检索，核对近两年同题综述、可获得的原始研究数量和全文方法，确认不与已有高质量综述重复。"
+          },
+          {
+            "id": "review_proposal_immunotherapy",
+            "rank": 2,
+            "priority": "探索性备选",
+            "portfolioRole": "low_coverage_exploratory",
+            "themeId": "immunotherapy",
+            "theme": "免疫治疗",
+            "taxonomyProfile": "gastric_oncology_v1",
+            "subjectLabel": "胃癌",
+            "suggestedTitle": "胃癌：免疫治疗的获益—风险分层：预测标志物、耐药与患者重要结局",
+            "existingCoverage": {
+              "count": 3,
+              "total": 20,
+              "competitionStatus": "unverified_pending_same_topic_review_search",
+              "sampleCoverageSignal": "moderate",
+              "interpretation": "当前分层样本覆盖 3/20，属于样本内中等覆盖信号；首轮不能据此给出竞争风险等级，必须在第二轮定位并逐篇比较同题综述。"
+            },
+            "incrementalValueHypothesis": "可验证的增量假设是围绕“免疫治疗持久获益分层与耐药解释不足”重构提取与比较框架，而不是再次做宽泛进展综述。",
+            "problemBasis": {
+              "id": "immunotherapy_benefit_resistance",
+              "category": "benefit_stratification_and_resistance",
+              "label": "免疫治疗持久获益分层与耐药解释不足",
+              "sourceIds": [
+                "pubmed:38600020"
+              ],
+              "supportingEvidence": {
+                "sourceId": "pubmed:38600020",
+                "field": "abstract",
+                "excerpt": "Although immunotherapy has revolutionized solid tumor treatment, durable responses in gastric cancer (GC) remain limited."
+              },
+              "representativeExcerpt": "Although immunotherapy has revolutionized solid tumor treatment, durable responses in gastric cancer (GC) remain limited."
+            },
+            "whyNotFullyReviewed": "待核假设：既有综述可能尚未以“免疫治疗持久获益分层与耐药解释不足”为主轴，同时比较本题的人群边界、定义和结局；必须经同题综述窄检索逐篇比较后才能保留。",
+            "noveltyStatus": "unverified_pending_same_topic_review_search",
+            "whyPotentiallyValuable": "主题轨迹为“仅较早样本编码为核心主轴；近期未形成主轴信号”。其中 1 篇出现“免疫治疗持久获益分层与耐药解释不足”的领域问题信号；这不是证据数量不足的同义词。 可验证的增量假设是围绕“免疫治疗持久获益分层与耐药解释不足”重构提取与比较框架，而不是再次做宽泛进展综述。 未完成同题综述窄检索前，创新度与可发表性均为未知。",
+            "outline": [
+              "治疗场景与患者分层",
+              "预测与预后标志物",
+              "持久应答、毒性和生活质量",
+              "耐药、治疗序列与证据确定性"
+            ],
+            "reviewPlan": {
+              "reviewType": "按治疗场景与预测标志物分层的干预系统综述。",
+              "populationAndComparison": "限定疾病分期、治疗线次、PD-L1 或其他分层条件，与当前标准免疫或联合方案比较。",
+              "coreOutcomes": [
+                "总生存与无进展生存",
+                "持久应答",
+                "免疫相关不良事件",
+                "生活质量与停药后结局"
+              ],
+              "organization": [
+                "把预测标志物与预后标志物分开编码。",
+                "统一治疗线次、联合方案和免疫相关毒性定义。",
+                "按预设亚组综合获益—风险并评价交互证据。"
+              ]
+            },
+            "workload": {
+              "targetCoreLiterature": "候选发现与工作量估算目标 50–100 篇；最终纳入量由预设标准决定",
+              "timeline": "10–12 周目标周期（须经窄检索与团队资源核定，不构成完成承诺）",
+              "difficulty": "中高",
+              "plan": [
+                "第 1–2 周冻结问题、方案和检索式",
+                "第 3–6 周筛选并提取证据",
+                "第 7–9 周完成综合与图表",
+                "第 10–12 周写作、核查和修订"
+              ]
+            },
+            "discardConditions": [
+              "近两年已有范围、评价轴与结局框架高度重合的高质量综述，且没有可说明的更新价值。",
+              "以 50–100 篇作为候选发现与工作量估算目标后，仍无法通过调整综述类型或范围形成兼顾深度与周期的可执行文献集；最终纳入量始终由预设标准决定，不以该目标作硬阈值。",
+              "关键人群、比较条件或结局定义无法形成可复核的纳入排除标准。"
+            ],
+            "sourceIds": [
+              "pubmed:38600020",
+              "pubmed:34933124",
+              "pubmed:39357127"
+            ],
+            "representativeSourceIds": [
+              "pubmed:38600020",
+              "pubmed:34933124",
+              "pubmed:39357127"
+            ],
+            "verificationGate": "正式选题前必须进入下一轮窄检索，核对近两年同题综述、可获得的原始研究数量和全文方法，确认不与已有高质量综述重复。"
+          },
+          {
+            "id": "review_proposal_early_onset",
+            "rank": 3,
+            "priority": "探索性备选",
+            "portfolioRole": "low_coverage_exploratory",
+            "themeId": "early_onset",
+            "theme": "早发与青年发病人群",
+            "taxonomyProfile": "gastric_oncology_v1",
+            "subjectLabel": "胃癌",
+            "suggestedTitle": "早发胃癌的定义与年龄界值：地区差异、筛查路径与临床管理的范围综述",
+            "existingCoverage": {
+              "count": 1,
+              "total": 20,
+              "competitionStatus": "unverified_pending_same_topic_review_search",
+              "sampleCoverageSignal": "lower",
+              "interpretation": "当前分层样本覆盖 1/20，属于样本内较低覆盖信号；首轮不能据此给出竞争风险等级，必须在第二轮定位并逐篇比较同题综述。"
+            },
+            "incrementalValueHypothesis": "可验证的增量假设是围绕“早发与青年发病人群”建立更窄的人群、比较和结局矩阵；当前仅为探索性候选。",
+            "problemBasis": null,
+            "whyNotFullyReviewed": "待核假设：既有综述可能尚未同时采用“早发与青年发病人群”的本题人群边界、评价轴与结局框架；必须经同题综述窄检索逐篇比较后才能保留。",
+            "noveltyStatus": "unverified_pending_same_topic_review_search",
+            "whyPotentiallyValuable": "当前样本尚不足以判断时间变化。当前摘要未形成可稳定归类的问题或证据缺口信号，因此不能直接宣布该方向存在研究空白。 可验证的增量假设是围绕“早发与青年发病人群”建立更窄的人群、比较和结局矩阵；当前仅为探索性候选。 未完成同题综述窄检索前，创新度与可发表性均为未知。",
+            "outline": [
+              "术语、年龄界值与病例定义",
+              "地区、族群与风险因素",
+              "筛查、诊断与分子病理特征",
+              "治疗路径、复发与长期结局"
+            ],
+            "reviewPlan": {
+              "reviewType": "定义与人群差异导向的范围综述；若年龄界值与结局可统一，再升级为系统综述。",
+              "populationAndComparison": "比较不同年龄界值、地区与基线风险下的早发病例，并区分风险、筛查、病理特征、治疗路径和长期结局。",
+              "coreOutcomes": [
+                "年龄界值与病例定义",
+                "地区与人群差异",
+                "筛查与诊断路径",
+                "治疗、复发与长期生存"
+              ],
+              "organization": [
+                "先绘制 EOGC/early-onset 的年龄界值与病例定义。",
+                "按地区、族群与研究场景比较风险和检出路径。",
+                "分开综合病理分子特征、治疗路径与长期结局，避免用病例比例替代风险。"
+              ]
+            },
+            "workload": {
+              "targetCoreLiterature": "候选发现与工作量估算目标 50–100 篇；最终纳入量由预设标准决定",
+              "timeline": "10–12 周目标周期（须经窄检索与团队资源核定，不构成完成承诺）",
+              "difficulty": "中等",
+              "plan": [
+                "第 1–2 周冻结问题、方案和检索式",
+                "第 3–6 周筛选并提取证据",
+                "第 7–9 周完成综合与图表",
+                "第 10–12 周写作、核查和修订"
+              ]
+            },
+            "discardConditions": [
+              "近两年已有范围、评价轴与结局框架高度重合的高质量综述，且没有可说明的更新价值。",
+              "以 50–100 篇作为候选发现与工作量估算目标后，仍无法通过调整综述类型或范围形成兼顾深度与周期的可执行文献集；最终纳入量始终由预设标准决定，不以该目标作硬阈值。",
+              "关键人群、比较条件或结局定义无法形成可复核的纳入排除标准。"
+            ],
+            "sourceIds": [
+              "pubmed:39148190"
+            ],
+            "representativeSourceIds": [
+              "pubmed:39148190"
+            ],
+            "verificationGate": "正式选题前必须进入下一轮窄检索，核对近两年同题综述、可获得的原始研究数量和全文方法，确认不与已有高质量综述重复。"
+          },
+          {
+            "id": "review_proposal_local_treatment",
+            "rank": 4,
+            "priority": "探索性备选",
+            "portfolioRole": "low_coverage_exploratory",
+            "themeId": "local_treatment",
+            "theme": "手术、放疗与局部治疗",
+            "taxonomyProfile": "gastric_oncology_v1",
+            "subjectLabel": "胃癌",
+            "suggestedTitle": "胃癌：局部治疗路径的东西方适用性：患者选择、治疗序列与长期结局的系统综述",
+            "existingCoverage": {
+              "count": 1,
+              "total": 20,
+              "competitionStatus": "unverified_pending_same_topic_review_search",
+              "sampleCoverageSignal": "lower",
+              "interpretation": "当前分层样本覆盖 1/20，属于样本内较低覆盖信号；首轮不能据此给出竞争风险等级，必须在第二轮定位并逐篇比较同题综述。"
+            },
+            "incrementalValueHypothesis": "可验证的增量假设是围绕“保胃与前哨技术在东亚外的外部适用性不足”重构提取与比较框架，而不是再次做宽泛进展综述。",
+            "problemBasis": {
+              "id": "east_asia_transferability",
+              "category": "external_validity_and_representation",
+              "label": "保胃与前哨技术在东亚外的外部适用性不足",
+              "sourceIds": [
+                "pubmed:35319717"
+              ],
+              "supportingEvidence": {
+                "sourceId": "pubmed:35319717",
+                "field": "abstract",
+                "excerpt": "…ld improve quality of life without compromising oncologic outcomes; however, experience with these techniques is rare outside of East Asia, and studies of long-term outcomes are still ongoing."
+              },
+              "representativeExcerpt": "…ld improve quality of life without compromising oncologic outcomes; however, experience with these techniques is rare outside of East Asia, and studies of long-term outcomes are still ongoing."
+            },
+            "whyNotFullyReviewed": "待核假设：既有综述可能尚未以“保胃与前哨技术在东亚外的外部适用性不足”为主轴，同时比较本题的人群边界、定义和结局；必须经同题综述窄检索逐篇比较后才能保留。",
+            "noveltyStatus": "unverified_pending_same_topic_review_search",
+            "whyPotentiallyValuable": "当前样本尚不足以判断时间变化。其中 1 篇出现“保胃与前哨技术在东亚外的外部适用性不足”的领域问题信号；这不是证据数量不足的同义词。 可验证的增量假设是围绕“保胃与前哨技术在东亚外的外部适用性不足”重构提取与比较框架，而不是再次做宽泛进展综述。 未完成同题综述窄检索前，创新度与可发表性均为未知。",
+            "outline": [
+              "地区人群、分期与可切除性",
+              "手术范围与围手术期治疗序列",
+              "短期安全性、复发与长期生存",
+              "跨地区可比性与外推边界"
+            ],
+            "reviewPlan": {
+              "reviewType": "围绕地区适用性与治疗序列的系统综述；跨方案可比性不足时采用结构化叙述综合。",
+              "populationAndComparison": "限定可切除胃癌的分期、手术范围、围手术期治疗与地区实践背景，比较东西方证据的患者选择、治疗序列和适用边界。",
+              "coreOutcomes": [
+                "长期生存与复发",
+                "手术与围手术期方案完成度",
+                "程序相关并发症",
+                "地区外部适用性"
+              ],
+              "organization": [
+                "按东西方人群、分期与手术路径建立可比性矩阵。",
+                "比较治疗序列、患者选择与后续治疗差异。",
+                "把短期手术结局与长期生存分开，并明确哪些结论不能跨地区外推。"
+              ]
+            },
+            "workload": {
+              "targetCoreLiterature": "候选发现与工作量估算目标 50–100 篇；最终纳入量由预设标准决定",
+              "timeline": "10–12 周目标周期（须经窄检索与团队资源核定，不构成完成承诺）",
+              "difficulty": "中等",
+              "plan": [
+                "第 1–2 周冻结问题、方案和检索式",
+                "第 3–6 周筛选并提取证据",
+                "第 7–9 周完成综合与图表",
+                "第 10–12 周写作、核查和修订"
+              ]
+            },
+            "discardConditions": [
+              "近两年已有范围、评价轴与结局框架高度重合的高质量综述，且没有可说明的更新价值。",
+              "以 50–100 篇作为候选发现与工作量估算目标后，仍无法通过调整综述类型或范围形成兼顾深度与周期的可执行文献集；最终纳入量始终由预设标准决定，不以该目标作硬阈值。",
+              "关键人群、比较条件或结局定义无法形成可复核的纳入排除标准。"
+            ],
+            "sourceIds": [
+              "pubmed:35319717"
+            ],
+            "representativeSourceIds": [
+              "pubmed:35319717"
+            ],
+            "verificationGate": "正式选题前必须进入下一轮窄检索，核对近两年同题综述、可获得的原始研究数量和全文方法，确认不与已有高质量综述重复。"
+          },
+          {
+            "id": "review_proposal_ai_digital",
+            "rank": 5,
+            "priority": "探索性备选",
+            "portfolioRole": "low_coverage_exploratory",
+            "themeId": "ai_digital",
+            "theme": "人工智能与数字化工具",
+            "taxonomyProfile": "gastric_oncology_v1",
+            "subjectLabel": "胃癌",
+            "suggestedTitle": "胃癌：人工智能从模型性能到临床实施：外部验证、校准、公平性与临床净获益",
+            "existingCoverage": {
+              "count": 1,
+              "total": 20,
+              "competitionStatus": "unverified_pending_same_topic_review_search",
+              "sampleCoverageSignal": "lower",
+              "interpretation": "当前分层样本覆盖 1/20，属于样本内较低覆盖信号；首轮不能据此给出竞争风险等级，必须在第二轮定位并逐篇比较同题综述。"
+            },
+            "incrementalValueHypothesis": "可验证的增量假设是围绕“AI 早诊从模型表现到临床实施仍面临障碍”重构提取与比较框架，而不是再次做宽泛进展综述。",
+            "problemBasis": {
+              "id": "ai_clinical_implementation",
+              "category": "implementation_and_translation",
+              "label": "AI 早诊从模型表现到临床实施仍面临障碍",
+              "sourceIds": [
+                "pubmed:39928093"
+              ],
+              "supportingEvidence": {
+                "sourceId": "pubmed:39928093",
+                "field": "abstract",
+                "excerpt": "Although AI has a better application prospect in the early diagnosis of ECG, there are still major challenges, and the prospects and limitations of AI application need to be further discussed."
+              },
+              "representativeExcerpt": "Although AI has a better application prospect in the early diagnosis of ECG, there are still major challenges, and the prospects and limitations of AI application need to be further discussed."
+            },
+            "whyNotFullyReviewed": "待核假设：既有综述可能尚未以“AI 早诊从模型表现到临床实施仍面临障碍”为主轴，同时比较本题的人群边界、定义和结局；必须经同题综述窄检索逐篇比较后才能保留。",
+            "noveltyStatus": "unverified_pending_same_topic_review_search",
+            "whyPotentiallyValuable": "当前样本尚不足以判断时间变化。其中 1 篇出现“AI 早诊从模型表现到临床实施仍面临障碍”的领域问题信号；这不是证据数量不足的同义词。 可验证的增量假设是围绕“AI 早诊从模型表现到临床实施仍面临障碍”重构提取与比较框架，而不是再次做宽泛进展综述。 未完成同题综述窄检索前，创新度与可发表性均为未知。",
+            "outline": [
+              "算法用途、输入和目标结局",
+              "开发、内部验证与外部验证",
+              "判别、校准和决策曲线",
+              "公平性、数据漂移和临床影响"
+            ],
+            "reviewPlan": {
+              "reviewType": "诊断或预测模型系统综述，并按开发、验证和临床影响分层。",
+              "populationAndComparison": "固定算法版本、输入数据和使用场景，与临床人员或现有模型比较。",
+              "coreOutcomes": [
+                "判别与校准",
+                "跨中心泛化",
+                "临床决策影响",
+                "公平性、失败模式与资源消耗"
+              ],
+              "organization": [
+                "按算法用途和验证层级分开建表。",
+                "统一提取判别、校准、外部验证和偏倚风险。",
+                "把公平性、数据漂移和临床影响与模型性能分开综合。"
+              ]
+            },
+            "workload": {
+              "targetCoreLiterature": "候选发现与工作量估算目标 50–100 篇；最终纳入量由预设标准决定",
+              "timeline": "10–12 周目标周期（须经窄检索与团队资源核定，不构成完成承诺）",
+              "difficulty": "中高",
+              "plan": [
+                "第 1–2 周冻结问题、方案和检索式",
+                "第 3–6 周筛选并提取证据",
+                "第 7–9 周完成综合与图表",
+                "第 10–12 周写作、核查和修订"
+              ]
+            },
+            "discardConditions": [
+              "近两年已有范围、评价轴与结局框架高度重合的高质量综述，且没有可说明的更新价值。",
+              "以 50–100 篇作为候选发现与工作量估算目标后，仍无法通过调整综述类型或范围形成兼顾深度与周期的可执行文献集；最终纳入量始终由预设标准决定，不以该目标作硬阈值。",
+              "关键人群、比较条件或结局定义无法形成可复核的纳入排除标准。"
+            ],
+            "sourceIds": [
+              "pubmed:39928093"
+            ],
+            "representativeSourceIds": [
+              "pubmed:39928093"
+            ],
+            "verificationGate": "正式选题前必须进入下一轮窄检索，核对近两年同题综述、可获得的原始研究数量和全文方法，确认不与已有高质量综述重复。"
+          }
+        ],
+        "traceability": {
+          "analyzedSourceCount": 20,
+          "abstractAvailableCount": 20,
+          "titleOnlyCount": 0,
+          "sourceIds": [
+            "pubmed:35481909",
+            "pubmed:35431510",
+            "pubmed:35319717",
+            "pubmed:34933124",
+            "pubmed:37649615",
+            "pubmed:37245017",
+            "pubmed:37179585",
+            "pubmed:36240980",
+            "pubmed:38600020",
+            "pubmed:38892067",
+            "pubmed:38176660",
+            "pubmed:39357127",
+            "pubmed:39849657",
+            "pubmed:40319897",
+            "pubmed:38886045",
+            "pubmed:39148190",
+            "pubmed:41499132",
+            "pubmed:39928093",
+            "pubmed:40555635",
+            "pubmed:41044644"
+          ],
+          "journalMetricPolicy": "只有来源、指标年份和核验状态完整的授权期刊指标才可显示；影响因子不参与证据质量判定。",
+          "accessBoundary": "报告、图表和选题建议均来自同一批 PubMed 题名与可用摘要；未访问全文、补充材料、指南、试验注册或其他数据库。"
+        },
+        "boundary": "这是题名摘要级领域扫描与选题报告，不是全量文献计量、全文系统综述、研究空白定论或临床建议。所有推荐方向都必须进入下一轮窄检索，核对同题综述、原始研究数量和全文方法后才能正式立题。"
+      },
+      "sourceAnalyses": [
+        {
+          "sourceId": "pubmed:35481909",
+          "classifierVersion": "research-review-classifier/v5",
+          "accessLevel": "abstract_only",
+          "themeIds": [
+            "early_detection_screening"
+          ],
+          "themeLabels": [
+            "早筛、早诊与影像检测"
+          ],
+          "methodSignalIds": [],
+          "methodSignalLabels": [],
+          "methodVisibility": "not_reported",
+          "gapSignalIds": [],
+          "gapSignalLabels": [],
+          "problemSignalIds": [],
+          "problemSignalLabels": [],
+          "classifierAudit": {
+            "themes": [
+              {
+                "id": "early_detection_screening",
+                "label": "早筛、早诊与影像检测",
+                "matches": [
+                  {
+                    "field": "title",
+                    "term": "screening"
+                  }
+                ]
+              }
+            ],
+            "methods": [],
+            "gaps": [],
+            "problems": []
+          },
+          "objectiveExcerpt": null,
+          "conclusionExcerpt": null,
+          "gapExcerpt": null,
+          "boundary": "仅基于题名与摘要编码；未核对全文方法、数值、纳排细节或补充材料。"
+        },
+        {
+          "sourceId": "pubmed:35431510",
+          "classifierVersion": "research-review-classifier/v5",
+          "accessLevel": "abstract_only",
+          "themeIds": [
+            "prevention_epidemiology"
+          ],
+          "themeLabels": [
+            "危险因素、预防与流行病学"
+          ],
+          "methodSignalIds": [],
+          "methodSignalLabels": [],
+          "methodVisibility": "not_reported",
+          "gapSignalIds": [],
+          "gapSignalLabels": [],
+          "problemSignalIds": [],
+          "problemSignalLabels": [],
+          "classifierAudit": {
+            "themes": [
+              {
+                "id": "prevention_epidemiology",
+                "label": "危险因素、预防与流行病学",
+                "matches": [
+                  {
+                    "field": "title",
+                    "term": "Epidemiology"
+                  }
+                ]
+              }
+            ],
+            "methods": [],
+            "gaps": [],
+            "problems": []
+          },
+          "objectiveExcerpt": null,
+          "conclusionExcerpt": null,
+          "gapExcerpt": null,
+          "boundary": "仅基于题名与摘要编码；未核对全文方法、数值、纳排细节或补充材料。"
+        },
+        {
+          "sourceId": "pubmed:35319717",
+          "classifierVersion": "research-review-classifier/v5",
+          "accessLevel": "abstract_only",
+          "themeIds": [
+            "local_treatment"
+          ],
+          "themeLabels": [
+            "手术、放疗与局部治疗"
+          ],
+          "methodSignalIds": [],
+          "methodSignalLabels": [],
+          "methodVisibility": "not_reported",
+          "gapSignalIds": [],
+          "gapSignalLabels": [],
+          "problemSignalIds": [
+            "treatment_sequence",
+            "local_treatment_long_term",
+            "east_asia_transferability"
+          ],
+          "problemSignalLabels": [
+            "多模式治疗的最佳序列仍在探索",
+            "保胃与前哨技术的长期结局仍待随访",
+            "保胃与前哨技术在东亚外的外部适用性不足"
+          ],
+          "classifierAudit": {
+            "themes": [
+              {
+                "id": "local_treatment",
+                "label": "手术、放疗与局部治疗",
+                "matches": [
+                  {
+                    "field": "title",
+                    "term": "Surgical"
+                  }
+                ]
+              }
+            ],
+            "methods": [],
+            "gaps": [],
+            "problems": [
+              {
+                "id": "treatment_sequence",
+                "label": "多模式治疗的最佳序列仍在探索",
+                "matches": [
+                  {
+                    "field": "abstract",
+                    "term": "optimal sequencing of multimodality therapy is still being investigated"
+                  }
+                ]
+              },
+              {
+                "id": "local_treatment_long_term",
+                "label": "保胃与前哨技术的长期结局仍待随访",
+                "matches": [
+                  {
+                    "field": "abstract",
+                    "term": "studies of long-term outcomes are still ongoing"
+                  }
+                ]
+              },
+              {
+                "id": "east_asia_transferability",
+                "label": "保胃与前哨技术在东亚外的外部适用性不足",
+                "matches": [
+                  {
+                    "field": "abstract",
+                    "term": "experience with these techniques is rare outside of East Asia"
+                  }
+                ]
+              }
+            ]
+          },
+          "objectiveExcerpt": null,
+          "conclusionExcerpt": null,
+          "gapExcerpt": null,
+          "boundary": "仅基于题名与摘要编码；未核对全文方法、数值、纳排细节或补充材料。"
+        },
+        {
+          "sourceId": "pubmed:34933124",
+          "classifierVersion": "research-review-classifier/v5",
+          "accessLevel": "abstract_only",
+          "themeIds": [
+            "biomarkers_molecular",
+            "targeted_therapy",
+            "immunotherapy"
+          ],
+          "themeLabels": [
+            "分子分型与生物标志物",
+            "靶向治疗",
+            "免疫治疗"
+          ],
+          "methodSignalIds": [],
+          "methodSignalLabels": [],
+          "methodVisibility": "not_reported",
+          "gapSignalIds": [],
+          "gapSignalLabels": [],
+          "problemSignalIds": [],
+          "problemSignalLabels": [],
+          "classifierAudit": {
+            "themes": [
+              {
+                "id": "biomarkers_molecular",
+                "label": "分子分型与生物标志物",
+                "matches": [
+                  {
+                    "field": "title",
+                    "term": "Molecular"
+                  }
+                ]
+              },
+              {
+                "id": "targeted_therapy",
+                "label": "靶向治疗",
+                "matches": [
+                  {
+                    "field": "title",
+                    "term": "targeted therapies"
+                  },
+                  {
+                    "field": "objective",
+                    "term": "molecularly targeted"
+                  }
+                ]
+              },
+              {
+                "id": "immunotherapy",
+                "label": "免疫治疗",
+                "matches": [
+                  {
+                    "field": "objective",
+                    "term": "immunotherapies"
+                  }
+                ]
+              }
+            ],
+            "methods": [],
+            "gaps": [],
+            "problems": []
+          },
+          "objectiveExcerpt": "In this review, we will examine the treatments for gastric cancer including up-to-date molecularly targeted therapies and immunotherapies.",
+          "conclusionExcerpt": null,
+          "gapExcerpt": null,
+          "boundary": "仅基于题名与摘要编码；未核对全文方法、数值、纳排细节或补充材料。"
+        },
+        {
+          "sourceId": "pubmed:37649615",
+          "classifierVersion": "research-review-classifier/v5",
+          "accessLevel": "abstract_only",
+          "themeIds": [
+            "early_detection_screening"
+          ],
+          "themeLabels": [
+            "早筛、早诊与影像检测"
+          ],
+          "methodSignalIds": [
+            "systematic_review",
+            "meta_analysis",
+            "database_search"
+          ],
+          "methodSignalLabels": [
+            "系统综述设计",
+            "Meta 分析",
+            "报告数据库检索"
+          ],
+          "methodVisibility": "partial",
+          "gapSignalIds": [],
+          "gapSignalLabels": [],
+          "problemSignalIds": [],
+          "problemSignalLabels": [],
+          "classifierAudit": {
+            "themes": [
+              {
+                "id": "early_detection_screening",
+                "label": "早筛、早诊与影像检测",
+                "matches": [
+                  {
+                    "field": "title",
+                    "term": "FAPI PET imaging"
+                  },
+                  {
+                    "field": "conclusion",
+                    "term": "FAPI PET imaging"
+                  }
+                ]
+              }
+            ],
+            "methods": [
+              {
+                "id": "systematic_review",
+                "label": "系统综述设计",
+                "matches": [
+                  {
+                    "field": "title",
+                    "term": "systematic review"
+                  }
+                ]
+              },
+              {
+                "id": "meta_analysis",
+                "label": "Meta 分析",
+                "matches": [
+                  {
+                    "field": "title",
+                    "term": "meta-analysis"
+                  },
+                  {
+                    "field": "abstract",
+                    "term": "meta-analysis"
+                  }
+                ]
+              },
+              {
+                "id": "database_search",
+                "label": "报告数据库检索",
+                "matches": [
+                  {
+                    "field": "abstract",
+                    "term": "PubMed"
+                  }
+                ]
+              }
+            ],
+            "gaps": [],
+            "problems": []
+          },
+          "objectiveExcerpt": "Purpose: Recent studies suggest that 68 Ga-FAPI PET/CT demonstrated superiority over 18 F-FDG PET/CT in the evaluation of various cancer types, especially in gastric cancer (GC).",
+          "conclusionExcerpt": "Conclusion: Compared with 18 F-FDG, 68 Ga-FAPI PET imaging showed improved diagnostic accuracy in the evaluation of GC.",
+          "gapExcerpt": null,
+          "boundary": "仅基于题名与摘要编码；未核对全文方法、数值、纳排细节或补充材料。"
+        },
+        {
+          "sourceId": "pubmed:37245017",
+          "classifierVersion": "research-review-classifier/v5",
+          "accessLevel": "abstract_only",
+          "themeIds": [
+            "systemic_treatment"
+          ],
+          "themeLabels": [
+            "系统治疗与综合管理"
+          ],
+          "methodSignalIds": [],
+          "methodSignalLabels": [],
+          "methodVisibility": "not_reported",
+          "gapSignalIds": [],
+          "gapSignalLabels": [],
+          "problemSignalIds": [],
+          "problemSignalLabels": [],
+          "classifierAudit": {
+            "themes": [
+              {
+                "id": "systemic_treatment",
+                "label": "系统治疗与综合管理",
+                "matches": [
+                  {
+                    "field": "title",
+                    "term": "Gastric cancer treatment"
+                  },
+                  {
+                    "field": "objective",
+                    "term": "systemic treatment"
+                  }
+                ]
+              }
+            ],
+            "methods": [],
+            "gaps": [],
+            "problems": []
+          },
+          "objectiveExcerpt": "This review systematically summarizes the main research progress in systemic treatment for GC, discusses current individualized strategies and presents future perspectives.",
+          "conclusionExcerpt": null,
+          "gapExcerpt": null,
+          "boundary": "仅基于题名与摘要编码；未核对全文方法、数值、纳排细节或补充材料。"
+        },
+        {
+          "sourceId": "pubmed:37179585",
+          "classifierVersion": "research-review-classifier/v5",
+          "accessLevel": "abstract_only",
+          "themeIds": [
+            "prevention_epidemiology"
+          ],
+          "themeLabels": [
+            "危险因素、预防与流行病学"
+          ],
+          "methodSignalIds": [],
+          "methodSignalLabels": [],
+          "methodVisibility": "not_reported",
+          "gapSignalIds": [],
+          "gapSignalLabels": [],
+          "problemSignalIds": [],
+          "problemSignalLabels": [],
+          "classifierAudit": {
+            "themes": [
+              {
+                "id": "prevention_epidemiology",
+                "label": "危险因素、预防与流行病学",
+                "matches": [
+                  {
+                    "field": "title",
+                    "term": "epidemiology"
+                  }
+                ]
+              }
+            ],
+            "methods": [],
+            "gaps": [],
+            "problems": []
+          },
+          "objectiveExcerpt": null,
+          "conclusionExcerpt": null,
+          "gapExcerpt": null,
+          "boundary": "仅基于题名与摘要编码；未核对全文方法、数值、纳排细节或补充材料。"
+        },
+        {
+          "sourceId": "pubmed:36240980",
+          "classifierVersion": "research-review-classifier/v5",
+          "accessLevel": "abstract_only",
+          "themeIds": [
+            "prevention_epidemiology"
+          ],
+          "themeLabels": [
+            "危险因素、预防与流行病学"
+          ],
+          "methodSignalIds": [],
+          "methodSignalLabels": [],
+          "methodVisibility": "not_reported",
+          "gapSignalIds": [],
+          "gapSignalLabels": [],
+          "problemSignalIds": [
+            "latin_africa_representation"
+          ],
+          "problemSignalLabels": [
+            "拉美与非洲人群的证据代表性不足"
+          ],
+          "classifierAudit": {
+            "themes": [
+              {
+                "id": "prevention_epidemiology",
+                "label": "危险因素、预防与流行病学",
+                "matches": [
+                  {
+                    "field": "title",
+                    "term": "Characteristics of gastric cancer around the world"
+                  }
+                ]
+              }
+            ],
+            "methods": [],
+            "gaps": [],
+            "problems": [
+              {
+                "id": "latin_africa_representation",
+                "label": "拉美与非洲人群的证据代表性不足",
+                "matches": [
+                  {
+                    "field": "abstract",
+                    "term": "More research is needed in Latin America and Africa since these populations are underrepresented"
+                  }
+                ]
+              }
+            ]
+          },
+          "objectiveExcerpt": null,
+          "conclusionExcerpt": null,
+          "gapExcerpt": null,
+          "boundary": "仅基于题名与摘要编码；未核对全文方法、数值、纳排细节或补充材料。"
+        },
+        {
+          "sourceId": "pubmed:38600020",
+          "classifierVersion": "research-review-classifier/v5",
+          "accessLevel": "abstract_only",
+          "themeIds": [
+            "immunotherapy"
+          ],
+          "themeLabels": [
+            "免疫治疗"
+          ],
+          "methodSignalIds": [],
+          "methodSignalLabels": [],
+          "methodVisibility": "not_reported",
+          "gapSignalIds": [],
+          "gapSignalLabels": [],
+          "problemSignalIds": [
+            "immunotherapy_benefit_resistance"
+          ],
+          "problemSignalLabels": [
+            "免疫治疗持久获益分层与耐药解释不足"
+          ],
+          "classifierAudit": {
+            "themes": [
+              {
+                "id": "immunotherapy",
+                "label": "免疫治疗",
+                "matches": [
+                  {
+                    "field": "title",
+                    "term": "immunosuppressive microenvironment"
+                  }
+                ]
+              }
+            ],
+            "methods": [],
+            "gaps": [],
+            "problems": [
+              {
+                "id": "immunotherapy_benefit_resistance",
+                "label": "免疫治疗持久获益分层与耐药解释不足",
+                "matches": [
+                  {
+                    "field": "abstract",
+                    "term": "durable responses in gastric cancer (GC) remain limited"
+                  }
+                ]
+              }
+            ]
+          },
+          "objectiveExcerpt": "This review summarizes recent advances in GC TME research and explores the role of the immune-suppressive system as a context-specific determinant.",
+          "conclusionExcerpt": null,
+          "gapExcerpt": null,
+          "boundary": "仅基于题名与摘要编码；未核对全文方法、数值、纳排细节或补充材料。"
+        },
+        {
+          "sourceId": "pubmed:38892067",
+          "classifierVersion": "research-review-classifier/v5",
+          "accessLevel": "abstract_only",
+          "themeIds": [
+            "biomarkers_molecular"
+          ],
+          "themeLabels": [
+            "分子分型与生物标志物"
+          ],
+          "methodSignalIds": [],
+          "methodSignalLabels": [],
+          "methodVisibility": "not_reported",
+          "gapSignalIds": [],
+          "gapSignalLabels": [],
+          "problemSignalIds": [
+            "multiomics_biomarker_translation"
+          ],
+          "problemSignalLabels": [
+            "多组学标志物从发现、验证到临床整合仍有障碍"
+          ],
+          "classifierAudit": {
+            "themes": [
+              {
+                "id": "biomarkers_molecular",
+                "label": "分子分型与生物标志物",
+                "matches": [
+                  {
+                    "field": "objective",
+                    "term": "biomarker"
+                  }
+                ]
+              }
+            ],
+            "methods": [],
+            "gaps": [],
+            "problems": [
+              {
+                "id": "multiomics_biomarker_translation",
+                "label": "多组学标志物从发现、验证到临床整合仍有障碍",
+                "matches": [
+                  {
+                    "field": "abstract",
+                    "term": "challenges and future perspectives to integrate multi-omics"
+                  }
+                ]
+              }
+            ]
+          },
+          "objectiveExcerpt": "This review summarizes the current status of how bioinformatics analysis contributes to biomarker discovery for prognosis and prediction of therapeutic efficacy in GC based on a search of the medical literature.",
+          "conclusionExcerpt": null,
+          "gapExcerpt": null,
+          "boundary": "仅基于题名与摘要编码；未核对全文方法、数值、纳排细节或补充材料。"
+        },
+        {
+          "sourceId": "pubmed:38176660",
+          "classifierVersion": "research-review-classifier/v5",
+          "accessLevel": "abstract_only",
+          "themeIds": [
+            "prevention_epidemiology"
+          ],
+          "themeLabels": [
+            "危险因素、预防与流行病学"
+          ],
+          "methodSignalIds": [
+            "systematic_review",
+            "meta_analysis",
+            "subgroup_sensitivity"
+          ],
+          "methodSignalLabels": [
+            "系统综述设计",
+            "Meta 分析",
+            "报告亚组、敏感性或回归分析"
+          ],
+          "methodVisibility": "partial",
+          "gapSignalIds": [],
+          "gapSignalLabels": [],
+          "problemSignalIds": [],
+          "problemSignalLabels": [],
+          "classifierAudit": {
+            "themes": [
+              {
+                "id": "prevention_epidemiology",
+                "label": "危险因素、预防与流行病学",
+                "matches": [
+                  {
+                    "field": "title",
+                    "term": "Global Prevalence"
+                  }
+                ]
+              }
+            ],
+            "methods": [
+              {
+                "id": "systematic_review",
+                "label": "系统综述设计",
+                "matches": [
+                  {
+                    "field": "abstract",
+                    "term": "systematic review"
+                  }
+                ]
+              },
+              {
+                "id": "meta_analysis",
+                "label": "Meta 分析",
+                "matches": [
+                  {
+                    "field": "abstract",
+                    "term": "meta-analysis"
+                  }
+                ]
+              },
+              {
+                "id": "subgroup_sensitivity",
+                "label": "报告亚组、敏感性或回归分析",
+                "matches": [
+                  {
+                    "field": "abstract",
+                    "term": "meta-regression"
+                  }
+                ]
+              }
+            ],
+            "gaps": [],
+            "problems": []
+          },
+          "objectiveExcerpt": null,
+          "conclusionExcerpt": null,
+          "gapExcerpt": null,
+          "boundary": "仅基于题名与摘要编码；未核对全文方法、数值、纳排细节或补充材料。"
+        },
+        {
+          "sourceId": "pubmed:39357127",
+          "classifierVersion": "research-review-classifier/v5",
+          "accessLevel": "abstract_only",
+          "themeIds": [
+            "early_detection_screening",
+            "immunotherapy",
+            "prevention_epidemiology"
+          ],
+          "themeLabels": [
+            "早筛、早诊与影像检测",
+            "免疫治疗",
+            "危险因素、预防与流行病学"
+          ],
+          "methodSignalIds": [],
+          "methodSignalLabels": [],
+          "methodVisibility": "not_reported",
+          "gapSignalIds": [],
+          "gapSignalLabels": [],
+          "problemSignalIds": [],
+          "problemSignalLabels": [],
+          "classifierAudit": {
+            "themes": [
+              {
+                "id": "early_detection_screening",
+                "label": "早筛、早诊与影像检测",
+                "matches": [
+                  {
+                    "field": "objective",
+                    "term": "screening"
+                  }
+                ]
+              },
+              {
+                "id": "immunotherapy",
+                "label": "免疫治疗",
+                "matches": [
+                  {
+                    "field": "conclusion",
+                    "term": "immune checkpoint"
+                  }
+                ]
+              },
+              {
+                "id": "prevention_epidemiology",
+                "label": "危险因素、预防与流行病学",
+                "matches": [
+                  {
+                    "field": "title",
+                    "term": "Epidemiology"
+                  }
+                ]
+              }
+            ],
+            "methods": [],
+            "gaps": [],
+            "problems": []
+          },
+          "objectiveExcerpt": "This review also highlights the critical need for better screening methods that could facilitate early detection and treatment, potentially improving the prognosis.",
+          "conclusionExcerpt": "Additionally, immune checkpoint inhibitors like pembrolizumab and nivolumab offer promising results.",
+          "gapExcerpt": null,
+          "boundary": "仅基于题名与摘要编码；未核对全文方法、数值、纳排细节或补充材料。"
+        },
+        {
+          "sourceId": "pubmed:39849657",
+          "classifierVersion": "research-review-classifier/v5",
+          "accessLevel": "abstract_only",
+          "themeIds": [
+            "biomarkers_molecular"
+          ],
+          "themeLabels": [
+            "分子分型与生物标志物"
+          ],
+          "methodSignalIds": [],
+          "methodSignalLabels": [],
+          "methodVisibility": "not_reported",
+          "gapSignalIds": [],
+          "gapSignalLabels": [],
+          "problemSignalIds": [],
+          "problemSignalLabels": [],
+          "classifierAudit": {
+            "themes": [
+              {
+                "id": "biomarkers_molecular",
+                "label": "分子分型与生物标志物",
+                "matches": [
+                  {
+                    "field": "objective",
+                    "term": "molecular"
+                  }
+                ]
+              }
+            ],
+            "methods": [],
+            "gaps": [],
+            "problems": []
+          },
+          "objectiveExcerpt": "This review summarizes the latest research advances to elucidate the molecular mechanisms underlying the H. pylori infection in gastric carcinogenesis.",
+          "conclusionExcerpt": null,
+          "gapExcerpt": null,
+          "boundary": "仅基于题名与摘要编码；未核对全文方法、数值、纳排细节或补充材料。"
+        },
+        {
+          "sourceId": "pubmed:40319897",
+          "classifierVersion": "research-review-classifier/v5",
+          "accessLevel": "abstract_only",
+          "themeIds": [],
+          "themeLabels": [],
+          "methodSignalIds": [],
+          "methodSignalLabels": [],
+          "methodVisibility": "not_reported",
+          "gapSignalIds": [],
+          "gapSignalLabels": [],
+          "problemSignalIds": [],
+          "problemSignalLabels": [],
+          "classifierAudit": {
+            "themes": [],
+            "methods": [],
+            "gaps": [],
+            "problems": []
+          },
+          "objectiveExcerpt": "These strategies aim to enhance the overall effectiveness of treatment and prognosis worldwide.",
+          "conclusionExcerpt": null,
+          "gapExcerpt": null,
+          "boundary": "仅基于题名与摘要编码；未核对全文方法、数值、纳排细节或补充材料。"
+        },
+        {
+          "sourceId": "pubmed:38886045",
+          "classifierVersion": "research-review-classifier/v5",
+          "accessLevel": "abstract_only",
+          "themeIds": [
+            "prevention_epidemiology"
+          ],
+          "themeLabels": [
+            "危险因素、预防与流行病学"
+          ],
+          "methodSignalIds": [],
+          "methodSignalLabels": [],
+          "methodVisibility": "not_reported",
+          "gapSignalIds": [],
+          "gapSignalLabels": [],
+          "problemSignalIds": [
+            "microbiome_definition_translation"
+          ],
+          "problemSignalLabels": [
+            "胃微生物组概念边界与临床用途尚未标准化"
+          ],
+          "classifierAudit": {
+            "themes": [
+              {
+                "id": "prevention_epidemiology",
+                "label": "危险因素、预防与流行病学",
+                "matches": [
+                  {
+                    "field": "conclusion",
+                    "term": "prevention"
+                  }
+                ]
+              }
+            ],
+            "methods": [],
+            "gaps": [],
+            "problems": [
+              {
+                "id": "microbiome_definition_translation",
+                "label": "胃微生物组概念边界与临床用途尚未标准化",
+                "matches": [
+                  {
+                    "field": "abstract",
+                    "term": "conceptual haziness"
+                  }
+                ]
+              }
+            ]
+          },
+          "objectiveExcerpt": null,
+          "conclusionExcerpt": "Finally, we highlight that modulating microbes is a novel and promising frontier for the prevention and management of GC, which necessitates future in-depth investigations.",
+          "gapExcerpt": null,
+          "boundary": "仅基于题名与摘要编码；未核对全文方法、数值、纳排细节或补充材料。"
+        },
+        {
+          "sourceId": "pubmed:39148190",
+          "classifierVersion": "research-review-classifier/v5",
+          "accessLevel": "abstract_only",
+          "themeIds": [
+            "early_onset",
+            "biomarkers_molecular",
+            "prevention_epidemiology"
+          ],
+          "themeLabels": [
+            "早发与青年发病人群",
+            "分子分型与生物标志物",
+            "危险因素、预防与流行病学"
+          ],
+          "methodSignalIds": [],
+          "methodSignalLabels": [],
+          "methodVisibility": "not_reported",
+          "gapSignalIds": [],
+          "gapSignalLabels": [],
+          "problemSignalIds": [],
+          "problemSignalLabels": [],
+          "classifierAudit": {
+            "themes": [
+              {
+                "id": "early_onset",
+                "label": "早发与青年发病人群",
+                "matches": [
+                  {
+                    "field": "title",
+                    "term": "early-onset"
+                  },
+                  {
+                    "field": "objective",
+                    "term": "EOGC"
+                  }
+                ]
+              },
+              {
+                "id": "biomarkers_molecular",
+                "label": "分子分型与生物标志物",
+                "matches": [
+                  {
+                    "field": "objective",
+                    "term": "molecular"
+                  }
+                ]
+              },
+              {
+                "id": "prevention_epidemiology",
+                "label": "危险因素、预防与流行病学",
+                "matches": [
+                  {
+                    "field": "objective",
+                    "term": "epidemiological"
+                  }
+                ]
+              }
+            ],
+            "methods": [],
+            "gaps": [],
+            "problems": []
+          },
+          "objectiveExcerpt": "This study aimed to systematically review the latest research advancements in the epidemiological characteristics, etiological factors, clinicopathological and molecular features, prognosis, and treatment modalities of EOGC.",
+          "conclusionExcerpt": null,
+          "gapExcerpt": null,
+          "boundary": "仅基于题名与摘要编码；未核对全文方法、数值、纳排细节或补充材料。"
+        },
+        {
+          "sourceId": "pubmed:41499132",
+          "classifierVersion": "research-review-classifier/v5",
+          "accessLevel": "abstract_only",
+          "themeIds": [],
+          "themeLabels": [],
+          "methodSignalIds": [],
+          "methodSignalLabels": [],
+          "methodVisibility": "not_reported",
+          "gapSignalIds": [],
+          "gapSignalLabels": [],
+          "problemSignalIds": [],
+          "problemSignalLabels": [],
+          "classifierAudit": {
+            "themes": [],
+            "methods": [],
+            "gaps": [],
+            "problems": []
+          },
+          "objectiveExcerpt": null,
+          "conclusionExcerpt": null,
+          "gapExcerpt": null,
+          "boundary": "仅基于题名与摘要编码；未核对全文方法、数值、纳排细节或补充材料。"
+        },
+        {
+          "sourceId": "pubmed:39928093",
+          "classifierVersion": "research-review-classifier/v5",
+          "accessLevel": "abstract_only",
+          "themeIds": [
+            "early_detection_screening",
+            "ai_digital"
+          ],
+          "themeLabels": [
+            "早筛、早诊与影像检测",
+            "人工智能与数字化工具"
+          ],
+          "methodSignalIds": [],
+          "methodSignalLabels": [],
+          "methodVisibility": "not_reported",
+          "gapSignalIds": [],
+          "gapSignalLabels": [],
+          "problemSignalIds": [
+            "ai_clinical_implementation"
+          ],
+          "problemSignalLabels": [
+            "AI 早诊从模型表现到临床实施仍面临障碍"
+          ],
+          "classifierAudit": {
+            "themes": [
+              {
+                "id": "early_detection_screening",
+                "label": "早筛、早诊与影像检测",
+                "matches": [
+                  {
+                    "field": "title",
+                    "term": "diagnosis of early"
+                  }
+                ]
+              },
+              {
+                "id": "ai_digital",
+                "label": "人工智能与数字化工具",
+                "matches": [
+                  {
+                    "field": "title",
+                    "term": "Artificial intelligence"
+                  }
+                ]
+              }
+            ],
+            "methods": [],
+            "gaps": [],
+            "problems": [
+              {
+                "id": "ai_clinical_implementation",
+                "label": "AI 早诊从模型表现到临床实施仍面临障碍",
+                "matches": [
+                  {
+                    "field": "abstract",
+                    "term": "major challenges"
+                  }
+                ]
+              }
+            ]
+          },
+          "objectiveExcerpt": null,
+          "conclusionExcerpt": null,
+          "gapExcerpt": null,
+          "boundary": "仅基于题名与摘要编码；未核对全文方法、数值、纳排细节或补充材料。"
+        },
+        {
+          "sourceId": "pubmed:40555635",
+          "classifierVersion": "research-review-classifier/v5",
+          "accessLevel": "abstract_only",
+          "themeIds": [
+            "biomarkers_molecular"
+          ],
+          "themeLabels": [
+            "分子分型与生物标志物"
+          ],
+          "methodSignalIds": [],
+          "methodSignalLabels": [],
+          "methodVisibility": "not_reported",
+          "gapSignalIds": [],
+          "gapSignalLabels": [],
+          "problemSignalIds": [
+            "advanced_treatment_options",
+            "targeted_agent_failures"
+          ],
+          "problemSignalLabels": [
+            "晚期胃癌可用治疗选择仍有限",
+            "部分靶向药物未能转化为有效治疗"
+          ],
+          "classifierAudit": {
+            "themes": [
+              {
+                "id": "biomarkers_molecular",
+                "label": "分子分型与生物标志物",
+                "matches": [
+                  {
+                    "field": "title",
+                    "term": "biomarkers"
+                  }
+                ]
+              }
+            ],
+            "methods": [],
+            "gaps": [],
+            "problems": [
+              {
+                "id": "advanced_treatment_options",
+                "label": "晚期胃癌可用治疗选择仍有限",
+                "matches": [
+                  {
+                    "field": "abstract",
+                    "term": "limited treatment options at advanced stages"
+                  }
+                ]
+              },
+              {
+                "id": "targeted_agent_failures",
+                "label": "部分靶向药物未能转化为有效治疗",
+                "matches": [
+                  {
+                    "field": "abstract",
+                    "term": "failure of several targeted agents"
+                  }
+                ]
+              }
+            ]
+          },
+          "objectiveExcerpt": null,
+          "conclusionExcerpt": "Further targets, such as FGFR2b, as well as novel drug classes including antibody-drug conjugates (ADCs) and bispecific antibodies, are promising developments in GC treatment.",
+          "gapExcerpt": null,
+          "boundary": "仅基于题名与摘要编码；未核对全文方法、数值、纳排细节或补充材料。"
+        },
+        {
+          "sourceId": "pubmed:41044644",
+          "classifierVersion": "research-review-classifier/v5",
+          "accessLevel": "abstract_only",
+          "themeIds": [
+            "biomarkers_molecular"
+          ],
+          "themeLabels": [
+            "分子分型与生物标志物"
+          ],
+          "methodSignalIds": [],
+          "methodSignalLabels": [],
+          "methodVisibility": "not_reported",
+          "gapSignalIds": [],
+          "gapSignalLabels": [],
+          "problemSignalIds": [
+            "targeted_benefit_subset",
+            "early_detection_markers_targets"
+          ],
+          "problemSignalLabels": [
+            "靶向治疗获益仅覆盖部分患者",
+            "无创早检标志物与新治疗靶点仍缺乏"
+          ],
+          "classifierAudit": {
+            "themes": [
+              {
+                "id": "biomarkers_molecular",
+                "label": "分子分型与生物标志物",
+                "matches": [
+                  {
+                    "field": "title",
+                    "term": "Non-coding RNAs"
+                  }
+                ]
+              }
+            ],
+            "methods": [],
+            "gaps": [],
+            "problems": [
+              {
+                "id": "targeted_benefit_subset",
+                "label": "靶向治疗获益仅覆盖部分患者",
+                "matches": [
+                  {
+                    "field": "abstract",
+                    "term": "effective for a limited subset of patients"
+                  }
+                ]
+              },
+              {
+                "id": "early_detection_markers_targets",
+                "label": "无创早检标志物与新治疗靶点仍缺乏",
+                "matches": [
+                  {
+                    "field": "abstract",
+                    "term": "painless and precise markers for the early detection of gastric cancer and new targets for its treatment are unavailable"
+                  }
+                ]
+              }
+            ]
+          },
+          "objectiveExcerpt": null,
+          "conclusionExcerpt": null,
+          "gapExcerpt": null,
+          "boundary": "仅基于题名与摘要编码；未核对全文方法、数值、纳排细节或补充材料。"
+        }
+      ],
+      "summaries": {
+        "coverage": "当前样本题名或核心摘要主轴主要编码为：危险因素、预防与流行病学（7/20）、分子分型与生物标志物（6/20）、早筛、早诊与影像检测（4/20）、免疫治疗（3/20）。",
+        "change": "当前样本没有形成足以报告的近两年上升信号；这不等于领域没有变化。",
+        "methods": "0/20 篇摘要的方法报告信号较完整，2 篇部分可见，18 篇摘要未充分报告。",
+        "gaps": "当前可用摘要未明确报告可聚类的证据缺口；不能据此写成没有研究空白。"
+      },
+      "boundary": "时间变化、主题覆盖、方法报告和缺口均来自当前排序样本的题名摘要编码，不是全量文献计量、全文质量评价或研究空白定论。候选突破口必须进入下一轮更窄检索后再确认。"
+    },
+    "boundary": "年份、期刊、主题和题名结构均由同一逐条账本复算；时间变化仅描述当前分层样本，不外推为全领域发文趋势。"
+  },
+  "boundary": "这是题名摘要级、来源集绑定的科研简报合同。reportHash 是内容指纹而非数字签名；可信性必须依赖项目事件库、冻结检索回执或版本库中的独立可信根。它不能替代全文系统综述、临床指南、研究空白定论或作者责任确认。"
+}

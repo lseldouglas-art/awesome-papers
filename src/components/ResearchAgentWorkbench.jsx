@@ -8,6 +8,13 @@ import {
 } from "react";
 
 import evidenceFirefly from "../assets/evidence-firefly-v1.png";
+import { ResearchReviewReport } from "./ResearchReviewReport.jsx";
+import {
+  firstRoundCheckpointFrom,
+  loadScopingDraft,
+  restoredFirstRoundState,
+  saveScopingDraft,
+} from "./research-scoping-draft.js";
 import {
   buildResearchWorkbenchCalibrationPayload,
   buildResearchWorkbenchDirectionSelectionPayload,
@@ -144,7 +151,6 @@ const COMPLETION_PROFILES = Object.freeze([
 
 const CATEGORY_PREVIEW_LIMIT = 4;
 const EVIDENCE_PREVIEW_LIMIT = 6;
-const SCOPING_DRAFT_STORAGE_KEY = "research-workbench:scoping-draft:v2";
 const RECOMMENDED_QUERY_CANDIDATE_IDS = new Set([
   "single_comprehensive",
   "matrix_ab",
@@ -1072,29 +1078,6 @@ function normalizeApiBase(apiBase) {
   return base.endsWith("/") ? base.slice(0, -1) : base;
 }
 
-function loadScopingDraft() {
-  try {
-    const raw = globalThis.sessionStorage?.getItem(SCOPING_DRAFT_STORAGE_KEY);
-    if (!raw) return null;
-    const draft = JSON.parse(raw);
-    return draft && typeof draft === "object" ? draft : null;
-  } catch {
-    return null;
-  }
-}
-
-function saveScopingDraft(draft) {
-  try {
-    if (!draft) {
-      globalThis.sessionStorage?.removeItem(SCOPING_DRAFT_STORAGE_KEY);
-      return;
-    }
-    globalThis.sessionStorage?.setItem(SCOPING_DRAFT_STORAGE_KEY, JSON.stringify(draft));
-  } catch {
-    // Private browsing or storage quotas must not block the research workflow.
-  }
-}
-
 function handleTabArrowNavigation(event) {
   if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
   const tabs = Array.from(event.currentTarget.parentElement?.querySelectorAll('[role="tab"]') ?? []);
@@ -1711,14 +1694,14 @@ function ScopingDecisionLedger({ project }) {
       <header>
         <div>
           <span>已记录的选题决定</span>
-          <h3 id="rawb-scoping-ledger-title">从宽主题到正式问题</h3>
+          <h3 id="rawb-scoping-ledger-title">从宽主题到聚焦问题（未验证）</h3>
         </div>
         <strong>两轮均已保留</strong>
       </header>
       <div className="rawb-scoping-ledger__rounds">
         {rounds.map((round) => (
           <article key={round.round}>
-            <span>第 {round.round} 轮 · {round.role === "orientation" ? "领域全景" : "聚焦验证"}</span>
+            <span>第 {round.round} 轮 · {round.role === "orientation" ? "领域全景" : "聚焦检索（未验证）"}</span>
             <h4>{round.question}</h4>
             <dl>
               <div><dt>PubMed 命中</dt><dd>{round.total ?? "未知"}</dd></div>
@@ -1748,9 +1731,48 @@ function EvidenceOverview({ project }) {
   const scopingRounds = asArray(project?.scopingRounds);
   const latestRound = scopingRounds.at(-1);
   const landscape = previewLandscape ?? latestRound?.reviewLandscape ?? null;
-  if (!landscape || landscape.status && landscape.status !== "ready") return null;
+  if (!landscape || landscape.status && !["ready", "blocked"].includes(landscape.status)) return null;
 
   const synthesis = landscape.synthesis ?? {};
+  if (synthesis?.professorReport || project?.researchReport || landscape?.researchReport) {
+    return (
+      <ResearchReviewReport
+        landscape={landscape}
+        researchReport={project?.researchReport}
+        firstRound={scopingRounds[0]?.reviewLandscape ?? null}
+        secondRound={scopingRounds[1]?.reviewLandscape ?? null}
+        selectedDirectionId={project?.scopingDecision?.selectedDirection?.id ?? ""}
+        lockedDirection={project?.scopingDecision?.selectedDirection
+          ? {
+              ...project.scopingDecision.selectedDirection,
+              reportBinding: project.scopingDecision.reportBinding ?? null,
+            }
+          : null}
+        storageKey={`research-review-report:project:${projectId(project) ?? "current"}`}
+        currentBinding={{
+          projectId: projectId(project),
+          sourceSetHash: firstText(
+            project?.sourceSetHash,
+            project?.finalLibrarySourceSetHash,
+            project?.researchQualityMetrics?.retrieval?.sourceSetHash,
+          ),
+          reportRevision: project?.reportRevision,
+          frozenSourceManifestHash: firstText(
+            project?.researchReport?.binding?.frozenSourceManifestHash,
+            landscape?.researchReport?.binding?.frozenSourceManifestHash,
+          ),
+          derivedAnalysisHash: firstText(
+            project?.researchReport?.binding?.derivedAnalysisHash,
+            landscape?.researchReport?.binding?.derivedAnalysisHash,
+          ),
+          reportHash: firstText(
+            project?.researchReport?.binding?.reportHash,
+            landscape?.researchReport?.binding?.reportHash,
+          ),
+        }}
+      />
+    );
+  }
   const analyzedCount = Number(
     synthesis.analyzedSourceCount ?? landscape.sampledCount ?? 0,
   );
@@ -2691,6 +2713,307 @@ function ReviewEvidenceLinks({ sourceIds, sources }) {
   );
 }
 
+function ReviewReportFinding({ item, sources }) {
+  if (!item) return null;
+  return (
+    <article className="rawb-professor-report__finding">
+      <h6>{item.title}</h6>
+      <p>{item.conclusion ?? item.value}</p>
+      <ReviewEvidenceLinks sourceIds={item.sourceIds} sources={sources} />
+    </article>
+  );
+}
+
+function ReviewIntegratedBrief({ landscape, synthesis, sources }) {
+  const report = synthesis?.professorReport;
+  const directions = asArray(report?.studentReviewDirections).slice(0, 5);
+  const developmentStatus = asArray(report?.developmentStatus);
+  const majorProblems = asArray(report?.majorProblems).slice(0, 3);
+  const newcomerGuide = asArray(report?.newcomerGuide).slice(0, 5);
+  const selectionPatterns = asArray(report?.selectionPatterns).slice(0, 3);
+  const trendInsights = asArray(report?.trendInsights).slice(0, 2);
+  const leadingTheme = asArray(synthesis?.themeCoverage)[0] ?? null;
+  const leadingGap = asArray(synthesis?.gapClusters)[0] ?? null;
+  const metaAnalysis = asArray(synthesis?.methodSignals).find((item) => item.id === "meta_analysis") ?? null;
+  const analyzedCount = Math.max(1, Number(synthesis?.analyzedSourceCount) || 0);
+  const leadingThemeShare = leadingTheme ? Math.round((leadingTheme.count / analyzedCount) * 100) : 0;
+
+  if (!report) return null;
+  return (
+    <section className="rawb-integrated-brief" aria-labelledby="rawb-professor-report-title">
+      <header className="rawb-integrated-brief__hero">
+        <div className="rawb-integrated-brief__lead">
+          <span>{report.analysisLevel} · {report.periodLabel}</span>
+          <h4 id="rawb-professor-report-title">{report.title}</h4>
+          <p>{report.executiveSummary}</p>
+        </div>
+        <dl className="rawb-integrated-brief__metrics">
+          <div><dt>近五年综述</dt><dd><strong>{synthesis.analyzedSourceCount}</strong><span>篇</span></dd></div>
+          <div><dt>摘要可用</dt><dd><strong>{synthesis.abstractAvailableCount}</strong><span>篇</span></dd></div>
+          <div><dt>Meta 分析</dt><dd><strong>{metaAnalysis?.count ?? 0}</strong><span>篇</span></dd></div>
+        </dl>
+      </header>
+
+      <section className="rawb-integrated-brief__section is-landscape" aria-labelledby="rawb-professor-status-title">
+        <header className="rawb-integrated-brief__section-heading">
+          <span>1</span>
+          <div><h5 id="rawb-professor-status-title">领域发展现状</h5><p>结论与主题覆盖、年度轨迹在同一阅读单元中互相解释</p></div>
+        </header>
+        <div className="rawb-integrated-brief__landscape-grid">
+          <article className="rawb-integrated-brief__dominant-finding">
+            <span>当前覆盖最高主题</span>
+            <strong><b>{leadingTheme?.count ?? 0}</b><small> / {synthesis.analyzedSourceCount} 篇</small></strong>
+            <h6>{leadingTheme?.label ?? "主题尚未形成稳定聚类"}</h6>
+            <p>{developmentStatus[0]?.conclusion}</p>
+            <ReviewEvidenceLinks sourceIds={leadingTheme?.sourceIds} sources={sources} />
+          </article>
+          <article className="rawb-integrated-brief__chart is-coverage">
+            <header><h6>主题覆盖度</h6><span>最高主题占当前样本 {leadingThemeShare}%</span></header>
+            <ReviewThemeCoverageChart synthesis={synthesis} sources={sources} />
+          </article>
+          <article className="rawb-integrated-brief__chart is-trend">
+            <header><h6>年度主题轨迹</h6><span>按年份分层样本中的出现篇数</span></header>
+            <ReviewTrendChart synthesis={synthesis} sources={sources} />
+            <div className="rawb-integrated-brief__trend-notes">
+              {trendInsights.map((item) => <p key={item.id}><strong>{item.title}</strong>{item.conclusion}</p>)}
+            </div>
+          </article>
+        </div>
+        <div className="rawb-integrated-brief__method-band">
+          <div className="rawb-integrated-brief__method-copy">
+            {developmentStatus.slice(1, 3).map((item) => (
+              <ReviewReportFinding key={item.id} item={item} sources={sources} />
+            ))}
+          </div>
+          <div className="rawb-integrated-brief__method-chart">
+            <h6>摘要方法报告完整度</h6>
+            <ReviewMethodProfile synthesis={synthesis} />
+          </div>
+        </div>
+      </section>
+
+      <section className="rawb-integrated-brief__section is-problems" aria-labelledby="rawb-professor-problems-title">
+        <header className="rawb-integrated-brief__section-heading">
+          <span>2</span>
+          <div><h5 id="rawb-professor-problems-title">当前主要问题</h5><p>只统计摘要明确表达的证据缺口，不把未报告误判为没有实施</p></div>
+        </header>
+        <div className="rawb-integrated-brief__problem-grid">
+          <article className="rawb-integrated-brief__gap-lead">
+            <span>最常见缺口信号</span>
+            <strong><b>{leadingGap?.count ?? 0}</b><small> 篇</small></strong>
+            <h6>{leadingGap?.label ?? "当前摘要未形成稳定缺口聚类"}</h6>
+            <p>{majorProblems[0]?.conclusion}</p>
+            <ReviewEvidenceLinks sourceIds={leadingGap?.sourceIds} sources={sources} />
+          </article>
+          <article className="rawb-integrated-brief__chart is-gap">
+            <header><h6>缺口信号分布</h6><span>点击类型查看代表性摘要与 PMID</span></header>
+            <ReviewGapDistribution synthesis={synthesis} sources={sources} />
+          </article>
+          <ol className="rawb-integrated-brief__problem-list">
+            {majorProblems.map((item, index) => (
+              <li key={item.id}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <div><h6>{item.title}</h6><p>{item.conclusion}</p><ReviewEvidenceLinks sourceIds={item.sourceIds} sources={sources} /></div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section className="rawb-integrated-brief__section is-guidance" aria-labelledby="rawb-professor-newcomer-title">
+        <header className="rawb-integrated-brief__section-heading">
+          <span>3</span>
+          <div><h5 id="rawb-professor-newcomer-title">新手必读与选题规律</h5><p>先建立科研判断顺序，再从当前样本中寻找有增量价值的综述角度</p></div>
+        </header>
+        <div className="rawb-integrated-brief__guidance-grid">
+          <ol className="rawb-integrated-brief__guide">
+            {newcomerGuide.map((item, index) => (
+              <li key={item.id}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <div><strong>{item.title}</strong><p>{item.advice}</p></div>
+              </li>
+            ))}
+          </ol>
+          <div className="rawb-integrated-brief__pattern-list">
+            {selectionPatterns.map((item) => <ReviewReportFinding key={item.id} item={item} sources={sources} />)}
+          </div>
+        </div>
+        {asArray(report.researcherIdeas).length ? (
+          <details className="rawb-integrated-brief__researcher-ideas">
+            <summary>研究者视角：展开更多可能提供增量价值的综述思路</summary>
+            <div>{asArray(report.researcherIdeas).map((item) => <ReviewReportFinding key={item.id} item={item} sources={sources} />)}</div>
+          </details>
+        ) : null}
+      </section>
+
+      {directions.length ? (
+        <section className="rawb-integrated-brief__section is-directions" aria-labelledby="rawb-professor-directions-title">
+          <header className="rawb-integrated-brief__section-heading">
+            <span>4</span>
+            <div><h5 id="rawb-professor-directions-title">候选综述方向</h5><p>50–100 篇仅作为候选发现与工作量估算目标；最终纳入量、重叠度和可行性仍须下一轮窄检索确认</p></div>
+          </header>
+          <div className="rawb-integrated-brief__direction-columns" aria-hidden="true">
+            <span>候选方向</span><span>待验证增量</span><span>工作量</span><span>关键证据</span>
+          </div>
+          <ol className="rawb-integrated-brief__directions">
+            {directions.map((direction) => (
+              <li key={direction.id}>
+                <article className="rawb-integrated-brief__direction-row">
+                  <div className="rawb-integrated-brief__direction-title">
+                    <span>{String(direction.rank).padStart(2, "0")}</span><h6>{direction.suggestedTitle}</h6>
+                  </div>
+                  <p className="rawb-integrated-brief__direction-value">{direction.whyPotentiallyValuable}</p>
+                  <dl className="rawb-integrated-brief__direction-workload">
+                    <div><dt>周期</dt><dd>{direction.workload?.timeline}</dd></div>
+                    <div><dt>难度</dt><dd>{direction.workload?.difficulty}</dd></div>
+                    <div><dt>文献</dt><dd>{direction.workload?.targetCoreLiterature}</dd></div>
+                  </dl>
+                  <div className="rawb-integrated-brief__direction-evidence">
+                    <ReviewEvidenceLinks sourceIds={direction.sourceIds} sources={sources} />
+                  </div>
+                  <details className="rawb-integrated-brief__direction-detail">
+                    <summary>查看文献组织思路与立题门槛</summary>
+                    <div><ol>{asArray(direction.outline).map((item) => <li key={item}>{item}</li>)}</ol><p><strong>立题门槛：</strong>{direction.verificationGate}</p></div>
+                  </details>
+                </article>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
+      <ReviewSourceEvidenceLedger sources={sources} synthesis={synthesis} />
+
+      <footer className="rawb-integrated-brief__footer">
+        <p><strong>可追溯范围：</strong>{report.traceability?.accessBoundary}</p>
+        <p><strong>期刊指标原则：</strong>{report.traceability?.journalMetricPolicy}</p>
+        <p><strong>结论边界：</strong>{report.boundary}</p>
+      </footer>
+    </section>
+  );
+}
+
+function verifiedJournalMetric(source) {
+  const metrics = source?.journalMetrics ?? {};
+  const rawValue = source?.journalImpactFactor ?? metrics.journalImpactFactor ?? metrics.jif;
+  const value = Number(rawValue);
+  const verified = metrics.verified === true || source?.journalImpactFactorVerified === true;
+  if (!Number.isFinite(value) || !verified) return null;
+  return {
+    value,
+    year: metrics.year ?? source?.journalImpactFactorYear ?? null,
+    source: metrics.source ?? "JCR",
+  };
+}
+
+function ReviewSourceEvidenceLedger({ sources, synthesis }) {
+  const [query, setQuery] = useState("");
+  const [year, setYear] = useState("");
+  const [reviewType, setReviewType] = useState("");
+  const [theme, setTheme] = useState("");
+  const options = useMemo(() => ({
+    years: Array.from(new Set(asArray(sources).map((source) => source.year).filter(Boolean))).sort().reverse(),
+    reviewTypes: Array.from(new Set(asArray(sources).map((source) => source.reviewType?.label).filter(Boolean))).sort(),
+    themes: Array.from(new Set(asArray(sources).flatMap((source) => asArray(source.abstractAnalysis?.themeLabels)))).sort(),
+  }), [sources]);
+  const visibleSources = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase();
+    return asArray(sources).filter((source) => {
+      const matchesQuery = !needle || [source.pmid, source.locator?.doi, source.title, source.journal]
+        .filter(Boolean)
+        .some((value) => String(value).toLocaleLowerCase().includes(needle));
+      const matchesYear = !year || String(source.year) === year;
+      const matchesType = !reviewType || source.reviewType?.label === reviewType;
+      const matchesTheme = !theme || asArray(source.abstractAnalysis?.themeLabels).includes(theme);
+      return matchesQuery && matchesYear && matchesType && matchesTheme;
+    });
+  }, [query, reviewType, sources, theme, year]);
+  return (
+    <details className="rawb-review-source-ledger">
+      <summary>
+        <span>本轮分析样本文献（{synthesis.analyzedSourceCount}）</span>
+        <small>题名/摘要级 · PMID / DOI / 题目 / 期刊 / 方法 / 期刊指标状态</small>
+      </summary>
+      <div className="rawb-review-source-ledger__intro">
+        <p>报告与可视化均由这批样本文献生成。筛选只改变当前查看范围，不改变本轮分析事实。</p>
+        <p><strong>影响因子：</strong>只有来源、年份和核验状态完整的授权数据才显示；未核验时保持未知，也不参与证据质量排序。</p>
+      </div>
+      <div className="rawb-review-source-ledger__filters" aria-label="筛选本轮样本文献">
+        <label>
+          <span>检索 ID、题目或期刊</span>
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="例如 PMID、DOI 或关键词" />
+        </label>
+        <label>
+          <span>年份</span>
+          <select value={year} onChange={(event) => setYear(event.target.value)}>
+            <option value="">全部年份</option>
+            {options.years.map((item) => <option key={item} value={item}>{item}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>综述类型</span>
+          <select value={reviewType} onChange={(event) => setReviewType(event.target.value)}>
+            <option value="">全部类型</option>
+            {options.reviewTypes.map((item) => <option key={item} value={item}>{item}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>报告主题</span>
+          <select value={theme} onChange={(event) => setTheme(event.target.value)}>
+            <option value="">全部主题</option>
+            {options.themes.map((item) => <option key={item} value={item}>{item}</option>)}
+          </select>
+        </label>
+      </div>
+      <p className="rawb-review-source-ledger__count" role="status">当前显示 {visibleSources.length} / {sources.length} 篇</p>
+      <div className="rawb-review-source-ledger__columns" aria-hidden="true">
+        <span>文献 ID</span><span>题目与期刊</span><span>年份与类型</span><span>访问与方法</span><span>期刊指标</span>
+      </div>
+      <ol>
+        {visibleSources.map((source) => {
+          const analysis = source.abstractAnalysis ?? {};
+          const metric = verifiedJournalMetric(source);
+          const doi = source.doi ?? source.locator?.doi ?? null;
+          return (
+            <li key={source.sourceId ?? source.pmid}>
+              <div className="rawb-review-source-ledger__row">
+                <div className="rawb-review-source-ledger__id">
+                  {source.locator?.url
+                    ? <a href={source.locator.url} target="_blank" rel="noreferrer">PMID {source.pmid}</a>
+                    : <strong>{source.pmid ? `PMID ${source.pmid}` : source.sourceId}</strong>}
+                  <small>{doi ? `DOI ${doi}` : "DOI 未返回"}</small>
+                </div>
+                <div className="rawb-review-source-ledger__title">
+                  <strong>{source.title}</strong>
+                  <small>{source.journal ?? "期刊未报告"}</small>
+                </div>
+                <div><strong>{source.year ?? "年份未知"}</strong><small>{source.reviewType?.label ?? "类型待核"}</small></div>
+                <div><strong>{source.accessLevel === "abstract_only" ? "题名 + 摘要" : "仅题名"}</strong><small>{REVIEW_METHOD_VISIBILITY_LABELS[analysis.methodVisibility] ?? "方法状态未知"}</small></div>
+                <div><strong>{metric ? `${metric.value}${metric.year ? ` · ${metric.year}` : ""}` : "未接入经核验数据"}</strong><small>{metric ? metric.source : "不参与证据排序"}</small></div>
+              </div>
+              <details className="rawb-review-source-ledger__analysis">
+                <summary>展开摘要分析与证据角色</summary>
+                <div className="rawb-review-source-ledger__analysis-body">
+                  <div className="rawb-review-source-tags">
+                    <em>{REVIEW_METHOD_VISIBILITY_LABELS[analysis.methodVisibility] ?? "摘要分析状态未知"}</em>
+                    {asArray(analysis.themeLabels).map((label) => <em key={label}>{label}</em>)}
+                  </div>
+                  {asArray(analysis.methodSignalLabels).length ? <p><b>摘要报告的方法：</b>{analysis.methodSignalLabels.join("、")}</p> : <p><b>摘要报告的方法：</b>摘要未充分报告，保持未知。</p>}
+                  {analysis.conclusionExcerpt ? <p><b>摘要结论信号：</b>{analysis.conclusionExcerpt}</p> : <p><b>摘要结论信号：</b>未从摘要中可靠定位。</p>}
+                  {analysis.gapExcerpt ? <p><b>摘要明确缺口：</b>{analysis.gapExcerpt}</p> : <p><b>摘要明确缺口：</b>未从摘要中可靠定位；不等于没有缺口。</p>}
+                  {source.abstractSnippet ? <blockquote><strong>原摘要片段</strong><p>{source.abstractSnippet}</p></blockquote> : null}
+                  <p className="rawb-review-source-boundary">{analysis.boundary ?? "仅基于题名摘要；未访问全文。"}</p>
+                </div>
+              </details>
+            </li>
+          );
+        })}
+      </ol>
+      {!visibleSources.length ? <p className="rawb-review-source-ledger__empty">没有符合当前筛选条件的样本文献。</p> : null}
+    </details>
+  );
+}
+
 const REVIEW_CHART_COLORS = Object.freeze([
   "#2f6fbd",
   "#3f9668",
@@ -3238,7 +3561,7 @@ function DirectionSelectionPanel({
         </>
       ) : null}
       <footer>
-        <p>边界：当前依据为 PubMed 题名与可用摘要；选择只启动第二轮验证，不证明方向新颖或可行。</p>
+        <p>边界：当前依据为 PubMed 题名与可用摘要；选择只启动第二轮聚焦检索，不证明方向新颖、文献量充足或可行。同题综述核查与原始研究量预检仍是未完成门槛。</p>
         <button type="button" onClick={onSubmit} disabled={busy}>
           {busy ? "正在记录决定并生成第二轮…" : "记录决定，进入第二轮调查"}
         </button>
@@ -3247,7 +3570,20 @@ function DirectionSelectionPanel({
   );
 }
 
-function ReviewLandscapeReport({ landscape }) {
+function ReviewLandscapeReport({
+  landscape,
+  researchReport = null,
+  firstRound = null,
+  secondRound = null,
+  decision = null,
+  lockedDirection = null,
+  onDecisionChange = null,
+  onPrimaryAction = null,
+  primaryActionLabel = "确认方向并开始第二轮窄检索",
+  busy = false,
+  storageKey = "research-review-report",
+  currentBinding = null,
+}) {
   if (!landscape) return null;
   const brief = landscape.stageBrief ?? {};
   const synthesis = landscape.synthesis ?? null;
@@ -3257,6 +3593,35 @@ function ReviewLandscapeReport({ landscape }) {
     : landscape.status === "zero_results"
       ? "0 篇"
       : "扫描失败";
+  const hasStructuredReport = Boolean(synthesis || researchReport || landscape?.researchReport);
+  if (["ready", "blocked"].includes(landscape.status) && hasStructuredReport) {
+    return (
+      <ResearchReviewReport
+        landscape={landscape}
+        researchReport={researchReport}
+        firstRound={firstRound}
+        secondRound={secondRound}
+        selectedDirectionId={decision?.selectedDirectionId ?? lockedDirection?.id ?? ""}
+        lockedDirection={lockedDirection}
+        selectionReason={decision?.selectionReason ?? ""}
+        deferredReason={decision?.deferredReason ?? ""}
+        onDirectionSelect={onDecisionChange
+          ? (selectedDirectionId) => onDecisionChange({ selectedDirectionId })
+          : null}
+        onSelectionReasonChange={onDecisionChange
+          ? (selectionReason) => onDecisionChange({ selectionReason })
+          : null}
+        onDeferredReasonChange={onDecisionChange
+          ? (deferredReason) => onDecisionChange({ deferredReason })
+          : null}
+        onPrimaryAction={onPrimaryAction}
+        primaryActionLabel={primaryActionLabel}
+        busy={busy}
+        storageKey={storageKey}
+        currentBinding={currentBinding}
+      />
+    );
+  }
   return (
     <section className={`rawb-review-landscape is-${landscape.status}`} aria-labelledby="rawb-review-landscape-title">
       <header>
@@ -3269,60 +3634,30 @@ function ReviewLandscapeReport({ landscape }) {
       {landscape.status === "ready" ? (
         <>
           {synthesis ? (
-            <>
-              <ReviewEvidenceAtlas landscape={landscape} synthesis={synthesis} sources={sources} />
-              <ReviewDirectionReport report={synthesis.directionReport} sources={sources} />
-
-              <details className="rawb-review-landscape__brief">
-                <summary>阅读文字版分析摘要</summary>
-                <ul>{asArray(brief.newFindings).map((finding) => <li key={finding}>{finding}</li>)}</ul>
-              </details>
-
-              <details className="rawb-review-landscape__sources rawb-review-landscape__analyses">
-                <summary>逐篇查看 {synthesis.analyzedSourceCount} 篇综述的摘要分析</summary>
-                <ol>
-                  {sources.map((source) => {
-                    const analysis = source.abstractAnalysis ?? {};
-                    return (
-                      <li key={source.sourceId ?? source.pmid}>
-                        <span>{source.year ?? "年份未知"} · {source.reviewType?.label ?? "类型待核"}{source.journal ? ` · ${source.journal}` : ""}</span>
-                        <strong>{source.title}</strong>
-                        <div className="rawb-review-source-tags">
-                          <em>{REVIEW_METHOD_VISIBILITY_LABELS[analysis.methodVisibility] ?? "摘要分析状态未知"}</em>
-                          {asArray(analysis.themeLabels).map((label) => <em key={label}>{label}</em>)}
-                        </div>
-                        {asArray(analysis.methodSignalLabels).length ? <p><b>摘要报告的方法：</b>{analysis.methodSignalLabels.join("、")}</p> : <p><b>摘要报告的方法：</b>摘要未充分报告，保持未知。</p>}
-                        {analysis.conclusionExcerpt ? <p><b>摘要结论信号：</b>{analysis.conclusionExcerpt}</p> : <p><b>摘要结论信号：</b>未从摘要中可靠定位。</p>}
-                        {analysis.gapExcerpt ? <p><b>摘要明确缺口：</b>{analysis.gapExcerpt}</p> : <p><b>摘要明确缺口：</b>未从摘要中可靠定位；不等于没有缺口。</p>}
-                        {source.abstractSnippet ? <details><summary>查看原摘要片段</summary><p>{source.abstractSnippet}</p></details> : null}
-                        <p className="rawb-review-source-boundary">{analysis.boundary ?? "仅基于题名摘要；未访问全文。"}</p>
-                        {source.locator?.url ? <a href={source.locator.url} target="_blank" rel="noreferrer">在 PubMed 核对 PMID {source.pmid}</a> : null}
-                      </li>
-                    );
-                  })}
-                </ol>
-              </details>
-
-              <details className="rawb-review-sampling-context">
-                <summary>查看样本构成与题名高频词</summary>
-                <div className="rawb-review-landscape__distributions">
-                  <section>
-                    <h4>样本年份</h4>
-                    <ul>{asArray(landscape.yearDistribution).map((item) => <li key={item.id}><span>{item.label}</span><strong>{item.count}</strong></li>)}</ul>
-                  </section>
-                  <section>
-                    <h4>综述类型</h4>
-                    <ul>{asArray(landscape.reviewTypeDistribution).map((item) => <li key={item.id}><span>{item.label}</span><strong>{item.count}</strong></li>)}</ul>
-                  </section>
-                </div>
-                {asArray(landscape.frequentTitleTerms).length ? (
-                  <div className="rawb-review-landscape__terms">
-                    <h4>当前样本题名高频词</h4>
-                    <p>{landscape.frequentTitleTerms.map((item) => `${item.term} · ${item.count}`).join("　")}</p>
-                  </div>
-                ) : null}
-              </details>
-            </>
+            <ResearchReviewReport
+              landscape={landscape}
+              researchReport={researchReport}
+              firstRound={firstRound}
+              secondRound={secondRound}
+              selectedDirectionId={decision?.selectedDirectionId ?? lockedDirection?.id ?? ""}
+              lockedDirection={lockedDirection}
+              selectionReason={decision?.selectionReason ?? ""}
+              deferredReason={decision?.deferredReason ?? ""}
+              onDirectionSelect={onDecisionChange
+                ? (selectedDirectionId) => onDecisionChange({ selectedDirectionId })
+                : null}
+              onSelectionReasonChange={onDecisionChange
+                ? (selectionReason) => onDecisionChange({ selectionReason })
+                : null}
+              onDeferredReasonChange={onDecisionChange
+                ? (deferredReason) => onDecisionChange({ deferredReason })
+                : null}
+              onPrimaryAction={onPrimaryAction}
+              primaryActionLabel={primaryActionLabel}
+              busy={busy}
+              storageKey={storageKey}
+              currentBinding={currentBinding}
+            />
           ) : (
             <details className="rawb-review-landscape__sources">
               <summary>查看本轮读取的 {landscape.sampledCount} 篇综述题录</summary>
@@ -3331,10 +3666,12 @@ function ReviewLandscapeReport({ landscape }) {
           )}
         </>
       ) : landscape.error ? <p className="rawb-review-landscape__error">{landscape.error.message}</p> : null}
-      <footer>
-        <p><strong>依据与边界：</strong>{brief.evidenceBoundary}</p>
-        <p><strong>下一决定：</strong>{brief.nextDecision}</p>
-      </footer>
+      {!synthesis ? (
+        <footer>
+          <p><strong>依据与边界：</strong>{brief.evidenceBoundary}</p>
+          <p><strong>下一决定：</strong>{brief.nextDecision}</p>
+        </footer>
+      ) : null}
     </section>
   );
 }
@@ -3391,7 +3728,7 @@ export function ResearchAgentWorkbench({
   const [directionDecision, setDirectionDecision] = useState(initialScopingDraft?.directionDecision ?? {
     selectedDirectionId: "",
     selectionReason: "",
-    deferredReason: "保留为备选，等待第二轮检索范围、文献量与可行性比较后再决定。",
+    deferredReason: "",
   });
   const [createForm, setCreateForm] = useState(initialScopingDraft?.createForm ?? {
       title: "",
@@ -3809,13 +4146,7 @@ export function ResearchAgentWorkbench({
       setQueryPreview(preview);
       setSelectedQueryId(confirmed.id);
       if (scopingRound === 1) {
-        const firstDirection = asArray(
-          preview?.reviewLandscape?.synthesis?.directionReport?.directions,
-        )[0];
-        setDirectionDecision((current) => ({
-          ...current,
-          selectedDirectionId: firstDirection?.id ?? "",
-        }));
+        setDirectionDecision({ selectedDirectionId: "", selectionReason: "", deferredReason: "" });
       }
       setCreateForm((form) => ({ ...form, searchQuery: confirmed.query ?? query }));
       setCreateStep("review");
@@ -3864,13 +4195,7 @@ export function ResearchAgentWorkbench({
       setQueryPreview(preview);
       setSelectedQueryId("researcher_edited");
       if (scopingRound === 1) {
-        const firstDirection = asArray(
-          preview?.reviewLandscape?.synthesis?.directionReport?.directions,
-        )[0];
-        setDirectionDecision((current) => ({
-          ...current,
-          selectedDirectionId: firstDirection?.id ?? current.selectedDirectionId,
-        }));
+        setDirectionDecision({ selectedDirectionId: "", selectionReason: "", deferredReason: "" });
       }
       setCreateForm((form) => ({ ...form, searchQuery: preview.candidates[0].query }));
     } catch (previewError) {
@@ -3896,6 +4221,14 @@ export function ResearchAgentWorkbench({
     setBusyAction("direction-selection");
     setError("");
     try {
+      const roundOneCheckpoint = firstRoundCheckpointFrom({
+        queryPlan,
+        queryCalibration,
+        queryPreview,
+        selectedQueryId,
+        createForm,
+        directionDecision,
+      });
       const selection = await request("/direction-selection", { method: "POST", body });
       const narrowedQuestion = normalizeResearchQuestionInput(selection?.narrowedBrief?.question);
       if (!researchQuestionCanPreview(narrowedQuestion)) {
@@ -3903,7 +4236,7 @@ export function ResearchAgentWorkbench({
           code: "EMPTY_NARROWED_QUESTION",
         });
       }
-      setDirectionSelection(selection);
+      setDirectionSelection({ ...selection, roundOneCheckpoint });
       setScopingRound(2);
       setQueryPlan(null);
       setQueryCalibration(null);
@@ -3939,7 +4272,26 @@ export function ResearchAgentWorkbench({
     } finally {
       setBusyAction("");
     }
-  }, [directionDecision, queryPreview, request]);
+  }, [createForm, directionDecision, queryCalibration, queryPlan, queryPreview, request, selectedQueryId]);
+
+  const handleReturnToFirstRound = useCallback(() => {
+    const restored = restoredFirstRoundState(directionSelection);
+    if (!restored) {
+      setError("首轮本机检查点不可用；请保留当前记录并重新开始首轮扫描。");
+      return;
+    }
+    setError("");
+    setActionFeedback("已恢复首轮报告与方向选择；第二轮结果不会覆盖首轮检查点。");
+    setScopingRound(restored.scopingRound);
+    setQueryPlan(restored.queryPlan);
+    setQueryCalibration(restored.queryCalibration);
+    setQueryPreview(restored.queryPreview);
+    setSelectedQueryId(restored.selectedQueryId);
+    setCreateForm(restored.createForm);
+    if (restored.directionDecision) setDirectionDecision(restored.directionDecision);
+    setDirectionSelection(restored.directionSelection);
+    setCreateStep(restored.createStep);
+  }, [directionSelection]);
 
   const handleCreate = useCallback(async (event) => {
     event.preventDefault();
@@ -4305,7 +4657,9 @@ export function ResearchAgentWorkbench({
             >
               <div className="rawb-create-form__heading">
                 <div>
-                  <small>第 {scopingRound} 轮 · {createStep === "question" ? "1" : createStep === "strategy" ? "2" : createStep === "calibration" ? "3" : "4"} / 4</small>
+                  <small>{createStep === "review"
+                    ? `第 ${scopingRound} 轮 · 阶段报告`
+                    : `第 ${scopingRound} 轮 · ${createStep === "question" ? "1" : createStep === "strategy" ? "2" : "3"} / 4`}{initialScopingDraft ? " · 已恢复本机草稿" : ""}</small>
                   <strong>{createStep === "question" ? (scopingRound === 1 ? "先说研究领域或大概问题" : "确认收窄后的研究问题") : createStep === "strategy" ? "确认检索初稿" : createStep === "calibration" ? "确认前 100 篇反馈与修订" : "查看近五年综述分析"}</strong>
                 </div>
                 <button type="button" onClick={() => { setCreateOpen(false); resetQueryPlanning(); }}>关闭</button>
@@ -4315,6 +4669,9 @@ export function ResearchAgentWorkbench({
                   <p className="rawb-create-form__intro">{scopingRound === 1
                     ? "先别急着检索。系统会扩展 MeSH 主题词、专业自由词、常用亚型与适用的邻近表达；你确认后才访问 PubMed。"
                     : `已选择“${directionSelection?.selectedDirection?.direction ?? "当前方向"}”。现在围绕收窄问题生成第二轮检索，首轮记录不会被覆盖。`}</p>
+                  {scopingRound === 2 && directionSelection?.roundOneCheckpoint ? (
+                    <button className="rawb-create-form__restore" type="button" onClick={handleReturnToFirstRound}>返回首轮调整方向</button>
+                  ) : null}
                   <label htmlFor="rawb-project-question">想研究的领域或大概问题</label>
                   <textarea
                     ref={titleInputRef}
@@ -4431,7 +4788,27 @@ export function ResearchAgentWorkbench({
               ) : (
                 <>
                   <div className="rawb-query-plan__question"><span>研究问题</span><strong>{createForm.question}</strong></div>
-                  <ReviewLandscapeReport landscape={queryPreview?.reviewLandscape} />
+                  <ReviewLandscapeReport
+                    landscape={queryPreview?.reviewLandscape}
+                    firstRound={scopingRound === 2
+                      ? directionSelection?.roundOneCheckpoint?.queryPreview?.reviewLandscape
+                      : null}
+                    secondRound={scopingRound === 2 ? queryPreview?.reviewLandscape : null}
+                    decision={scopingRound === 1 ? directionDecision : null}
+                    lockedDirection={scopingRound === 2 && directionSelection?.selectedDirection
+                      ? {
+                          ...directionSelection.selectedDirection,
+                          reportBinding: directionSelection.reportBinding ?? null,
+                        }
+                      : null}
+                    onDecisionChange={scopingRound === 1 ? handleDirectionDecisionChange : null}
+                    onPrimaryAction={scopingRound === 1 ? handleChooseDirection : null}
+                    busy={busyAction === "direction-selection"}
+                    storageKey={`research-review-report:${queryPreview?.planHash ?? scopingRound}`}
+                    currentBinding={queryPreview?.reviewLandscape?.researchReport?.binding ?? null}
+                  />
+                  <details className="rawb-query-plan__advanced rawb-report-retrieval-controls">
+                    <summary>检索校准、命中抽查与重新扫描</summary>
                   <fieldset className="rawb-query-candidates">
                     <legend>检索式基础命中抽查</legend>
                     {asArray(queryPreview?.candidates).map((candidate) => {
@@ -4478,15 +4855,8 @@ export function ResearchAgentWorkbench({
                     }}>返回反馈校准</button>
                     <button type="button" onClick={handleRecalibrateQueries} disabled={busyAction === "query-preview"}>{busyAction === "query-preview" ? "正在重新扫描…" : "重新扫描当前式"}</button>
                   </div>
-                  {scopingRound === 1 ? (
-                    <DirectionSelectionPanel
-                      report={queryPreview?.reviewLandscape?.synthesis?.directionReport}
-                      decision={directionDecision}
-                      busy={busyAction === "direction-selection"}
-                      onChange={handleDirectionDecisionChange}
-                      onSubmit={handleChooseDirection}
-                    />
-                  ) : (
+                  </details>
+                  {scopingRound === 2 ? (
                     <>
                     <section className="rawb-second-round-summary" aria-labelledby="rawb-second-round-summary-title">
                       <span>两轮调查已接通</span>
@@ -4497,6 +4867,7 @@ export function ResearchAgentWorkbench({
                         <div><dt>第二轮问题</dt><dd>{directionSelection?.narrowedBrief?.question}</dd></div>
                       </dl>
                       <p>{directionSelection?.narrowedBrief?.evidenceBoundary}</p>
+                      <button type="button" onClick={handleReturnToFirstRound}>返回首轮调整方向</button>
                     </section>
                     <details className="rawb-query-plan__advanced">
                     <summary>项目名称、约束与已有材料</summary>
@@ -4530,7 +4901,7 @@ export function ResearchAgentWorkbench({
                   </button>
                   <p className="rawb-create-form__help">首轮方向账本、两轮问题与两轮综述汇报会随项目保存；建项后仍只推进到首个人工决定点。</p>
                     </>
-                  )}
+                  ) : null}
                 </>
               )}
             </form>

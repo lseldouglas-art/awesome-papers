@@ -219,6 +219,11 @@ export function buildWorkOrder({
         project.retrievalRuns && typeof project.retrievalRuns === "object"
           ? structuredClone(project.retrievalRuns)
           : {},
+      reportRevision: Number.isInteger(project.reportRevision) ? project.reportRevision : 0,
+      sourceSetHash: typeof project.sourceSetHash === "string" ? project.sourceSetHash : null,
+      researchReport: project.researchReport && typeof project.researchReport === "object"
+        ? structuredClone(project.researchReport)
+        : null,
       currentRetrievalRuns: structuredClone(currentRetrievalRuns(project)),
       sourceMaterials: sourceMaterials(project),
     },
@@ -292,6 +297,9 @@ function genericContent(workOrder, output) {
       locator: material.locator,
     })),
     boundaries: [...DEFAULT_BOUNDARIES],
+    ...(workOrder.project.researchReport?.binding
+      ? { reportBinding: structuredClone(workOrder.project.researchReport.binding) }
+      : {}),
     ...(workOrder.revisionRequest
       ? { revisionRequest: structuredClone(workOrder.revisionRequest) }
       : {}),

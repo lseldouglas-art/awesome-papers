@@ -1,6 +1,6 @@
 {
   "name": "research-workbench",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "A local-first, auditable research workbench for evidence-bounded PubMed reviews.",
   "type": "module",
@@ -12,9 +12,10 @@
     "dev": "node research-workbench-server.mjs",
     "build": "vite build",
     "start": "node research-workbench-server.mjs --production",
-    "test": "npm run test:core && npm run test:model && npm run test:api && npm run build",
+    "test": "npm run test:core && npm run test:model && npm run test:ui && npm run test:api && npm run build",
     "test:core": "node --test research-core/*.test.mjs research-core/fixtures/*.test.mjs",
     "test:model": "node --test tests/research-agent-workbench-model.test.mjs",
+    "test:ui": "node --test tests/research-review-report.test.mjs",
     "test:api": "node --test tests/research-workbench-api.e2e.test.mjs"
   },
   "dependencies": {

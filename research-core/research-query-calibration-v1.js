@@ -143,6 +143,16 @@ export async function calibratePubMedQueryStrategy({
     throw error;
   }
   const selected = normalizeSelectedCandidate(plan, selectedCandidateId, editedQuery);
+  if (plan?.directionSeed) {
+    const frozenDirectionCandidate = (plan.candidates ?? []).find(
+      (candidate) => candidate.id === selectedCandidateId,
+    );
+    if (!frozenDirectionCandidate || frozenDirectionCandidate.query !== selected.query) {
+      const error = new Error("第二轮聚焦检索式已经改变；必须回到方向选择重新生成，不能在校准时删除或替换方向词群。");
+      error.code = "DIRECTION_SEED_QUERY_MISMATCH";
+      throw error;
+    }
+  }
   const search = await gateway.searchPubMed({ query: selected.query, limit: CALIBRATION_SAMPLE_LIMIT }, signal);
   const ids = (Array.isArray(search?.resultIds) ? search.resultIds : [])
     .map(String)
@@ -184,7 +194,7 @@ export async function calibratePubMedQueryStrategy({
     candidates: [selected, ...(plan?.candidates ?? []).filter((candidate) => candidate.id !== selectedCandidateId)],
   };
   let revision = revisionReceipt(model, "model_not_configured", prompt);
-  if (model.configured && records.length > 0) {
+  if (model.configured && records.length > 0 && !plan?.directionSeed) {
     try {
       const output = await model.completeJson(prompt, { signal });
       const matrix = compilePubMedConceptMatrix(output?.concepts);

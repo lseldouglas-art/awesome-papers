@@ -3,7 +3,7 @@
 > 本地优先、可审计、证据边界明确的 PubMed 综述工作台。  
 > A local-first, auditable workbench for evidence-bounded PubMed reviews.
 
-![Research Workbench V1](./docs/assets/research-workbench-v1.png)
+![Research Workbench v0.1.2 four-chapter review report](./docs/assets/research-report-v012-01-landscape.png)
 
 [![CI](https://github.com/lseldouglas-art/research-workbench/actions/workflows/ci.yml/badge.svg)](https://github.com/lseldouglas-art/research-workbench/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
@@ -34,6 +34,9 @@ Working today:
 - pause, recovery, protocol revision, and cancellation boundaries;
 - evidence brief, evidence outline, and audited-review completion profiles;
 - researcher-facing stage brief with conclusions, evidence boundaries, and next decisions;
+- four text-first report chapters that move from field landscape to one executable review direction;
+- chapter-level PMID evidence drawers and a separately expandable complete source ledger;
+- fail-closed second-round topic validation bound to the exact report, proposal, reasons, focus mapping, and query;
 - restricted exports that fail closed when authority is incomplete.
 
 See [ROADMAP.md](./ROADMAP.md) for the production gap.
@@ -75,6 +78,9 @@ Provider configuration alone never upgrades an older guided project.
 - Full text is requested only for targeted method, numerical, causal, safety, or formal-writing checks.
 - PubMed coverage is not equivalent to multi-database systematic-review coverage.
 - Candidate directions, generated prose, and workflow completion are not scientific findings.
+- The checked-in gastric-cancer example is a frozen, time-stratified 20-record PubMed Best Match title-and-abstract sample. It is not a random sample, full-field publication count, bibliometric trend, or independently replayable proof of the original ranking.
+- Topic coverage may overlap. Low frequency is not a research gap, and an uncoded primary axis is not evidence that a topic is absent from the full text.
+- A 50–100-paper range is a candidate-discovery and workload-estimation target; final inclusion follows prespecified criteria. A 10–12-week range is a planning target that still depends on retrieval scope, staffing, deduplication, and full-text access.
 - Final interpretation, authorship, and publication responsibility remain human.
 
 ## Architecture
@@ -99,6 +105,7 @@ The UI is a projection of the research kernel; it cannot manufacture an approved
 ```bash
 npm run test:core
 npm run test:model
+npm run test:ui
 npm run test:api
 npm test
 ```

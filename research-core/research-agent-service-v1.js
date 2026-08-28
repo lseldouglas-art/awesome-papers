@@ -35,6 +35,13 @@ import { assertValidResearchDirectionSelection } from "./research-direction-sele
 import { assertValidManuscriptAuthorityChain } from "./manuscript-authority-v1.js";
 import { assertValidSearchMethodAuthorityChain } from "./research-search-method-authority-v1.js";
 import {
+  assertArtifactResearchReportBinding,
+  assertResearchReportBinding,
+  bindArtifactToResearchReport,
+  buildResearchReportContract,
+} from "./research-report-contract-v1.js";
+import { inferResearchSubjectConcepts } from "./research-query-planner-v1.js";
+import {
   createAuthoritativeExportManifest,
   verifyAuthoritativeExportManifest,
 } from "./export-authority-v1.js";
@@ -54,6 +61,33 @@ const SYSTEM_ACTOR = Object.freeze({
   role: "research_runtime",
   kind: "system",
 });
+const REPORT_BOUND_ARTIFACT_TYPES = new Set([
+  "FrozenSearchProtocol",
+  "LibraryManifest",
+  "SourceSnapshot",
+  "EvidenceRecord",
+  "AppraisalRecord",
+  "CounterevidenceRegister",
+  "CoverageGapRegister",
+  "ClaimEvidenceMap",
+  "ResearchConclusionCard",
+  "EvidenceVerificationReport",
+  "EvidenceBoundaryDecision",
+  "EvidenceDrivenOutline",
+  "OutlineStressTest",
+  "OutlineDecision",
+  "FrozenWritingPlan",
+  "ClaimUnitDraft",
+  "ClaimVerificationResult",
+  "AcceptedClaimUnit",
+  "ManuscriptDraft",
+  "ManuscriptAudit",
+  "AuditedManuscript",
+  "DeliveryBundle",
+  "ExportManifest",
+  "AuthorApproval",
+  "SignedDelivery",
+]);
 
 export class ResearchAgentServiceError extends Error {
   constructor(code, message, details = {}) {
@@ -234,6 +268,7 @@ function normalizeProjectInput(input, machine) {
   }
   let scopingDecision = null;
   let scopingRounds = [];
+  let scopingVerification = null;
   if (input.scopingDecision !== undefined && input.scopingDecision !== null) {
     scopingDecision = structuredClone(input.scopingDecision);
     try {
@@ -291,6 +326,18 @@ function normalizeProjectInput(input, machine) {
         `方向决定、两轮调查与最终研究问题没有绑定到同一条选择链（${scopingMismatches.join("、")}）。`,
       );
     }
+    if (
+      input.scopingVerification?.status !== "exploratory_unverified"
+      || input.scopingVerification?.sameTopicReviewOverlapVerified !== false
+      || input.scopingVerification?.primaryStudyVolumeVerified !== false
+      || input.scopingVerification?.verdict !== "unknown"
+    ) {
+      fail(
+        "INVALID_SCOPING_VERIFICATION",
+        "普通第二轮题名摘要样本不能升级为创新度或文献量已验证；建项必须保留 exploratory_unverified / unknown 状态。",
+      );
+    }
+    scopingVerification = structuredClone(input.scopingVerification);
   } else if (input.scopingRounds !== undefined && input.scopingRounds !== null) {
     fail("SCOPING_DECISION_REQUIRED", "调查轮次不能脱离研究者方向决定单独写入。");
   }
@@ -310,6 +357,12 @@ function normalizeProjectInput(input, machine) {
       : {},
     scopingDecision,
     scopingRounds,
+    scopingVerification,
+    reportRevision: 0,
+    sourceSetHash: null,
+    researchReport: null,
+    researchReportHistory: [],
+    finalLibraryScreening: null,
     sourceMaterials: (input.sourceMaterials ?? []).map((material, index) =>
       normalizeSourceMaterial(material, index, input.id.trim()),
     ),
@@ -354,11 +407,119 @@ function projectWithRetrievalRun(project, run) {
       .flatMap((item) => item?.receipt?.records ?? [])
       .map((record) => [record.sourceId ?? record.id, record]),
   ).values()];
+  let acceptedRecords = records;
+  let researchReport = project.researchReport ?? null;
+  let sourceSetHash = hasText(project.sourceSetHash) ? project.sourceSetHash : null;
+  let reportRevision = Number.isInteger(project.reportRevision) ? project.reportRevision : 0;
+  let researchReportHistory = Array.isArray(project.researchReportHistory)
+    ? structuredClone(project.researchReportHistory)
+    : [];
+  let finalLibraryScreening = project.finalLibraryScreening
+    ? structuredClone(project.finalLibraryScreening)
+    : null;
+  if (run.purpose === "finalLibrary") {
+    const nextRevision = reportRevision + 1;
+    const frozenSubjectConcepts = Array.isArray(project?.retrievalRuns?.previewSelection?.subjectConcepts)
+      ? project.retrievalRuns.previewSelection.subjectConcepts
+      : [];
+    const subjectResolution = frozenSubjectConcepts.length > 0
+      ? {
+          status: "frozen",
+          concepts: frozenSubjectConcepts,
+          basis: "preview_selection",
+          reason: "使用建项时冻结的研究对象词群。",
+        }
+      : inferResearchSubjectConcepts({
+          question: project.question,
+          queryPlan: project.queryPlan ?? project?.retrievalRuns?.previewSelection?.queryPlan ?? null,
+        });
+    const selectedDirectionConcept = project?.scopingDecision?.narrowedBrief?.focusMapping;
+    const requiredConcepts = [
+      ...subjectResolution.concepts,
+      ...(selectedDirectionConcept && (
+        (Array.isArray(selectedDirectionConcept.mappedTerms) && selectedDirectionConcept.mappedTerms.length > 0) ||
+        (Array.isArray(selectedDirectionConcept.meshTerms) && selectedDirectionConcept.meshTerms.length > 0)
+      ) ? [{ ...selectedDirectionConcept, role: "selected_direction" }] : []),
+    ];
+    researchReport = buildResearchReportContract({
+      projectId: project.id,
+      question: project.question,
+      records,
+      subjectConcepts: requiredConcepts,
+      reportRevision: nextRevision,
+      generatedAt: run.receipt?.fetchedAt ?? run.receipt?.executedAt ?? null,
+      reviewWindow: project?.retrievalRuns?.previewSelection?.reviewLandscape?.reviewWindow ?? null,
+      bindingAuthority: "formal_project",
+      samplingMetadata: {
+        schemaVersion: "formal-final-library-sample/v1",
+        database: "PubMed",
+        query: run.query,
+        total: run.receipt?.total ?? null,
+        savedSourceCount: records.length,
+        receiptHash: run.receipt?.receiptHash ?? null,
+        boundary: "这是当前冻结正式检索运行保存的来源，不代表数据库全量、全文纳入集或领域发文量。",
+      },
+    });
+    if (researchReport.relevanceGate.status !== "passed") {
+      fail(
+        "RESEARCH_SUBJECT_RELEVANCE_BLOCKED",
+        "最终检索来源中没有一篇同时命中已冻结研究对象与所选综述方向词群；系统已阻止最终文献库、证据记录和研究方向生成。",
+        {
+          relevanceGate: researchReport.relevanceGate,
+          subjectResolution,
+          query: run.query,
+          receiptHash: run.receipt?.receiptHash ?? null,
+        },
+      );
+    }
+    const relevantSourceIds = new Set(
+      researchReport.relevanceGate.rows
+        .filter((row) => row.status === "relevant")
+        .map((row) => row.sourceId),
+    );
+    acceptedRecords = records.filter((record, index) => {
+      const sourceId = record.sourceId ?? record.id ?? (record.pmid ? `pubmed:${record.pmid}` : `source:unknown:${index + 1}`);
+      return relevantSourceIds.has(sourceId);
+    });
+    finalLibraryScreening = {
+      schemaVersion: "research-final-library-screening/v1",
+      ruleVersion: researchReport.relevanceGate.schemaVersion,
+      retrievalSourceSetHash: researchReport.ledger.retrievalSourceSetHash,
+      acceptedSourceSetHash: researchReport.binding.sourceSetHash,
+      retrievedCount: records.length,
+      acceptedCount: acceptedRecords.length,
+      excludedCount: records.length - acceptedRecords.length,
+      exclusions: researchReport.relevanceGate.rows
+        .filter((row) => row.status !== "relevant")
+        .map((row) => ({
+          sourceId: row.sourceId,
+          title: row.title,
+          reason: row.boundary,
+          disposition: "excluded_pending_human_disposition",
+        })),
+      boundary: "只有逐条通过研究对象相关性门禁的来源进入正式文献库与后续 EvidenceRecord；未通过来源保留在原始检索回执和本处置账本中，不会进入证据链。",
+    };
+    retrievalRuns.finalLibrary.screeningDisposition = structuredClone(finalLibraryScreening);
+    if (project.researchReport) {
+      researchReportHistory.push({
+        binding: structuredClone(project.researchReport.binding),
+        invalidatedAt: run.receipt?.executedAt ?? null,
+        reason: "新的最终文献库来源集生成了下一版报告。",
+      });
+    }
+    reportRevision = nextRevision;
+    sourceSetHash = researchReport.binding.sourceSetHash;
+  }
   return {
     ...structuredClone(project),
     liveRetrieval: null,
     retrievalRuns,
-    sourceMaterials: records.map((material, index) =>
+    reportRevision,
+    sourceSetHash,
+    researchReport,
+    researchReportHistory,
+    finalLibraryScreening,
+    sourceMaterials: acceptedRecords.map((material, index) =>
       normalizeSourceMaterial(material, index, project.id, {
         trustedRetrievalReceipt: true,
       }),
@@ -482,10 +643,26 @@ function invalidateRetrievalPurposes(
       .flatMap((run) => run.receipt?.records ?? [])
       .map((record) => [record.sourceId ?? record.id, record]),
   ).values()];
+  const invalidatesReport = reset.has("finalLibrary") && Boolean(project.researchReport);
+  const researchReportHistory = Array.isArray(project.researchReportHistory)
+    ? structuredClone(project.researchReportHistory)
+    : [];
+  if (invalidatesReport) {
+    researchReportHistory.push({
+      binding: structuredClone(project.researchReport.binding),
+      invalidatedAt: invalidatedAt ?? null,
+      reason: "正式检索协议修订使原报告来源绑定失效。",
+    });
+  }
   return {
     ...structuredClone(project),
     retrievalRuns,
     retrievalRunHistory: archived,
+    researchReport: invalidatesReport ? null : project.researchReport ?? null,
+    reportRevision: Number.isInteger(project.reportRevision) ? project.reportRevision : 0,
+    sourceSetHash: invalidatesReport ? null : project.sourceSetHash ?? null,
+    finalLibraryScreening: invalidatesReport ? null : project.finalLibraryScreening ?? null,
+    researchReportHistory,
     sourceMaterials: records.map((material, index) =>
       normalizeSourceMaterial(material, index, project.id, {
         trustedRetrievalReceipt: true,
@@ -711,6 +888,20 @@ export class ResearchAgentServiceV1 {
     if (!state.created) fail("PROJECT_NOT_FOUND", `Unknown project: ${projectId}`);
     const artifacts = await this.#hydrateArtifacts(state);
     const project = await this.#projectSnapshot(state, { artifacts });
+    if (project.researchReport) {
+      try {
+        assertResearchReportBinding(project.researchReport, {
+          projectId: project.id,
+          sourceSetHash: project.sourceSetHash,
+          reportRevision: project.reportRevision,
+        });
+      } catch (error) {
+        fail(
+          "INVALID_PERSISTED_RESEARCH_REPORT",
+          `持久化科研简报未通过来源清单与派生分析完整性核查：${error.message}`,
+        );
+      }
+    }
     const projection = {
       ...getRuntimeUserProjection(this.machine, state),
       boundary: this.#boundary(state, artifacts),
@@ -2471,7 +2662,7 @@ export class ResearchAgentServiceV1 {
           ? currentRetrievalRuns[output.slot - 1] ?? currentRetrievalRuns[0]
           : currentRetrievalRuns[0]
         : null;
-      const candidateContent = boundRun
+      const retrievalBoundContent = boundRun
         ? {
             ...candidate.content,
             retrievalMode: "live_pubmed",
@@ -2492,6 +2683,16 @@ export class ResearchAgentServiceV1 {
             })),
           }
         : candidate.content;
+      const candidateContent =
+        workOrder.project.researchReport && REPORT_BOUND_ARTIFACT_TYPES.has(output.type)
+          ? bindArtifactToResearchReport(
+              retrievalBoundContent,
+              workOrder.project.researchReport,
+            )
+          : retrievalBoundContent;
+      if (workOrder.project.researchReport && REPORT_BOUND_ARTIFACT_TYPES.has(output.type)) {
+        assertArtifactResearchReportBinding(candidateContent, workOrder.project.researchReport);
+      }
       const contentHash = await this.#putContent(candidateContent);
       await this.#dispatch(projectId, "PRODUCE_ARTIFACT", executor, {
         nodeId: node.id,

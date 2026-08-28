@@ -87,6 +87,13 @@ test("canonical guided Pi flow reaches audited delivery through every human boun
       },
     ],
     sampleSourceIds: ["pubmed:12345678"],
+    subjectConcepts: [{
+      conceptId: "subject:complete-flow",
+      sourceTerm: "完整流程证据",
+      role: "core_entity",
+      mappedTerms: ["bounded abstract", "complete flow"],
+      meshTerms: [],
+    }],
   };
   await service.createProject({
     id: projectId,

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   generatePubMedQueryPlan,
   generatePubMedQueryCandidates,
+  inferResearchSubjectConcepts,
   previewPubMedQueryPlan,
 } from "./research-query-planner-v1.js";
 
@@ -16,10 +17,10 @@ function gatewayFor(searchImpl) {
         records: resultIds.map((pmid) => ({
           sourceId: `pubmed:${pmid}`,
           pmid,
-          title: `Sample ${pmid}`,
+          title: `Sleep and postoperative recovery review ${pmid}`,
           abstract: pmid === "1"
-            ? "A systematic review and meta-analysis of bounded evidence."
-            : "A scoping review of a bounded topic.",
+            ? "A systematic review and meta-analysis of sleep and postoperative recovery evidence."
+            : "A scoping review of sleep and recovery after surgery.",
           journal: "Journal of Bounded Reviews",
           year: pmid === "1" ? "2026" : "2025",
           accessLevel: "abstract_only",
@@ -65,6 +66,7 @@ test("query planning is a no-retrieval human confirmation step with a rolling fi
   assert.equal(plan.reviewWindow.from, "2021/08/15");
   assert.equal(plan.reviewWindow.to, "2026/08/15");
   assert.match(plan.reviewWindow.publicationTypeClause, /systematic\[sb\]/);
+  assert.match(plan.reviewWindow.publicationTypeClause, /NOT guideline\[Publication Type\]/i);
   assert.match(plan.accessBoundary, /不访问 PubMed/);
   assert.match(plan.planHash, /^[a-f0-9]{64}$/);
 });
@@ -219,7 +221,7 @@ test("confirmed strategy adds a five-year PubMed review landscape and bounded st
     reviewSampleLimit: 20,
     now: () => new Date("2026-08-15T01:00:02.000Z"),
   });
-  assert.equal(calls.length, 8);
+  assert.equal(calls.length, 7);
   assert.match(calls[1].query, /review\[Publication Type\]/);
   assert.match(calls[1].query, /2021\/08\/15/);
   assert.equal(preview.reviewLandscape.status, "ready");
@@ -230,8 +232,9 @@ test("confirmed strategy adds a five-year PubMed review landscape and bounded st
   assert.equal(preview.reviewLandscape.synthesis.analyzedSourceCount, 2);
   assert.ok(preview.reviewLandscape.synthesis.methodSignals.length > 0);
   assert.ok(preview.reviewLandscape.sources.every((source) => source.abstractAnalysis));
-  assert.equal(preview.reviewLandscape.samplingStrategy.id, "method_focused_year_stratified");
-  assert.equal(preview.reviewLandscape.samplingStrategy.buckets.length, 6);
+  assert.equal(preview.reviewLandscape.samplingStrategy.id, "method_focused_rolling_windows");
+  assert.equal(preview.reviewLandscape.samplingStrategy.buckets.length, 5);
+  assert.match(preview.reviewLandscape.samplingStrategy.boundary, /不承诺得到相同顺序/);
   assert.match(preview.reviewLandscape.stageBrief.evidenceBoundary, /不是全量文献计量/);
 });
 
@@ -250,4 +253,56 @@ test("zero-result and failed candidates remain explicit in the same plan", async
   assert.equal(preview.candidates[0].status, "zero_results");
   assert.equal(preview.candidates[1].status, "failed");
   assert.equal(preview.candidates[1].error.code, "PUBMED_SEARCH_FAILED");
+});
+
+test("legacy subject concepts are derived only when the research object is explicit", () => {
+  const gastric = inferResearchSubjectConcepts({ question: "胃癌的研究现状" });
+  assert.equal(gastric.status, "derived");
+  assert.deepEqual(gastric.concepts.map((concept) => concept.sourceTerm), ["胃癌"]);
+  assert.equal(gastric.concepts.every((concept) => concept.role === "subject"), true);
+
+  const unknown = inferResearchSubjectConcepts({ question: "罕见未知综合征的研究现状" });
+  assert.equal(unknown.status, "unresolved");
+  assert.deepEqual(unknown.concepts, []);
+  assert.match(unknown.reason, /请重新确认研究对象/);
+});
+
+test("a zero-related review scan is API-ready blocked data and exposes no synthesis directions", async () => {
+  const gateway = {
+    async searchPubMed({ query }) {
+      return {
+        provider: "pubmed",
+        query,
+        total: 1,
+        resultIds: ["999"],
+        executedAt: "2026-08-27T00:00:00.000Z",
+      };
+    },
+    async fetchPubMed() {
+      return {
+        provider: "pubmed",
+        fetchedAt: "2026-08-27T00:00:01.000Z",
+        records: [{
+          sourceId: "pubmed:999",
+          pmid: "999",
+          title: "Sleep after orthopedic surgery: a systematic review",
+          abstract: "This review evaluates postoperative sleep after joint replacement.",
+          accessLevel: "abstract_only",
+          locator: { pmid: "999", url: "https://pubmed.ncbi.nlm.nih.gov/999/" },
+        }],
+      };
+    },
+  };
+  const preview = await previewPubMedQueryPlan({
+    gateway,
+    question: "胃癌的研究现状",
+    candidateQueries: [{ id: "gastric", label: "胃癌检索", query: '"gastric cancer"[Title]' }],
+    reviewScanCandidateId: "gastric",
+    now: () => new Date("2026-08-27T00:00:02.000Z"),
+  });
+  assert.equal(preview.reviewLandscape.status, "relevance_blocked");
+  assert.equal(preview.reviewLandscape.researchReport.relevanceGate.status, "blocked");
+  assert.equal(preview.reviewLandscape.researchReport.relevanceGate.relevantCount, 0);
+  assert.equal(preview.reviewLandscape.synthesis, null);
+  assert.equal(preview.reviewLandscape.directionReport, undefined);
 });

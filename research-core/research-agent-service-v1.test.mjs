@@ -96,6 +96,18 @@ function queryPreviewSelection({
     executedAt: candidateStatus === "failed" ? null : "2026-08-12T08:00:00.000Z",
     samples: candidateStatus === "failed" ? [] : [sample],
     sampleSourceIds: candidateStatus === "failed" ? [] : [sample.sourceId],
+    subjectConcepts: [{
+      conceptId: "subject:test-query",
+      sourceTerm: "测试研究对象",
+      role: "core_entity",
+      mappedTerms: [...new Set([
+        ...(String(query ?? "")
+          .replace(/\[[^\]]+\]/g, " ")
+          .match(/[A-Za-z][A-Za-z-]{3,}/g) ?? []),
+        "bounded",
+      ])].filter((term) => !["AND", "OR", "NOT"].includes(term.toUpperCase())),
+      meshTerms: [],
+    }],
     ...(candidateStatus === "failed"
       ? { error: { code: "PREVIEW_TIMEOUT", message: "预检暂时失败。" } }
       : {}),
@@ -496,6 +508,20 @@ test("formal PubMed retrieval runs are protocol-bound, multi-round, and restart-
       url: "https://pubmed.ncbi.nlm.nih.gov/12345678/",
     },
   };
+  const offTopicRecord = {
+    sourceId: "pubmed:87654321",
+    provider: "pubmed",
+    pmid: "87654321",
+    title: "An unrelated orthopedic rehabilitation review",
+    abstract: "This review evaluates mobility after joint replacement.",
+    journal: "Other Journal",
+    year: "2025",
+    accessLevel: "abstract_only",
+    locator: {
+      pmid: "87654321",
+      url: "https://pubmed.ncbi.nlm.nih.gov/87654321/",
+    },
+  };
   const gateway = {
     async searchPubMed({ query }) {
       searches += 1;
@@ -503,15 +529,18 @@ test("formal PubMed retrieval runs are protocol-bound, multi-round, and restart-
         provider: "pubmed",
         query,
         executedAt: "2026-08-12T08:00:00.000Z",
-        total: 1,
-        resultIds: ["12345678"],
+        total: 2,
+        resultIds: ["12345678", "87654321"],
       };
     },
     async fetchPubMed() {
       return {
         provider: "pubmed",
         fetchedAt: "2026-08-12T08:00:01.000Z",
-        records: [{ ...rawRecord, sourceSnapshotHash: sha256(rawRecord) }],
+        records: [
+          { ...rawRecord, sourceSnapshotHash: sha256(rawRecord) },
+          { ...offTopicRecord, sourceSnapshotHash: sha256(offTopicRecord) },
+        ],
         accessBoundary: "本轮只访问 PubMed 题录与摘要。",
       };
     },
@@ -590,6 +619,22 @@ test("formal PubMed retrieval runs are protocol-bound, multi-round, and restart-
   assert.ok(searches >= 5, "two focused variants and the final library must execute after orientation");
   assert.equal(nextGate.project.retrievalRuns.focusedCalibration.length, 2);
   assert.equal(nextGate.project.retrievalRuns.finalLibrary.purpose, "finalLibrary");
+  assert.equal(nextGate.project.retrievalRuns.finalLibrary.receipt.records.length, 2);
+  assert.equal(nextGate.project.sourceMaterials.length, 1);
+  assert.equal(nextGate.project.sourceMaterials[0].id, "pubmed:12345678");
+  assert.equal(nextGate.project.finalLibraryScreening.retrievedCount, 2);
+  assert.equal(nextGate.project.finalLibraryScreening.acceptedCount, 1);
+  assert.equal(nextGate.project.finalLibraryScreening.excludedCount, 1);
+  assert.deepEqual(
+    nextGate.project.finalLibraryScreening.exclusions.map((item) => item.sourceId),
+    ["pubmed:87654321"],
+  );
+  assert.equal(nextGate.project.sourceSetHash, nextGate.project.researchReport.binding.sourceSetHash);
+  assert.equal(nextGate.project.researchReport.ledger.rowCount, 2);
+  assert.equal(nextGate.project.researchReport.ledger.analyzedRowCount, 1);
+  assert.ok(nextGate.artifacts
+    .filter((artifact) => artifact.type === "EvidenceRecord")
+    .every((artifact) => artifact.content.sourceId !== "pubmed:87654321"));
   const purposes = [
     nextGate.project.retrievalRuns.pilot,
     nextGate.project.retrievalRuns.orientationCorpus,

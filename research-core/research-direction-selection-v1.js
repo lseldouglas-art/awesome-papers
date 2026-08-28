@@ -1,4 +1,8 @@
 import { sha256 } from "./event-engine-v1.js";
+import {
+  assertResearchReportBinding,
+  assertResearchReportSelectionBinding,
+} from "./research-report-contract-v1.js";
 
 export const RESEARCH_DIRECTION_SELECTION_SCHEMA_VERSION =
   "research-direction-selection/v1";
@@ -29,15 +33,57 @@ function cleanText(value, maximum = 2_000) {
 }
 
 function directionCandidates(preview) {
+  const reviewDirections = asArray(
+    preview?.reviewLandscape?.researchReport?.derivedAnalysis?.reviewSynthesis
+      ?.professorReport?.studentReviewDirections,
+  ).length > 0
+    ? asArray(
+        preview.reviewLandscape.researchReport.derivedAnalysis.reviewSynthesis
+          .professorReport.studentReviewDirections,
+      )
+    : asArray(
+        preview?.reviewLandscape?.synthesis?.professorReport?.studentReviewDirections,
+      );
+  if (reviewDirections.length > 0) {
+    return reviewDirections.map((candidate) => ({
+      ...candidate,
+      directionKind: "review_topic",
+      displayTitle: cleanText(candidate?.suggestedTitle, 500),
+      direction: cleanText(candidate?.suggestedTitle, 500),
+      recommendedQuestion: cleanText(candidate?.suggestedTitle, 1_200),
+      studyPlan: candidate?.reviewPlan
+        ? {
+            studyDesign: cleanText(candidate.reviewPlan.reviewType, 1_000),
+            populationAndComparison: cleanText(candidate.reviewPlan.populationAndComparison, 1_500),
+            coreOutcomes: asArray(candidate.reviewPlan.coreOutcomes),
+            executionSteps: asArray(candidate.reviewPlan.organization),
+            decisionGate: cleanText(candidate.verificationGate, 1_500),
+          }
+        : null,
+    }));
+  }
   return asArray(
     preview?.reviewLandscape?.synthesis?.directionReport?.directions,
-  );
+  ).map((candidate) => ({
+    ...candidate,
+    directionKind: "legacy_research_direction",
+    displayTitle: cleanText(candidate?.direction, 500),
+  }));
 }
 
 const DIRECTION_FOCUS_QUERIES = Object.freeze({
+  early_onset: '("early-onset"[Title/Abstract] OR "early onset"[Title/Abstract] OR "young-onset"[Title/Abstract] OR "young onset"[Title/Abstract] OR "younger patients"[Title/Abstract])',
+  generic_diagnosis_measurement: '(diagnos*[Title/Abstract] OR screening[Title/Abstract] OR detection[Title/Abstract] OR measurement[Title/Abstract] OR validation[Title/Abstract])',
+  generic_intervention_management: '(intervention*[Title/Abstract] OR treatment[Title/Abstract] OR therapy[Title/Abstract] OR management[Title/Abstract])',
+  generic_risk_prognosis: '("risk factor"[Title/Abstract] OR prognos*[Title/Abstract] OR predictor*[Title/Abstract] OR stratification[Title/Abstract])',
+  generic_mechanism_pathway: '(mechanism*[Title/Abstract] OR pathway*[Title/Abstract] OR pathophysiolog*[Title/Abstract] OR mediator*[Title/Abstract])',
+  generic_outcomes_recovery: '(outcome*[Title/Abstract] OR symptom*[Title/Abstract] OR recovery[Title/Abstract] OR "quality of life"[Title/Abstract])',
+  generic_digital_methods: '("artificial intelligence"[Title/Abstract] OR "machine learning"[Title/Abstract] OR "digital health"[Title/Abstract])',
+  generic_implementation_equity: '(implementation[Title/Abstract] OR accessibility[Title/Abstract] OR equity[Title/Abstract] OR disparit*[Title/Abstract])',
   early_detection_screening: '("Early Detection of Cancer"[Mesh] OR screening[Title/Abstract] OR "early detection"[Title/Abstract] OR radiomics[Title/Abstract])',
   biomarkers_molecular: '("Biomarkers"[Mesh] OR biomarker*[Title/Abstract] OR molecular[Title/Abstract] OR genomic*[Title/Abstract] OR mutation*[Title/Abstract])',
   targeted_therapy: '("Molecular Targeted Therapy"[Mesh] OR "targeted therapy"[Title/Abstract] OR "tyrosine kinase inhibitor"[Title/Abstract] OR TKI[Title/Abstract])',
+  systemic_treatment: '("Antineoplastic Combined Chemotherapy Protocols"[Mesh] OR "systemic therapy"[Title/Abstract] OR chemotherapy[Title/Abstract] OR "treatment sequence"[Title/Abstract])',
   immunotherapy: '("Immunotherapy"[Mesh] OR immunotherap*[Title/Abstract] OR "immune checkpoint"[Title/Abstract] OR PD-1[Title/Abstract] OR PD-L1[Title/Abstract])',
   perioperative_treatment: '("Perioperative Care"[Mesh] OR perioperative[Title/Abstract] OR neoadjuvant[Title/Abstract] OR adjuvant[Title/Abstract])',
   local_treatment: '("Radiotherapy"[Mesh] OR "Surgical Procedures, Operative"[Mesh] OR surgery[Title/Abstract] OR radiotherap*[Title/Abstract] OR ablation[Title/Abstract])',
@@ -50,9 +96,18 @@ const DIRECTION_FOCUS_QUERIES = Object.freeze({
 });
 
 const DIRECTION_FOCUS_MAPPINGS = Object.freeze({
+  early_onset: { meshTerms: [], mappedTerms: ["early-onset", "early onset", "young-onset", "young onset", "younger patients"] },
+  generic_diagnosis_measurement: { meshTerms: [], mappedTerms: ["diagnosis", "screening", "detection", "measurement", "validation"] },
+  generic_intervention_management: { meshTerms: [], mappedTerms: ["intervention", "treatment", "therapy", "management"] },
+  generic_risk_prognosis: { meshTerms: [], mappedTerms: ["risk factor", "prognosis", "predictor", "stratification"] },
+  generic_mechanism_pathway: { meshTerms: [], mappedTerms: ["mechanism", "pathway", "pathophysiology", "mediator"] },
+  generic_outcomes_recovery: { meshTerms: [], mappedTerms: ["outcome", "symptom", "recovery", "quality of life"] },
+  generic_digital_methods: { meshTerms: [], mappedTerms: ["artificial intelligence", "machine learning", "digital health"] },
+  generic_implementation_equity: { meshTerms: [], mappedTerms: ["implementation", "accessibility", "equity", "disparity"] },
   early_detection_screening: { meshTerms: ["Early Detection of Cancer"], mappedTerms: ["screening", "early detection", "radiomics"] },
   biomarkers_molecular: { meshTerms: ["Biomarkers"], mappedTerms: ["biomarker", "molecular", "genomic", "mutation"] },
   targeted_therapy: { meshTerms: ["Molecular Targeted Therapy"], mappedTerms: ["targeted therapy", "tyrosine kinase inhibitor", "TKI"] },
+  systemic_treatment: { meshTerms: ["Antineoplastic Combined Chemotherapy Protocols"], mappedTerms: ["systemic therapy", "chemotherapy", "treatment sequence"] },
   immunotherapy: { meshTerms: ["Immunotherapy"], mappedTerms: ["immunotherapy", "immune checkpoint", "PD-1", "PD-L1"] },
   perioperative_treatment: { meshTerms: ["Perioperative Care"], mappedTerms: ["perioperative", "neoadjuvant", "adjuvant"] },
   local_treatment: { meshTerms: ["Radiotherapy", "Surgical Procedures, Operative"], mappedTerms: ["surgery", "radiotherapy", "ablation"] },
@@ -63,6 +118,26 @@ const DIRECTION_FOCUS_MAPPINGS = Object.freeze({
   ai_digital: { meshTerms: ["Artificial Intelligence"], mappedTerms: ["artificial intelligence", "machine learning", "deep learning"] },
   prevention_epidemiology: { meshTerms: [], mappedTerms: ["prevention", "epidemiology", "risk factor"] },
 });
+
+const GASTRIC_EARLY_ONSET_FOCUS_QUERY =
+  '("early-onset"[Title/Abstract] OR "early onset"[Title/Abstract] OR "young-onset"[Title/Abstract] OR "young onset"[Title/Abstract] OR EOGC[Title/Abstract] OR "younger patients"[Title/Abstract])';
+const GASTRIC_EARLY_ONSET_FOCUS_MAPPING = Object.freeze({
+  meshTerms: [],
+  mappedTerms: ["early-onset", "early onset", "young-onset", "young onset", "EOGC", "younger patients"],
+});
+
+function focusBindingFor(themeId, taxonomyProfile) {
+  if (themeId === "early_onset" && taxonomyProfile === "gastric_oncology_v1") {
+    return {
+      query: GASTRIC_EARLY_ONSET_FOCUS_QUERY,
+      mapping: GASTRIC_EARLY_ONSET_FOCUS_MAPPING,
+    };
+  }
+  return {
+    query: DIRECTION_FOCUS_QUERIES[themeId] ?? null,
+    mapping: DIRECTION_FOCUS_MAPPINGS[themeId] ?? null,
+  };
+}
 
 function sourceCandidateFor(preview) {
   const selectedId = preview?.reviewLandscape?.selectedCandidateId;
@@ -113,6 +188,21 @@ export function buildResearchDirectionSelection({
   if (!/^[a-f0-9]{64}$/i.test(preview.planHash ?? "")) {
     fail("INVALID_DIRECTION_PREVIEW", "综述扫描缺少可验证的计划指纹。");
   }
+  const researchReport = preview?.reviewLandscape?.researchReport ?? null;
+  if (researchReport) {
+    try {
+      assertResearchReportBinding(researchReport);
+    } catch (error) {
+      fail("INVALID_RESEARCH_REPORT_BINDING", error.message);
+    }
+    if (researchReport.relevanceGate?.status !== "passed") {
+      fail(
+        "RESEARCH_SUBJECT_RELEVANCE_BLOCKED",
+        "当前来源未通过研究对象相关性门禁，不能生成或选择综述方向。",
+        { relevanceGate: researchReport.relevanceGate },
+      );
+    }
+  }
   const candidates = directionCandidates(preview);
   const selectedDirection = candidates.find(
     (candidate) => candidate.id === selectedDirectionId,
@@ -138,8 +228,15 @@ export function buildResearchDirectionSelection({
   const sourceQuestion = cleanText(preview.question, 1_200);
   const sourceCandidate = sourceCandidateFor(preview);
   const sourceQuery = cleanText(sourceCandidate?.query, 2_000);
-  const focusQuery = DIRECTION_FOCUS_QUERIES[selectedDirection.themeId] ?? null;
-  const focusTerms = DIRECTION_FOCUS_MAPPINGS[selectedDirection.themeId] ?? null;
+  const taxonomyProfile = cleanText(
+    selectedDirection.taxonomyProfile
+      ?? researchReport?.derivedAnalysis?.reviewSynthesis?.taxonomyProfile,
+    100,
+  ) || null;
+  const subjectLabel = cleanText(selectedDirection.subjectLabel, 240) || null;
+  const focusBinding = focusBindingFor(selectedDirection.themeId, taxonomyProfile);
+  const focusQuery = focusBinding.query;
+  const focusTerms = focusBinding.mapping;
   const suggestedQuery = focusQuery && sourceQuery
     ? `(${sourceQuery}) AND ${focusQuery}`.slice(0, 4_000)
     : sourceQuery;
@@ -156,12 +253,26 @@ export function buildResearchDirectionSelection({
     schemaVersion: RESEARCH_DIRECTION_SELECTION_SCHEMA_VERSION,
     sourceRound: 1,
     sourcePreviewPlanHash: preview.planHash,
+    ...(researchReport ? { reportBinding: structuredClone(researchReport.binding) } : {}),
     sourceQuestion,
     sourceQuery,
     selectedDirection: {
       id: selectedDirection.id,
+      directionKind: selectedDirection.directionKind,
       themeId: selectedDirection.themeId ?? null,
+      taxonomyProfile,
+      subjectLabel,
       gapId: selectedDirection.gapId ?? null,
+      displayTitle: cleanText(selectedDirection.displayTitle, 500),
+      suggestedTitle: cleanText(selectedDirection.suggestedTitle, 500) || null,
+      priority: cleanText(selectedDirection.priority, 240) || null,
+      portfolioRole: cleanText(selectedDirection.portfolioRole, 160) || null,
+      existingCoverage: selectedDirection.existingCoverage && typeof selectedDirection.existingCoverage === "object"
+        ? structuredClone(selectedDirection.existingCoverage)
+        : null,
+      incrementalValueHypothesis: cleanText(selectedDirection.incrementalValueHypothesis, 2_000) || null,
+      whyNotFullyReviewed: cleanText(selectedDirection.whyNotFullyReviewed, 2_000) || null,
+      whyPotentiallyValuable: cleanText(selectedDirection.whyPotentiallyValuable, 2_000) || null,
       direction: cleanText(selectedDirection.direction, 240),
       recommendedQuestion: cleanText(selectedDirection.recommendedQuestion, 1_200),
       whySuitable: cleanText(selectedDirection.whySuitable, 2_000),
@@ -169,6 +280,17 @@ export function buildResearchDirectionSelection({
       studyPlan: selectedDirection.studyPlan && typeof selectedDirection.studyPlan === "object"
         ? structuredClone(selectedDirection.studyPlan)
         : null,
+      reviewPlan: selectedDirection.reviewPlan && typeof selectedDirection.reviewPlan === "object"
+        ? structuredClone(selectedDirection.reviewPlan)
+        : null,
+      outline: asArray(selectedDirection.outline).map((item) => cleanText(item, 500)).filter(Boolean),
+      workload: selectedDirection.workload && typeof selectedDirection.workload === "object"
+        ? structuredClone(selectedDirection.workload)
+        : null,
+      verificationGate: cleanText(selectedDirection.verificationGate, 1_500) || null,
+      discardConditions: asArray(selectedDirection.discardConditions)
+        .map((item) => cleanText(item, 800))
+        .filter(Boolean),
     },
     selectionReason: normalizedSelectionReason,
     deferredDirections,
@@ -181,6 +303,8 @@ export function buildResearchDirectionSelection({
     narrowedBrief: {
       schemaVersion: "research-narrowed-question-brief/v1",
       question: narrowedQuestion,
+      taxonomyProfile,
+      subjectLabel,
       suggestedQuery,
       focusMapping: focusTerms
         ? {
@@ -201,14 +325,25 @@ export function buildResearchDirectionSelection({
         1_500,
       ) || "当前摘要未形成足够具体的人群与比较边界，第二轮检索后由研究者确认。",
       studyDesign: cleanText(selectedDirection.studyPlan?.studyDesign, 1_000)
-        || "研究设计待第二轮检索校准后确认。",
+        || "综述类型待第二轮同题综述检索和证据异质性评估后确认。",
+      reviewType: cleanText(selectedDirection.studyPlan?.studyDesign, 1_000)
+        || "系统综述或范围综述（待窄检索确认）",
+      reviewOutline: asArray(selectedDirection.outline)
+        .map((item) => cleanText(item, 500))
+        .filter(Boolean),
+      workload: selectedDirection.workload && typeof selectedDirection.workload === "object"
+        ? structuredClone(selectedDirection.workload)
+        : null,
+      verificationGate: cleanText(selectedDirection.verificationGate, 1_500)
+        || cleanText(selectedDirection.studyPlan?.decisionGate, 1_500)
+        || "先排除高质量同题综述，并确认文献量与周期可行。",
       coreOutcomes: asArray(selectedDirection.studyPlan?.coreOutcomes)
         .map((item) => cleanText(item, 240))
         .filter(Boolean),
       evidenceBoundary:
-        "该问题由当前 PubMed 综述题名与可用摘要生成，是第二轮检索假设，不是研究空白定论、因果结论或临床建议。",
+        "该综述题目由当前 PubMed 综述题名与可用摘要生成，是第二轮同题综述窄检索假设，不是研究空白、创新性、可发表性或临床建议定论。",
       nextDecision:
-        "围绕收窄后的问题重新生成检索式，完成前 100 篇反馈校准与近五年综述扫描，再决定是否建立正式项目。",
+        "围绕候选综述题目重新生成窄检索式，核对近两年同题综述、50–100 篇核心文献目标的可得性和 10–12 周目标周期，再决定是否建立正式项目。",
     },
   };
   return { ...body, decisionHash: sha256(body) };
@@ -227,6 +362,30 @@ export function validateResearchDirectionSelection(value) {
   }
   if (!/^[a-f0-9]{64}$/i.test(value.decisionHash ?? "")) {
     issues.push("decisionHash must be SHA-256");
+  }
+  if (value.reportBinding !== undefined) {
+    if (!value.reportBinding || typeof value.reportBinding !== "object") {
+      issues.push("reportBinding must be an object");
+    } else {
+      if (!(value.reportBinding.projectId === null || hasText(value.reportBinding.projectId))) {
+        issues.push("reportBinding.projectId must be null or a project id");
+      }
+      if (!/^[a-f0-9]{64}$/i.test(value.reportBinding.sourceSetHash ?? "")) {
+        issues.push("reportBinding.sourceSetHash must be SHA-256");
+      }
+      if (!Number.isInteger(value.reportBinding.reportRevision) || value.reportBinding.reportRevision < 1) {
+        issues.push("reportBinding.reportRevision must be an integer >= 1");
+      }
+      if (!/^[a-f0-9]{64}$/i.test(value.reportBinding.reportHash ?? "")) {
+        issues.push("reportBinding.reportHash must be SHA-256");
+      }
+      if (!/^[a-f0-9]{64}$/i.test(value.reportBinding.frozenSourceManifestHash ?? "")) {
+        issues.push("reportBinding.frozenSourceManifestHash must be SHA-256");
+      }
+      if (!/^[a-f0-9]{64}$/i.test(value.reportBinding.derivedAnalysisHash ?? "")) {
+        issues.push("reportBinding.derivedAnalysisHash must be SHA-256");
+      }
+    }
   }
   if (!hasText(value.sourceQuestion, 4)) issues.push("sourceQuestion is required");
   if (!hasText(value.sourceQuery, 3)) issues.push("sourceQuery is required");
@@ -256,10 +415,17 @@ export function validateResearchDirectionSelection(value) {
   return issues;
 }
 
-export function assertValidResearchDirectionSelection(value) {
+export function assertValidResearchDirectionSelection(value, { researchReport = null } = {}) {
   const issues = validateResearchDirectionSelection(value);
   if (issues.length) {
     fail("INVALID_RESEARCH_DIRECTION_SELECTION", issues.join("; "), { issues });
+  }
+  if (researchReport) {
+    try {
+      assertResearchReportSelectionBinding(value, researchReport);
+    } catch (error) {
+      fail("STALE_RESEARCH_REPORT_BINDING", error.message);
+    }
   }
   return value;
 }

@@ -42,8 +42,8 @@ function pubmedXml(id) {
     "<PubmedArticleSet><PubmedArticle><MedlineCitation>",
     `<PMID>${id}</PMID>`,
     "<Article>",
-    `<ArticleTitle>Mock PubMed evidence for ${id}</ArticleTitle>`,
-    "<Abstract><AbstractText>This systematic review followed PRISMA and reports a bounded association. Patient selection biomarkers remain unclear, longer follow-up is needed, and the findings do not establish causality.</AbstractText></Abstract>",
+    `<ArticleTitle>Perioperative sleep and postoperative recovery evidence for ${id}</ArticleTitle>`,
+    "<Abstract><AbstractText>This systematic review followed PRISMA and evaluates sleep quality and postoperative recovery. Patient selection biomarkers remain unclear, longer follow-up is needed, and the findings do not establish causality.</AbstractText></Abstract>",
     "<Journal><Title>Local Integration Journal</Title><JournalIssue><PubDate><Year>2026</Year></PubDate></JournalIssue></Journal>",
     "</Article></MedlineCitation><PubmedData><ArticleIdList>",
     `<ArticleId IdType=\"doi\">10.1000/mock.${id}</ArticleId>`,
@@ -287,21 +287,52 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
   assert.ok(preview.body.reviewLandscape.synthesis.directionReport);
   assert.ok(Array.isArray(preview.body.reviewLandscape.synthesis.directionReport.directions));
   assert.match(preview.body.reviewLandscape.synthesis.directionReport.boundary, /选题假设/);
+  assert.equal(
+    preview.body.reviewLandscape.synthesis.professorReport.schemaVersion,
+    "research-professor-report/v1",
+  );
+  assert.ok(Array.isArray(preview.body.reviewLandscape.synthesis.professorReport.studentReviewDirections));
+  assert.ok(preview.body.reviewLandscape.synthesis.professorReport.studentReviewDirections.length > 0);
+  assert.equal(preview.body.reviewLandscape.synthesis.professorReport.traceability.sourceIds.length, 1);
+  assert.match(preview.body.reviewLandscape.synthesis.professorReport.boundary, /题名摘要/);
   assert.equal(preview.body.reviewLandscape.synthesis.sourceAnalyses.length, 1);
   assert.ok(preview.body.reviewLandscape.sources[0].abstractAnalysis);
   assert.match(preview.body.reviewLandscape.query, /review\[Publication Type\]/i);
-  assert.match(preview.body.reviewLandscape.stageBrief.evidenceBoundary, /PubMed 当前排序前/);
+  assert.match(preview.body.reviewLandscape.stageBrief.evidenceBoundary, /当前排序样本/);
   assert.equal(preview.body.strategyCalibration.calibrationHash, calibration.body.calibrationHash);
   assert.match(preview.body.accessBoundary, /不会建立项目/);
   assert.equal((await requestJson(workbench.baseUrl, "/api/research/projects")).body.length, 0);
 
-  const firstDirection = preview.body.reviewLandscape.synthesis.directionReport.directions[0];
-  assert.ok(firstDirection, "the first-round review should expose at least one actionable direction");
+  const firstDirection = preview.body.reviewLandscape.synthesis.professorReport.studentReviewDirections[0];
+  assert.ok(firstDirection, "the first-round review should expose at least one review-topic proposal");
+  assert.match(firstDirection.id, /^review_proposal_/);
+  const reportBinding = preview.body.reviewLandscape.researchReport.binding;
+  const staleBindings = [
+    { ...reportBinding, projectId: "project:wrong" },
+    { ...reportBinding, sourceSetHash: "f".repeat(64) },
+    { ...reportBinding, reportRevision: reportBinding.reportRevision + 1 },
+  ];
+  for (const staleBinding of staleBindings) {
+    const rejected = await requestJson(workbench.baseUrl, "/api/research/direction-selection", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        queryPlanHash: preview.body.planHash,
+        reportBinding: staleBinding,
+        selectedDirectionId: firstDirection.id,
+        selectionReason: "这个方向最贴近当前团队能力与待消除的不确定性。",
+        deferredReason: "其余方向保留为备选，等待第二轮范围比较。",
+      }),
+    });
+    assert.equal(rejected.response.status, 409);
+    assert.equal(rejected.body.code, "STALE_RESEARCH_REPORT_BINDING");
+  }
   const directionSelection = await requestJson(workbench.baseUrl, "/api/research/direction-selection", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       queryPlanHash: preview.body.planHash,
+      reportBinding,
       selectedDirectionId: firstDirection.id,
       selectionReason: "这个方向最贴近当前团队能力与待消除的不确定性。",
       deferredReason: "其余方向保留为备选，等待第二轮范围比较。",
@@ -310,7 +341,7 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
   assert.equal(directionSelection.response.status, 200);
   assert.match(directionSelection.body.decisionHash, /^[a-f0-9]{64}$/);
   assert.equal(directionSelection.body.selectedBy.kind, "human");
-  assert.match(directionSelection.body.narrowedBrief.evidenceBoundary, /第二轮检索假设/);
+  assert.match(directionSelection.body.narrowedBrief.evidenceBoundary, /第二轮同题综述窄检索假设/);
 
   const secondPlan = await requestJson(workbench.baseUrl, "/api/research/query-plan", {
     method: "POST",
@@ -343,6 +374,26 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
     }),
   });
   assert.equal(secondCalibration.response.status, 200);
+  assert.equal(
+    secondCalibration.body.revisedPlan.directionSeed.decisionHash,
+    directionSelection.body.decisionHash,
+  );
+  const editedFocusedCandidates = structuredClone(secondCalibration.body.revisedPlan.candidates);
+  editedFocusedCandidates[0].query = queryPlan.body.candidates[0].query;
+  const rejectedEditedFocusedPreview = await requestJson(workbench.baseUrl, "/api/research/query-preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      question: secondPlan.body.question,
+      candidateQueries: editedFocusedCandidates,
+      reviewScanCandidateId: editedFocusedCandidates[0].id,
+      reviewWindowYears: 5,
+      reviewSampleLimit: 20,
+      calibrationHash: secondCalibration.body.calibrationHash,
+    }),
+  });
+  assert.equal(rejectedEditedFocusedPreview.response.status, 409);
+  assert.equal(rejectedEditedFocusedPreview.body.code, "SECOND_ROUND_DIRECTION_BINDING_MISMATCH");
   const secondPreview = await requestJson(workbench.baseUrl, "/api/research/query-preview", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -356,6 +407,41 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
     }),
   });
   assert.equal(secondPreview.response.status, 200);
+  assert.equal(secondPreview.body.directionBinding.decisionHash, directionSelection.body.decisionHash);
+  assert.equal(secondPreview.body.directionBinding.selectedDirectionId, firstDirection.id);
+  assert.equal(secondPreview.body.directionBinding.reportHash, reportBinding.reportHash);
+
+  const unboundFocusedPreview = await requestJson(workbench.baseUrl, "/api/research/query-preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      question: secondPlan.body.question,
+      candidateQueries: secondCalibration.body.revisedPlan.candidates,
+      reviewScanCandidateId: secondCalibration.body.revisedPlan.candidates[0].id,
+      reviewWindowYears: 5,
+      reviewSampleLimit: 20,
+    }),
+  });
+  assert.equal(unboundFocusedPreview.response.status, 200);
+  const rejectedUnboundCreate = await requestJson(workbench.baseUrl, "/api/research/projects", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": "reject-unbound-second-round",
+    },
+    body: JSON.stringify({
+      title: "不得绕过方向绑定",
+      question: unboundFocusedPreview.body.question,
+      researchMode: "live_pubmed",
+      searchQuery: unboundFocusedPreview.body.candidates[0].query,
+      queryPlanHash: unboundFocusedPreview.body.planHash,
+      selectedCandidateId: unboundFocusedPreview.body.candidates[0].id,
+      directionSelectionHash: directionSelection.body.decisionHash,
+      completionProfileId: "audited_review",
+    }),
+  });
+  assert.equal(rejectedUnboundCreate.response.status, 409);
+  assert.equal(rejectedUnboundCreate.body.code, "SECOND_ROUND_DIRECTION_BINDING_MISMATCH");
 
   const unpreviewedCreate = await requestJson(workbench.baseUrl, "/api/research/projects", {
     method: "POST",
@@ -444,6 +530,10 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
   assert.equal(created.body.status, "awaiting_gate");
   assert.equal(created.body.completionProfileId, "audited_review");
   assert.equal(created.body.pendingGate.nodeId, "approve_scope");
+  assert.equal(created.body.scopingVerification.status, "exploratory_unverified");
+  assert.equal(created.body.scopingVerification.verdict, "unknown");
+  assert.equal(created.body.scopingVerification.sameTopicReviewOverlapVerified, false);
+  assert.equal(created.body.scopingVerification.primaryStudyVolumeVerified, false);
   assert.match(created.body.userBrief.currentResearchPeriod, /问题成形/);
   assert.deepEqual(created.body.userBrief.newConclusions, []);
   assert.match(created.body.userBrief.mainEvidenceAndBoundaries.accessSummary, /综述扫描/);
