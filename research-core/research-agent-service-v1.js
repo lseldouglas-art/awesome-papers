@@ -12,6 +12,7 @@ import { ContentAddressedArtifactStore } from "./content-addressed-artifact-stor
 import {
   AGENT_RUN_EVENT_TYPES,
   AgentRunLog,
+  ORPHANED_EXECUTION_CODE,
   createModelInvocationReceipt,
   deriveProjectRuntimeProvenance,
 } from "./agent-run-log-v1.js";
@@ -56,6 +57,13 @@ import {
 const DEFAULT_LEASE_DURATION_MS = 5 * 60 * 1_000;
 const DEFAULT_MAX_STEPS = 100;
 const WRITE_CONFLICT_RETRIES = 5;
+const ACTIVE_AGENT_RUN_STATUSES = new Set([
+  "created",
+  "awaiting_approval",
+  "running",
+  "paused",
+]);
+const TERMINAL_WORK_ORDER_STATUSES = new Set(["completed", "failed", "cancelled"]);
 const SYSTEM_ACTOR = Object.freeze({
   id: "research-agent-service",
   role: "research_runtime",
@@ -149,6 +157,23 @@ function nowIso(now) {
     fail("INVALID_CLOCK", "The service clock must return a valid date.");
   }
   return date.toISOString();
+}
+
+export function deriveAuthoritativeProjectStatus({ projection, agentRunStatus } = {}) {
+  const boundary = projection?.boundary ?? {};
+  if (boundary.type === "complete") return "completed";
+  if (boundary.type === "human_gate") return "awaiting_gate";
+  if (boundary.type === "human_review") return "awaiting_review";
+  if (boundary.type === "cancelled") return "cancelled";
+  if (boundary.type === "blocked") {
+    return boundary.blockers?.some((blocker) => blocker.id?.startsWith("pause:"))
+      ? "paused"
+      : "blocked";
+  }
+  if (agentRunStatus?.status === "paused") return "paused";
+  if (ACTIVE_AGENT_RUN_STATUSES.has(agentRunStatus?.status)) return "running";
+  if (agentRunStatus?.status === "failed") return "failed";
+  return "idle";
 }
 
 function normalizeSourceMaterial(
@@ -269,6 +294,24 @@ function normalizeProjectInput(input, machine) {
   let scopingDecision = null;
   let scopingRounds = [];
   let scopingVerification = null;
+  let scopingSession = null;
+  if (input.scopingSession !== undefined && input.scopingSession !== null) {
+    const candidate = input.scopingSession;
+    if (
+      candidate?.schemaVersion !== "research-scoping-session-identity/v1"
+      || !/^scoping-[0-9a-f-]{36}$/i.test(candidate.id ?? "")
+      || !Number.isInteger(candidate.revision)
+      || candidate.revision < 1
+      || !/^[a-f0-9]{64}$/i.test(candidate.revisionHash ?? "")
+      || candidate.stage !== "complete"
+    ) {
+      fail(
+        "INVALID_SCOPING_SESSION_IDENTITY",
+        "正式项目只能接收由服务端完成并校验过的建项前调查会话身份。",
+      );
+    }
+    scopingSession = structuredClone(candidate);
+  }
   if (input.scopingDecision !== undefined && input.scopingDecision !== null) {
     scopingDecision = structuredClone(input.scopingDecision);
     try {
@@ -358,6 +401,7 @@ function normalizeProjectInput(input, machine) {
     scopingDecision,
     scopingRounds,
     scopingVerification,
+    scopingSession,
     reportRevision: 0,
     sourceSetHash: null,
     researchReport: null,
@@ -857,6 +901,7 @@ export class ResearchAgentServiceV1 {
     this.agentRunLogs = new Map();
     this.activeExecutions = new Map();
     this.activeProjectRuns = new Set();
+    this.executionReconciliations = new Map();
   }
 
   async createProject(input) {
@@ -884,6 +929,7 @@ export class ResearchAgentServiceV1 {
   }
 
   async getProject(projectId) {
+    await this.#reconcileOrphanedExecution(projectId);
     const state = await this.#loadState(projectId);
     if (!state.created) fail("PROJECT_NOT_FOUND", `Unknown project: ${projectId}`);
     const artifacts = await this.#hydrateArtifacts(state);
@@ -908,6 +954,10 @@ export class ResearchAgentServiceV1 {
     };
     const agentRunStatus = await (await this.#agentRunLog(projectId)).deriveCurrentStatus();
     const runtimeProvenance = deriveProjectRuntimeProvenance(agentRunStatus);
+    const projectStatus = deriveAuthoritativeProjectStatus({
+      projection,
+      agentRunStatus,
+    });
     return {
       project,
       state,
@@ -915,6 +965,14 @@ export class ResearchAgentServiceV1 {
       projection,
       agentRunStatus,
       runtimeProvenance,
+      projectStatus,
+      authoritativeProjectStatus: {
+        status: projectStatus,
+        authority: "persistent_project_event_and_agent_run_logs",
+        projectRevision: state.revision,
+        agentRunVersion: agentRunStatus.version,
+        boundaryType: projection.boundary.type,
+      },
     };
   }
 
@@ -923,6 +981,7 @@ export class ResearchAgentServiceV1 {
   }
 
   async getAgentRunStatus(projectId) {
+    await this.#reconcileOrphanedExecution(projectId);
     return (await this.#agentRunLog(projectId)).deriveCurrentStatus();
   }
 
@@ -1181,6 +1240,7 @@ export class ResearchAgentServiceV1 {
           complete: result.projection.complete,
           boundary: result.projection.boundary,
           agentRunStatus: result.agentRunStatus.status,
+          projectStatus: result.projectStatus,
           loadable: true,
         });
       } catch (error) {
@@ -1212,6 +1272,7 @@ export class ResearchAgentServiceV1 {
     if (!Number.isInteger(maxSteps) || maxSteps < 1) {
       fail("INVALID_MAX_STEPS", "maxSteps must be a positive integer.");
     }
+    await this.#reconcileOrphanedExecution(projectId);
     if (this.activeProjectRuns.has(projectId)) {
       fail("PROJECT_RUN_ACTIVE", `Project ${projectId} is already running.`);
     }
@@ -1742,6 +1803,164 @@ export class ResearchAgentServiceV1 {
 
   async cancel(input) {
     return this.cancelNode(input);
+  }
+
+  async #reconcileOrphanedExecution(projectId) {
+    if (
+      this.activeProjectRuns.has(projectId) ||
+      this.activeExecutions.has(projectId)
+    ) {
+      return { reconciled: false, reason: "execution_owned_by_current_runtime" };
+    }
+    const pending = this.executionReconciliations.get(projectId);
+    if (pending) return pending;
+    const reconciliation = this.#reconcileOrphanedExecutionNow(projectId).finally(() => {
+      if (this.executionReconciliations.get(projectId) === reconciliation) {
+        this.executionReconciliations.delete(projectId);
+      }
+    });
+    this.executionReconciliations.set(projectId, reconciliation);
+    return reconciliation;
+  }
+
+  async #reconcileOrphanedExecutionNow(projectId) {
+    let state = await this.#loadState(projectId);
+    if (!state.created) return { reconciled: false, reason: "project_not_found" };
+
+    const log = await this.#agentRunLog(projectId);
+    const agentRunStatus = await log.deriveCurrentStatus();
+    const targets = new Map();
+    const addTarget = (nodeId, kind, id) => {
+      if (!hasText(nodeId) || !state.nodeExecutions[nodeId]) return;
+      const target = targets.get(nodeId) ?? {
+        nodeId,
+        leaseIds: new Set(),
+        runIds: new Set(),
+        workOrderIds: new Set(),
+      };
+      target[kind].add(id);
+      targets.set(nodeId, target);
+    };
+
+    for (const lease of Object.values(state.workLeases)) {
+      if (
+        [LEASE_STATES.CLAIMED, LEASE_STATES.RUNNING].includes(lease.status) &&
+        state.nodeExecutions[lease.nodeId]?.activeLeaseId === lease.id
+      ) {
+        addTarget(lease.nodeId, "leaseIds", lease.id);
+      }
+    }
+
+    const workOrders = Object.values(agentRunStatus.workOrders ?? {});
+    const workOrderById = new Map(workOrders.map((order) => [order.id, order]));
+    const activeWorkOrderIds = new Set(
+      agentRunStatus.activeWorkOrderIds ??
+        workOrders
+          .filter((order) => !TERMINAL_WORK_ORDER_STATUSES.has(order.status))
+          .map((order) => order.id),
+    );
+    for (const workOrderId of activeWorkOrderIds) {
+      const order = workOrderById.get(workOrderId);
+      addTarget(order?.payload?.nodeId, "workOrderIds", workOrderId);
+    }
+    for (const runId of agentRunStatus.activeRunIds ?? []) {
+      const run = agentRunStatus.runs?.[runId];
+      const order = workOrderById.get(run?.workOrderId);
+      addTarget(order?.payload?.nodeId, "runIds", runId);
+      if (order?.id) addTarget(order.payload?.nodeId, "workOrderIds", order.id);
+    }
+
+    // A crash can occur after the run log is terminalized but before the
+    // corresponding state-machine blocker is recorded. Reconcile that narrow
+    // window for the latest work order of a still-running/reviewing node.
+    const latestOrderByNode = new Map();
+    for (const order of workOrders) {
+      const nodeId = order?.payload?.nodeId;
+      if (!hasText(nodeId)) continue;
+      const current = latestOrderByNode.get(nodeId);
+      if (!current || (order.lastSequence ?? 0) > (current.lastSequence ?? 0)) {
+        latestOrderByNode.set(nodeId, order);
+      }
+    }
+    for (const [nodeId, order] of latestOrderByNode) {
+      const nodeState = state.nodeExecutions[nodeId]?.state;
+      if (
+        ["failed", "cancelled"].includes(order.status) &&
+        [EXECUTION_STATES.RUNNING, EXECUTION_STATES.REVIEW].includes(nodeState)
+      ) {
+        addTarget(nodeId, "workOrderIds", order.id);
+        for (const runId of order.runIds ?? []) {
+          const run = agentRunStatus.runs?.[runId];
+          if (["failed", "cancelled"].includes(run?.status)) {
+            addTarget(nodeId, "runIds", runId);
+          }
+        }
+      }
+    }
+
+    const closedNodeStates = new Set([
+      EXECUTION_STATES.ACCEPTED,
+      EXECUTION_STATES.SUPERSEDED,
+      EXECUTION_STATES.CANCELLED,
+    ]);
+    const recoveredNodeIds = [];
+    for (const target of targets.values()) {
+      state = await this.#loadState(projectId);
+      const runtimeNode = state.nodeExecutions[target.nodeId];
+      if (!runtimeNode || closedNodeStates.has(runtimeNode.state)) continue;
+      const existingRecovery = Object.values(runtimeNode.blockers ?? {}).find(
+        (blocker) =>
+          blocker.status !== "resolved" && blocker.code === ORPHANED_EXECUTION_CODE,
+      );
+      if (existingRecovery) continue;
+      const leaseIds = [...target.leaseIds].sort();
+      const runIds = [...target.runIds].sort();
+      const workOrderIds = [...target.workOrderIds].sort();
+      const reconciliationKey = sha256({
+        projectId,
+        nodeId: target.nodeId,
+        leaseIds,
+        runIds,
+        workOrderIds,
+      });
+      const node = this.machine.nodes.find((candidate) => candidate.id === target.nodeId);
+      await this.#dispatch(projectId, "ADD_BLOCKER", SYSTEM_ACTOR, {
+        nodeId: target.nodeId,
+        blocker: {
+          id: `runtime-restart:${reconciliationKey.slice(0, 24)}`,
+          reason:
+            "服务进程在该步骤完成前中断；原模型或工具回调不可恢复，半成品未被视为已验证科研结果。",
+          owner: state.researchOwnerId,
+          resolveWhen:
+            "研究者核对已保存产物与检索回执后，按原协议重试或明确修订。",
+          code: ORPHANED_EXECUTION_CODE,
+          retryClass: retrievalPurposeForNode(node)
+            ? "same_protocol_retry"
+            : "runtime_recovery_review",
+          stage: target.nodeId,
+          reconciliationKey,
+          orphanedLeaseIds: leaseIds,
+          orphanedRunIds: runIds,
+          orphanedWorkOrderIds: workOrderIds,
+          failedAt: nowIso(this.now),
+        },
+      });
+      recoveredNodeIds.push(target.nodeId);
+    }
+
+    const reconciledAt = nowIso(this.now);
+    const runReconciliation = await log.reconcileOrphanedExecution({
+      actor: SYSTEM_ACTOR,
+      occurredAt: reconciledAt,
+      eventIdFactory: (type, entityId) =>
+        this.#id(`agent-run-recovery:${type.replaceAll(".", "-")}:${entityId}`),
+      reason: "服务进程重启，原运行时回调与内存执行上下文已不可恢复。",
+    });
+    return {
+      reconciled: recoveredNodeIds.length > 0 || runReconciliation.reconciled,
+      recoveredNodeIds,
+      runReconciliation,
+    };
   }
 
   async #eventStore(projectId) {

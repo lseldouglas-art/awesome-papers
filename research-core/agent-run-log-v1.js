@@ -49,6 +49,8 @@ const TERMINAL_TOOL_STATES = new Set([
 ]);
 const DEFAULT_LOCK_TIMEOUT_MS = 2_000;
 const DEFAULT_LOCK_RETRY_MS = 10;
+const DEFAULT_RECONCILIATION_RETRIES = 5;
+export const ORPHANED_EXECUTION_CODE = "RUNTIME_EXECUTION_ORPHANED";
 
 export class AgentRunLogError extends Error {
   constructor(code, message, details = {}) {
@@ -706,6 +708,112 @@ function updateEntity(entity, event, status) {
   entity.lastEventId = event.eventId;
 }
 
+function orderedActiveEntities(entities, terminalStatuses) {
+  return Object.values(entities ?? {})
+    .filter((entity) => entity && !terminalStatuses.has(entity.status))
+    .sort((left, right) => (left.lastSequence ?? 0) - (right.lastSequence ?? 0));
+}
+
+/**
+ * Builds the terminal lifecycle events required after a process restart.
+ *
+ * A restarted runtime cannot resume an in-memory model/tool invocation merely
+ * because its last persisted event says "running". The original process and
+ * its callbacks are gone. These events preserve that fact as an explicit,
+ * hash-chained failure instead of either pretending success or leaving a
+ * permanently active run in project provenance.
+ */
+export function buildOrphanedExecutionReconciliationEvents(
+  agentRunStatus,
+  {
+    actor,
+    occurredAt,
+    eventIdFactory,
+    reason = "服务进程重启，原运行时回调与内存执行上下文已不可恢复。",
+  } = {},
+) {
+  if (!isPlainObject(agentRunStatus)) {
+    fail("INVALID_AGENT_RUN_STATUS", "Agent-run status must be an object.");
+  }
+  assertActor(actor);
+  if (!hasText(occurredAt) || Number.isNaN(Date.parse(occurredAt))) {
+    fail("INVALID_EVENT_TIME", "occurredAt must be an ISO-compatible timestamp.");
+  }
+  if (typeof eventIdFactory !== "function") {
+    fail("INVALID_EVENT_ID_FACTORY", "eventIdFactory must be a function.");
+  }
+  if (!hasText(reason)) {
+    fail("INVALID_RECONCILIATION_REASON", "Orphan reconciliation requires a reason.");
+  }
+
+  const eventFor = (type, entityId, extra) => {
+    const eventId = eventIdFactory(type, entityId);
+    if (!hasText(eventId)) {
+      fail("INVALID_EVENT_ID_FACTORY", "eventIdFactory must return a non-empty string.");
+    }
+    return {
+      eventId,
+      type,
+      occurredAt,
+      actor,
+      payload: {
+        code: ORPHANED_EXECUTION_CODE,
+        reason,
+        reconciledAt: occurredAt,
+      },
+      ...extra,
+    };
+  };
+
+  const toolCalls = orderedActiveEntities(
+    agentRunStatus.toolCalls,
+    TERMINAL_TOOL_STATES,
+  );
+  const runs = orderedActiveEntities(agentRunStatus.runs, TERMINAL_RUN_STATES);
+  const workOrders = Object.values(agentRunStatus.workOrders ?? {})
+    .filter((order) => order && !["completed", "failed", "cancelled"].includes(order.status))
+    .sort((left, right) => (left.lastSequence ?? 0) - (right.lastSequence ?? 0));
+
+  return [
+    ...toolCalls.map((tool) =>
+      eventFor(AGENT_RUN_EVENT_TYPES.TOOL_CANCELLED, tool.id, {
+        runId: tool.runId,
+        toolCallId: tool.id,
+        payload: {
+          code: ORPHANED_EXECUTION_CODE,
+          reason,
+          reconciledAt: occurredAt,
+          previousStatus: tool.status,
+        },
+      }),
+    ),
+    ...runs.map((run) =>
+      eventFor(AGENT_RUN_EVENT_TYPES.RUN_FAILED, run.id, {
+        runId: run.id,
+        payload: {
+          code: ORPHANED_EXECUTION_CODE,
+          reason,
+          reconciledAt: occurredAt,
+          previousStatus: run.status,
+          resumable: false,
+        },
+      }),
+    ),
+    ...workOrders.map((order) =>
+      eventFor(AGENT_RUN_EVENT_TYPES.WORK_ORDER_FAILED, order.id, {
+        workOrderId: order.id,
+        payload: {
+          code: ORPHANED_EXECUTION_CODE,
+          reason,
+          reconciledAt: occurredAt,
+          previousStatus: order.status,
+          resumable: false,
+        },
+      }),
+    ),
+  ];
+}
+
 function deriveProjectStatus(runs, workOrders) {
   const orderedRuns = [...runs.values()].sort((a, b) => b.lastSequence - a.lastSequence);
   const priority = ["running", "awaiting_approval", "paused", "created"];
@@ -989,6 +1097,9 @@ export function deriveCurrentStatus(events, { projectId = null } = {}) {
     activeRunIds: runValues
       .filter((run) => !TERMINAL_RUN_STATES.has(run.status))
       .map((run) => run.id),
+    activeWorkOrderIds: [...workOrders.values()]
+      .filter((order) => !["completed", "failed", "cancelled"].includes(order.status))
+      .map((order) => order.id),
     activeToolCallIds: toolValues
       .filter((tool) => !TERMINAL_TOOL_STATES.has(tool.status))
       .map((tool) => tool.id),
@@ -1120,6 +1231,52 @@ export class AgentRunLog {
   async deriveCurrentStatus() {
     const events = await this.load();
     return deriveCurrentStatus(events, { projectId: this.projectId });
+  }
+
+  async reconcileOrphanedExecution({
+    actor,
+    occurredAt,
+    eventIdFactory,
+    reason,
+    maxRetries = DEFAULT_RECONCILIATION_RETRIES,
+  } = {}) {
+    if (!Number.isInteger(maxRetries) || maxRetries < 1) {
+      fail("INVALID_RECONCILIATION_RETRIES", "maxRetries must be a positive integer.");
+    }
+    for (let attempt = 0; attempt < maxRetries; attempt += 1) {
+      const events = await this.load();
+      const before = deriveCurrentStatus(events, { projectId: this.projectId });
+      const reconciliationEvents = buildOrphanedExecutionReconciliationEvents(before, {
+        actor,
+        occurredAt,
+        eventIdFactory,
+        reason,
+      });
+      if (reconciliationEvents.length === 0) {
+        return {
+          reconciled: false,
+          appendedCount: 0,
+          status: before,
+        };
+      }
+      try {
+        const receipt = await this.append({
+          expectedVersion: events.length,
+          events: reconciliationEvents,
+        });
+        return {
+          reconciled: true,
+          appendedCount: receipt.appendedCount,
+          status: await this.deriveCurrentStatus(),
+        };
+      } catch (error) {
+        if (error?.code !== "EXPECTED_VERSION_MISMATCH") throw error;
+      }
+    }
+    fail(
+      "AGENT_RUN_RECONCILIATION_CONFLICT",
+      "Could not reconcile orphaned Agent execution after concurrent updates.",
+    );
   }
 
   #enqueue(operation) {

@@ -37,6 +37,7 @@ export function buildResearchWorkbenchCreatePayload({
   queryPreview,
   selectedQueryId,
   directionSelection = null,
+  scopingSession = null,
 }) {
   return {
     title: form.title.trim(),
@@ -48,6 +49,7 @@ export function buildResearchWorkbenchCreatePayload({
     ...(directionSelection?.decisionHash
       ? { directionSelectionHash: directionSelection.decisionHash }
       : {}),
+    ...scopingSessionRequestFields(scopingSession),
     completionProfileId: form.completionProfileId,
     constraints: form.constraints.trim(),
     sourceMaterials: form.sourceMaterials.trim(),
@@ -59,6 +61,7 @@ export function buildResearchWorkbenchDirectionSelectionPayload({
   selectedDirectionId,
   selectionReason,
   deferredReason,
+  scopingSession = null,
 }) {
   const directions = queryPreview?.reviewLandscape?.synthesis?.professorReport?.studentReviewDirections;
   const reportBinding = queryPreview?.reviewLandscape?.researchReport?.binding ?? null;
@@ -88,6 +91,7 @@ export function buildResearchWorkbenchDirectionSelectionPayload({
     selectionReason: reason,
     deferredReason: deferred,
     reportBinding,
+    ...scopingSessionRequestFields(scopingSession),
   };
 }
 
@@ -99,30 +103,25 @@ export function buildResearchWorkbenchReviewPreviewPayload({
   calibrationHash = null,
   reviewWindowYears = 5,
   reviewSampleLimit = 20,
+  scopingSession = null,
 }) {
   const candidates = Array.isArray(queryPlan?.candidates) ? queryPlan.candidates : [];
   const selected = candidates.find((candidate) => candidate.id === selectedQueryId);
   if (!selected) return null;
-  const selectedQuery = String(editedQuery ?? selected.query ?? "").trim();
+  const selectedQuery = String(selected.query ?? "").trim();
   if (selectedQuery.length < 3) return null;
-  const selectedCandidate = {
-    ...selected,
-    id: editedQuery === null ? selected.id : "researcher_edited",
-    label: editedQuery === null ? selected.label : "研究者修订版",
-    strategy: editedQuery === null
-      ? selected.strategy
-      : "研究者在专业策略基础上修改；重新执行基础命中抽查与近五年综述扫描。",
-    query: selectedQuery,
-  };
-  const alternate = candidates.find((candidate) => candidate.id !== selectedQueryId);
+  if (editedQuery !== null && String(editedQuery).trim() !== selectedQuery) return null;
   return {
     question: normalizeResearchQuestionInput(question),
     sampleLimit: 3,
-    candidateQueries: [selectedCandidate, ...(alternate ? [alternate] : [])],
-    reviewScanCandidateId: selectedCandidate.id,
+    // Candidate order, ids, and queries are part of the persisted calibration.
+    // Choosing which bound candidate to scan must not rewrite that material.
+    candidateQueries: candidates.map((candidate) => ({ ...candidate })),
+    reviewScanCandidateId: selected.id,
     reviewWindowYears,
     reviewSampleLimit,
     ...(calibrationHash ? { calibrationHash } : {}),
+    ...scopingSessionRequestFields(scopingSession),
   };
 }
 
@@ -131,6 +130,7 @@ export function buildResearchWorkbenchCalibrationPayload({
   queryPlan,
   selectedQueryId,
   editedQuery = null,
+  scopingSession = null,
 }) {
   const candidates = Array.isArray(queryPlan?.candidates) ? queryPlan.candidates : [];
   const selected = candidates.find((candidate) => candidate.id === selectedQueryId);
@@ -142,6 +142,18 @@ export function buildResearchWorkbenchCalibrationPayload({
     initialPlanHash: queryPlan.planHash,
     selectedCandidateId: selected.id,
     ...(query !== selected.query ? { editedQuery: query } : {}),
+    ...scopingSessionRequestFields(scopingSession),
+  };
+}
+
+export function scopingSessionRequestFields(scopingSession) {
+  if (
+    typeof scopingSession?.id !== "string"
+    || !Number.isInteger(scopingSession?.revision)
+  ) return {};
+  return {
+    scopingSessionId: scopingSession.id,
+    scopingSessionRevision: scopingSession.revision,
   };
 }
 

@@ -625,7 +625,51 @@ function researcherFacingBlockerText(project) {
     : "当前研究材料需要重新核对后再继续。";
 }
 
+function frontstageContractForProject(project) {
+  const hasContract = Boolean(
+    project && (
+      Object.prototype.hasOwnProperty.call(project, "frontstageAction") ||
+      Object.prototype.hasOwnProperty.call(project, "availableActions")
+    )
+  );
+  if (!hasContract) return null;
+  const frontstageAction = project?.frontstageAction;
+  const availableActions = Array.isArray(project?.availableActions)
+    ? project.availableActions
+    : [];
+  const projectRevision = Number.isInteger(project?.version)
+    ? project.version
+    : Number.isInteger(project?.revision)
+      ? project.revision
+      : null;
+  const valid = Boolean(
+    frontstageAction?.schemaVersion === "research-frontstage-action/v1" &&
+    frontstageAction.binding?.projectRevision === projectRevision &&
+    typeof frontstageAction.nextDecision === "string" &&
+    availableActions.every((action) => (
+      action &&
+      typeof action.id === "string" &&
+      action.binding?.projectRevision === projectRevision
+    ))
+  );
+  return {
+    valid,
+    frontstageAction,
+    availableActions: valid ? availableActions : [],
+    actionById: valid
+      ? new Map(availableActions.map((action) => [action.id, action]))
+      : new Map(),
+  };
+}
+
 export function researcherFacingNextDecision(project) {
+  const actionContract = frontstageContractForProject(project);
+  if (actionContract) {
+    const nextDecision = actionContract.frontstageAction?.nextDecision;
+    return actionContract.valid && !FRONTSTAGE_INTERNAL_LANGUAGE.test(nextDecision)
+      ? nextDecision
+      : "当前研究操作与最新材料不一致，请刷新后重新核对。";
+  }
   const gate = pendingGateForProject(project);
   if (gate) return `请确认「${firstText(gate.userLabel, gate.label) ?? "当前研究范围"}」；确认后继续下一项科研工作。`;
   const review = pendingReviewForProject(project);
@@ -1471,6 +1515,14 @@ function HumanReview({ review, busy, onDecision }) {
   );
 }
 
+export function researcherFacingPrimaryConclusion(project) {
+  const conclusions = asCollection(project?.userBrief?.newConclusions);
+  if (conclusions.length) {
+    return firstText(conclusions[0]?.claim) ?? "结论内容未报告";
+  }
+  return "尚未形成通过当前准入条件的研究结论；建项前扫描只用于领域定位和选题调查，不能替代正式结论。";
+}
+
 function ResearchUserBrief({ project, briefRef, feedback, onViewEvidence }) {
   const brief = project?.userBrief && typeof project.userBrief === "object"
     ? project.userBrief
@@ -1478,22 +1530,13 @@ function ResearchUserBrief({ project, briefRef, feedback, onViewEvidence }) {
   const evidenceBoundary = brief.mainEvidenceAndBoundaries && typeof brief.mainEvidenceAndBoundaries === "object"
     ? brief.mainEvidenceAndBoundaries
     : {};
-  const conclusions = asCollection(brief.newConclusions);
   const boundaries = asArray(evidenceBoundary.boundaries).filter(Boolean);
   const nextStep = researcherFacingNextDecision(project);
   const accessSummary = firstText(
     evidenceBoundary.accessSummary,
     project?.summary?.boundary,
   ) ?? "尚未建立可用于研究判断的证据记录。";
-  const visibleLandscape = researchWorkbenchVisibleLandscape(project);
-  const visibleSynthesis = visibleLandscape?.synthesis ?? {};
-  const primaryConclusion = conclusions.length
-    ? firstText(conclusions[0]?.claim) ?? "结论内容未报告"
-    : firstText(
-      visibleSynthesis?.professorReport?.executiveSummary,
-      visibleSynthesis?.summaries?.coverage,
-      visibleLandscape?.stageBrief?.newFindings?.[0],
-    ) ?? "现有材料尚未形成可复核的领域判断；目前不能据此描述领域成熟度、主要争议或研究空白。";
+  const primaryConclusion = researcherFacingPrimaryConclusion(project);
 
   return (
     <section
@@ -1786,9 +1829,13 @@ function researchWorkbenchVisibleLandscape(project) {
 function EvidenceOverview({ project }) {
   const scopingRounds = asArray(project?.scopingRounds);
   const landscape = researchWorkbenchVisibleLandscape(project);
-  if (!landscape || landscape.status && !["ready", "blocked"].includes(landscape.status)) return null;
+  const hasFormalReport = Boolean(project?.researchReport);
+  if (
+    !hasFormalReport
+    && (!landscape || landscape.status && !["ready", "blocked"].includes(landscape.status))
+  ) return null;
 
-  const synthesis = landscape.synthesis ?? {};
+  const synthesis = landscape?.synthesis ?? {};
   if (synthesis?.professorReport || project?.researchReport || landscape?.researchReport) {
     return (
       <ResearchReviewReport
@@ -1926,12 +1973,17 @@ function TaskPanel({
   gate,
   review,
   busy,
+  actionContract,
   onGateDecision,
   onReviewDecision,
   onRetrySearch,
   onRetrySameProtocol,
   onReviseProtocol,
 }) {
+  const actionById = actionContract?.actionById ?? null;
+  const actionEnabled = (actionId) => (
+    !actionContract || Boolean(actionContract.valid && actionById.get(actionId)?.enabled)
+  );
   const taskContainer = project?.currentTask ?? project?.currentWorkOrder ?? project?.workOrder ?? project?.currentNode ?? {};
   const task = taskContainer?.payload && typeof taskContainer.payload === "object"
     ? { ...taskContainer, ...taskContainer.payload }
@@ -1964,7 +2016,10 @@ function TaskPanel({
     "protocol_revision_required",
     "same_protocol_retry",
     "human_review_required",
-  ].includes(retryClass);
+  ].includes(retryClass) && (
+    actionEnabled("retrieval.protocol.open") ||
+    actionEnabled("recovery.open")
+  );
   const failedQuery = firstText(
     structuredBlocker?.failedRequest?.query,
     project?.searchQuery,
@@ -1975,7 +2030,8 @@ function TaskPanel({
     asArray(project?.retrievalRuns).length === 0 &&
     !project?.liveRetrieval &&
     (!project?.queryPreviewSelection || ["zero_results", "failed"].includes(previewStatus)) &&
-    ["paused", "blocked"].includes(projectStatus(project));
+    ["paused", "blocked"].includes(projectStatus(project)) &&
+    actionEnabled("retrieval.preflight.open");
   const [retryQuery, setRetryQuery] = useState(firstText(project?.searchQuery) ?? "");
   const [revisedQuery, setRevisedQuery] = useState(failedQuery);
   const [revisionReason, setRevisionReason] = useState("");
@@ -2021,7 +2077,7 @@ function TaskPanel({
               <div><dt>无法继续的原因</dt><dd>{researcherFacingBlockerText(project)}</dd></div>
               <div><dt>原检索式</dt><dd><code>{failedQuery || "未记录"}</code></dd></div>
             </dl>
-            {retryClass === "same_protocol_retry" ? (
+            {retryClass === "same_protocol_retry" && actionEnabled("recovery.retry_same_protocol") ? (
               <div className="rawb-recovery__single-action">
                 <p>适用于超时、限流或 PubMed 暂时不可用。不会改写协议，也不会重复已成功并持久化的检索。</p>
                 <button
@@ -2037,12 +2093,12 @@ function TaskPanel({
               <div className="rawb-recovery__choice">
                 <p>系统不能安全判断这次失败是否否定了检索方法。请先查看原因，再选择保留原协议或建立新版协议。</p>
                 <div>
-                  <button type="button" disabled={busy} onClick={() => onRetrySameProtocol?.(structuredBlocker.id)}>保留原式重试</button>
-                  <button type="button" disabled={busy} onClick={() => setShowExplicitRevision(true)}>我要修订协议</button>
+                  {actionEnabled("recovery.retry_same_protocol") ? <button type="button" disabled={busy} onClick={() => onRetrySameProtocol?.(structuredBlocker.id)}>保留原式重试</button> : null}
+                  {actionEnabled("recovery.revise_protocol") ? <button type="button" disabled={busy} onClick={() => setShowExplicitRevision(true)}>我要修订协议</button> : null}
                 </div>
               </div>
             ) : null}
-            {retryClass === "protocol_revision_required" || showExplicitRevision ? (
+            {(retryClass === "protocol_revision_required" && actionEnabled("retrieval.protocol.revise")) || (showExplicitRevision && actionEnabled("recovery.revise_protocol")) ? (
               <form className="rawb-recovery__revision" onSubmit={(event) => {
                 event.preventDefault();
                 onReviseProtocol?.({
@@ -2144,8 +2200,8 @@ function TaskPanel({
           </div>
         </details>
       </section>
-      {gate ? <GateDecision gate={gate} busy={busy} onDecision={onGateDecision} /> : null}
-      {review ? <HumanReview review={review} busy={busy} onDecision={onReviewDecision} /> : null}
+      {gate ? <GateDecision gate={gate} busy={busy || !actionEnabled("gate.approve") || !actionEnabled("gate.amend")} onDecision={onGateDecision} /> : null}
+      {review ? <HumanReview review={review} busy={busy || !actionEnabled("review.accept") || !actionEnabled("review.revise")} onDecision={onReviewDecision} /> : null}
       {!gate && !review ? (
         <aside className="rawb-guardrail">
           <div><strong>先核对证据，再决定下一问</strong><p>范围、选题与结论边界不会因为继续检索而自动改变。</p></div>
@@ -2727,7 +2783,7 @@ function QueryCalibrationReport({ calibration }) {
         <p><strong>{revisionCompleted ? "已依据样本反馈调整词群" : "尚未形成自动修订建议"}</strong></p>
         <p>{revisionCompleted
           ? "修订建议来自前 100 篇题名摘要的概念覆盖与噪声反馈；最终检索语法仍需人工核对。"
-          : "当前未形成自动修订建议；已保留原检索式、真实样本反馈和人工修改入口。"}</p>
+          : "当前未形成自动修订建议；已保留原检索式与真实样本反馈。若要改式，需建立新的调查链并重新校准。"}</p>
       </div>
       <div className="rawb-query-calibration__signals">
         <div><span>当前总命中</span><strong>{calibration.total ?? "未知"}</strong></div>
@@ -3782,8 +3838,9 @@ export function ResearchAgentWorkbench({
   const lastBriefMarkerRef = useRef("");
   const selectedProjectIdRef = useRef(initialProjectId);
   const requestSequenceRef = useRef(0);
-  const createIdempotencyKeyRef = useRef("");
+  const scopingRestoreStartedRef = useRef(false);
   const initialScopingDraft = useMemo(() => loadScopingDraft(), []);
+  const initialScopingSession = initialScopingDraft?.scopingSession ?? null;
 
   const [runtime, setRuntime] = useState(null);
   const [runtimeLoading, setRuntimeLoading] = useState(true);
@@ -3801,13 +3858,14 @@ export function ResearchAgentWorkbench({
   const [createOpen, setCreateOpen] = useState(initialScopingDraft?.createOpen === true);
   const [cancelArmed, setCancelArmed] = useState(false);
   const [bootstrapRevision, setBootstrapRevision] = useState(0);
-  const [createStep, setCreateStep] = useState(initialScopingDraft?.createStep ?? "question");
-  const [queryPlan, setQueryPlan] = useState(initialScopingDraft?.queryPlan ?? null);
-  const [queryCalibration, setQueryCalibration] = useState(initialScopingDraft?.queryCalibration ?? null);
-  const [queryPreview, setQueryPreview] = useState(initialScopingDraft?.queryPreview ?? null);
+  const [createStep, setCreateStep] = useState(initialScopingSession ? (initialScopingDraft?.createStep ?? "question") : "question");
+  const [queryPlan, setQueryPlan] = useState(null);
+  const [queryCalibration, setQueryCalibration] = useState(null);
+  const [queryPreview, setQueryPreview] = useState(null);
   const [selectedQueryId, setSelectedQueryId] = useState(initialScopingDraft?.selectedQueryId ?? "");
-  const [scopingRound, setScopingRound] = useState(initialScopingDraft?.scopingRound === 2 ? 2 : 1);
-  const [directionSelection, setDirectionSelection] = useState(initialScopingDraft?.directionSelection ?? null);
+  const [scopingRound, setScopingRound] = useState(initialScopingSession && initialScopingDraft?.scopingRound === 2 ? 2 : 1);
+  const [directionSelection, setDirectionSelection] = useState(null);
+  const [scopingSession, setScopingSession] = useState(initialScopingSession);
   const [directionDecision, setDirectionDecision] = useState(initialScopingDraft?.directionDecision ?? {
     selectedDirectionId: "",
     selectionReason: "",
@@ -3879,10 +3937,100 @@ export function ResearchAgentWorkbench({
   }, [base, fetchImpl]);
 
   useEffect(() => {
+    if (!createOpen || !initialScopingSession?.id || scopingRestoreStartedRef.current) return;
+    scopingRestoreStartedRef.current = true;
+    const controller = new AbortController();
+    request(`/scoping-sessions/${encodeURIComponent(initialScopingSession.id)}`, {
+      signal: controller.signal,
+    }).then((snapshot) => {
+      const secondRound = ["direction_selected", "second_plan", "second_calibration", "complete"]
+        .includes(snapshot.stage);
+      const round = secondRound ? snapshot.secondRound : snapshot.firstRound;
+      const step = {
+        first_plan: "strategy",
+        first_calibration: "calibration",
+        first_preview: "review",
+        direction_selected: "question",
+        second_plan: "strategy",
+        second_calibration: "calibration",
+        complete: "review",
+      }[snapshot.stage] ?? "question";
+      const activeQuestion = round?.preview?.question
+        ?? round?.calibration?.question
+        ?? round?.plan?.question
+        ?? snapshot.directionSelection?.narrowedBrief?.question
+        ?? "";
+      const activeCandidates = round?.preview?.candidates
+        ?? round?.calibration?.revisedPlan?.candidates
+        ?? round?.plan?.candidates
+        ?? [];
+      const candidateId = round?.preview?.reviewLandscape?.selectedCandidateId
+        ?? activeCandidates[0]?.id
+        ?? "";
+      const candidate = activeCandidates.find((item) => item.id === candidateId)
+        ?? activeCandidates[0];
+      const firstCandidateId = snapshot.firstRound?.preview?.reviewLandscape?.selectedCandidateId
+        ?? snapshot.firstRound?.preview?.candidates?.[0]?.id
+        ?? "";
+      const firstCandidate = snapshot.firstRound?.preview?.candidates?.find(
+        (item) => item.id === firstCandidateId,
+      ) ?? snapshot.firstRound?.preview?.candidates?.[0];
+      const selection = snapshot.directionSelection
+        ? {
+            ...snapshot.directionSelection,
+            roundOneCheckpoint: {
+              queryPlan: snapshot.firstRound.plan,
+              queryCalibration: snapshot.firstRound.calibration,
+              queryPreview: snapshot.firstRound.preview,
+              selectedQueryId: firstCandidateId,
+              createForm: {
+                ...(initialScopingDraft?.createForm ?? {}),
+                question: snapshot.firstRound?.preview?.question ?? "",
+                searchQuery: firstCandidate?.query ?? "",
+              },
+              directionDecision: {
+                selectedDirectionId: snapshot.directionSelection.selectedDirection?.id ?? "",
+                selectionReason: snapshot.directionSelection.selectionReason ?? "",
+                deferredReason: snapshot.directionSelection.deferredReason ?? "",
+              },
+            },
+          }
+        : null;
+      setScopingSession(snapshot.identity);
+      setScopingRound(secondRound ? 2 : 1);
+      setQueryPlan(round?.plan ?? null);
+      setQueryCalibration(round?.calibration ?? null);
+      setQueryPreview(round?.preview ?? null);
+      setSelectedQueryId(candidateId);
+      setDirectionSelection(selection);
+      if (selection) {
+        setDirectionDecision({
+          selectedDirectionId: selection.selectedDirection?.id ?? "",
+          selectionReason: selection.selectionReason ?? "",
+          deferredReason: selection.deferredReason ?? "",
+        });
+      }
+      setCreateForm((form) => ({
+        ...form,
+        question: activeQuestion || form.question,
+        searchQuery: candidate?.query ?? form.searchQuery,
+      }));
+      setCreateStep(step);
+      setActionFeedback("已从服务端恢复建项前调查；计划、校准、两轮综述与人工方向决定均以该记录为准。");
+    }).catch((restoreError) => {
+      if (restoreError?.name === "AbortError") return;
+      setScopingSession(null);
+      setCreateStep("question");
+      setError(restoreError ?? "服务端建项前调查记录无法恢复，请保留问题后重新开始。");
+    });
+    return () => controller.abort();
+  }, [createOpen, initialScopingDraft, initialScopingSession, request]);
+
+  useEffect(() => {
     const hasDraft = createOpen && (
       createStep !== "question" ||
       createForm.question.trim().length > 0 ||
-      directionSelection
+      scopingSession
     );
     if (!hasDraft) {
       saveScopingDraft(null);
@@ -3891,24 +4039,18 @@ export function ResearchAgentWorkbench({
     saveScopingDraft({
       createOpen,
       createStep,
-      queryPlan,
-      queryCalibration,
-      queryPreview,
       selectedQueryId,
       scopingRound,
-      directionSelection,
       directionDecision,
       createForm,
+      scopingSession,
     });
   }, [
     createForm,
     createOpen,
     createStep,
     directionDecision,
-    directionSelection,
-    queryCalibration,
-    queryPlan,
-    queryPreview,
+    scopingSession,
     scopingRound,
     selectedQueryId,
   ]);
@@ -4127,8 +4269,8 @@ export function ResearchAgentWorkbench({
   }, [commitProject, loadProject, request, revealUserBrief]);
 
   const resetQueryPlanning = useCallback(() => {
-    createIdempotencyKeyRef.current = "";
     saveScopingDraft(null);
+    setScopingSession(null);
     setCreateStep("question");
     setQueryPlan(null);
     setQueryCalibration(null);
@@ -4156,12 +4298,20 @@ export function ResearchAgentWorkbench({
     try {
       const plan = await request("/query-plan", {
         method: "POST",
-        body: { question },
+        body: scopingRound === 2 && directionSelection?.decisionHash
+          ? {
+              question,
+              directionSelectionHash: directionSelection.decisionHash,
+              scopingSessionId: scopingSession?.id,
+              scopingSessionRevision: scopingSession?.revision,
+            }
+          : { question },
       });
       const candidates = asArray(plan?.candidates);
       const selectable = candidates[0];
       if (!selectable) throw new ResearchApiError("没有生成可检查的检索候选。", { code: "EMPTY_QUERY_PLAN" });
       setQueryPlan(plan);
+      setScopingSession(plan.scopingSession ?? null);
       setQueryCalibration(null);
       setQueryPreview(null);
       setSelectedQueryId(selectable.id);
@@ -4176,7 +4326,7 @@ export function ResearchAgentWorkbench({
     } finally {
       setBusyAction("");
     }
-  }, [createForm.question, request]);
+  }, [createForm.question, directionSelection, request, scopingRound, scopingSession]);
 
   const handleConfirmQueryPlan = useCallback(async (event) => {
     event.preventDefault();
@@ -4187,6 +4337,7 @@ export function ResearchAgentWorkbench({
       queryPlan,
       selectedQueryId,
       editedQuery: selected?.query === query ? null : query,
+      scopingSession,
     });
     if (!body) {
       setError("请先选择一个检索路径，并保留至少 3 个字符的 PubMed 检索式。");
@@ -4199,6 +4350,7 @@ export function ResearchAgentWorkbench({
       const revised = asArray(calibration?.revisedPlan?.candidates)[0];
       if (!revised) throw new ResearchApiError("前 100 篇反馈没有返回可确认的检索策略。", { code: "EMPTY_QUERY_CALIBRATION" });
       setQueryCalibration(calibration);
+      setScopingSession(calibration.scopingSession ?? scopingSession);
       setQueryPreview(null);
       setSelectedQueryId(revised.id);
       setCreateForm((form) => ({ ...form, searchQuery: revised.query ?? query }));
@@ -4208,7 +4360,7 @@ export function ResearchAgentWorkbench({
     } finally {
       setBusyAction("");
     }
-  }, [createForm.question, createForm.searchQuery, queryPlan, request, selectedQueryId]);
+  }, [createForm.question, createForm.searchQuery, queryPlan, request, scopingSession, selectedQueryId]);
 
   const handleConfirmCalibration = useCallback(async (event) => {
     event.preventDefault();
@@ -4221,6 +4373,7 @@ export function ResearchAgentWorkbench({
       selectedQueryId,
       editedQuery: selected?.query === query ? null : query,
       calibrationHash: queryCalibration?.calibrationHash,
+      scopingSession,
     });
     if (!body) {
       setError("请先选择修订后的检索路径，并保留至少 3 个字符的 PubMed 检索式。");
@@ -4235,6 +4388,7 @@ export function ResearchAgentWorkbench({
         ?? asArray(preview?.candidates)[0];
       if (!confirmed) throw new ResearchApiError("近五年综述扫描没有返回可检查结果。", { code: "EMPTY_QUERY_PREVIEW" });
       setQueryPreview(preview);
+      setScopingSession(preview.scopingSession ?? scopingSession);
       setSelectedQueryId(confirmed.id);
       if (scopingRound === 1) {
         setDirectionDecision({ selectedDirectionId: "", selectionReason: "", deferredReason: "" });
@@ -4246,55 +4400,13 @@ export function ResearchAgentWorkbench({
     } finally {
       setBusyAction("");
     }
-  }, [createForm.question, createForm.searchQuery, queryCalibration, request, scopingRound, selectedQueryId]);
+  }, [createForm.question, createForm.searchQuery, queryCalibration, request, scopingRound, scopingSession, selectedQueryId]);
 
-  const handleRecalibrateQueries = useCallback(async () => {
-    const query = createForm.searchQuery.trim();
-    if (query.length < 3) {
-      setError("修改后的 PubMed 检索式至少需要 3 个字符。");
-      return;
-    }
-    setBusyAction("query-preview");
+  const handleStartNewScopingChain = useCallback(() => {
     setError("");
-    try {
-      const selected = asArray(queryPreview?.candidates).find((candidate) => candidate.id === selectedQueryId);
-      const alternate = asArray(queryPreview?.candidates).find((candidate) => candidate.id !== selectedQueryId);
-      const preview = await request("/query-preview", {
-        method: "POST",
-        body: {
-          question: createForm.question.trim(),
-          sampleLimit: 3,
-          candidateQueries: [
-            {
-              id: "researcher_edited",
-              label: "研究者修订版",
-              strategy: "由研究者手动修改，并重新执行真实 PubMed 试检。",
-              query,
-            },
-            {
-              id: alternate?.id ?? "comparison_baseline",
-              label: alternate?.label ?? "原候选对照",
-              strategy: alternate?.strategy ?? selected?.strategy ?? "保留一个原候选用于比较。",
-              query: alternate?.query ?? selected?.query ?? query,
-            },
-          ],
-          reviewScanCandidateId: "researcher_edited",
-          reviewWindowYears: 5,
-          reviewSampleLimit: 20,
-        },
-      });
-      setQueryPreview(preview);
-      setSelectedQueryId("researcher_edited");
-      if (scopingRound === 1) {
-        setDirectionDecision({ selectedDirectionId: "", selectionReason: "", deferredReason: "" });
-      }
-      setCreateForm((form) => ({ ...form, searchQuery: preview.candidates[0].query }));
-    } catch (previewError) {
-      setError(previewError ?? "修订检索式没有完成真实试检，请继续在本步修改。");
-    } finally {
-      setBusyAction("");
-    }
-  }, [createForm.question, createForm.searchQuery, queryPreview, request, scopingRound, selectedQueryId]);
+    resetQueryPlanning();
+    setActionFeedback("当前调查记录已保留；现以同一研究问题开始新的调查链，任何新候选或新检索式都须重新完成前 100 篇反馈校准。");
+  }, [resetQueryPlanning]);
 
   const handleDirectionDecisionChange = useCallback((change) => {
     setDirectionDecision((current) => ({ ...current, ...change }));
@@ -4304,6 +4416,7 @@ export function ResearchAgentWorkbench({
     const body = buildResearchWorkbenchDirectionSelectionPayload({
       queryPreview,
       ...directionDecision,
+      scopingSession,
     });
     if (!body) {
       setError("请选择一个方向，并分别写明采用理由与其余方向暂缓理由（至少 4 个字）。");
@@ -4321,6 +4434,7 @@ export function ResearchAgentWorkbench({
         directionDecision,
       });
       const selection = await request("/direction-selection", { method: "POST", body });
+      setScopingSession(selection.scopingSession ?? scopingSession);
       const narrowedQuestion = normalizeResearchQuestionInput(selection?.narrowedBrief?.question);
       if (!researchQuestionCanPreview(narrowedQuestion)) {
         throw new ResearchApiError("方向决定已记录，但没有生成可执行的第二轮问题。", {
@@ -4346,6 +4460,8 @@ export function ResearchAgentWorkbench({
         body: {
           question: narrowedQuestion,
           directionSelectionHash: selection.decisionHash,
+          scopingSessionId: selection.scopingSession?.id,
+          scopingSessionRevision: selection.scopingSession?.revision,
         },
       });
       const candidate = asArray(plan?.candidates)[0];
@@ -4355,6 +4471,7 @@ export function ResearchAgentWorkbench({
         });
       }
       setQueryPlan(plan);
+      setScopingSession(plan.scopingSession ?? selection.scopingSession ?? scopingSession);
       setSelectedQueryId(candidate.id);
       setCreateForm((form) => ({ ...form, searchQuery: candidate.query ?? "" }));
       setCreateStep("strategy");
@@ -4363,7 +4480,7 @@ export function ResearchAgentWorkbench({
     } finally {
       setBusyAction("");
     }
-  }, [createForm, directionDecision, queryCalibration, queryPlan, queryPreview, request, selectedQueryId]);
+  }, [createForm, directionDecision, queryCalibration, queryPlan, queryPreview, request, scopingSession, selectedQueryId]);
 
   const handleReturnToFirstRound = useCallback(() => {
     const restored = restoredFirstRoundState(directionSelection);
@@ -4372,16 +4489,18 @@ export function ResearchAgentWorkbench({
       return;
     }
     setError("");
-    setActionFeedback("已恢复首轮报告与方向选择；第二轮结果不会覆盖首轮材料。");
-    setScopingRound(restored.scopingRound);
-    setQueryPlan(restored.queryPlan);
-    setQueryCalibration(restored.queryCalibration);
-    setQueryPreview(restored.queryPreview);
-    setSelectedQueryId(restored.selectedQueryId);
-    setCreateForm(restored.createForm);
+    saveScopingDraft(null);
+    setActionFeedback("原两轮调查已作为历史记录保留；现在从首轮问题建立一条新的调查链，旧方向决定不会被覆盖。");
+    setScopingSession(null);
+    setScopingRound(1);
+    setQueryPlan(null);
+    setQueryCalibration(null);
+    setQueryPreview(null);
+    setSelectedQueryId("");
+    setCreateForm({ ...restored.createForm, searchQuery: "" });
     if (restored.directionDecision) setDirectionDecision(restored.directionDecision);
-    setDirectionSelection(restored.directionSelection);
-    setCreateStep(restored.createStep);
+    setDirectionSelection(null);
+    setCreateStep("question");
   }, [directionSelection]);
 
   const handleCreate = useCallback(async (event) => {
@@ -4395,19 +4514,15 @@ export function ResearchAgentWorkbench({
     }
     setBusyAction("create");
     setError("");
-    if (!createIdempotencyKeyRef.current) {
-      createIdempotencyKeyRef.current = globalThis.crypto?.randomUUID?.()
-        ?? `create-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    }
     try {
       const payload = await request("/projects", {
         method: "POST",
-        idempotencyKey: createIdempotencyKeyRef.current,
         body: buildResearchWorkbenchCreatePayload({
           form: createForm,
           queryPreview,
           selectedQueryId,
           directionSelection,
+          scopingSession,
         }),
       });
       const created = projectFromPayload(payload);
@@ -4424,7 +4539,7 @@ export function ResearchAgentWorkbench({
         constraints: "",
         sourceMaterials: "",
       });
-      createIdempotencyKeyRef.current = "";
+      setScopingSession(null);
       setCreateStep("question");
       setQueryPlan(null);
       setQueryCalibration(null);
@@ -4466,7 +4581,7 @@ export function ResearchAgentWorkbench({
     } finally {
       setBusyAction("");
     }
-  }, [commitProject, createForm, directionSelection, loadProject, queryPreview, request, revealUserBrief, selectedQueryId]);
+  }, [commitProject, createForm, directionSelection, loadProject, queryPreview, request, revealUserBrief, scopingSession, selectedQueryId]);
 
   const handleRetrySearch = useCallback(async (searchQuery) => {
     const id = selectedProjectIdRef.current;
@@ -4539,10 +4654,21 @@ export function ResearchAgentWorkbench({
     }
   }, [commitProject, loadProject, request, revealUserBrief]);
 
-  const gate = pendingGateForProject(project);
-  const review = pendingReviewForProject(project);
+  const actionContract = useMemo(() => frontstageContractForProject(project), [project]);
+  const contractAllows = useCallback((actionId) => (
+    !actionContract || Boolean(
+      actionContract.valid && actionContract.actionById.get(actionId)?.enabled
+    )
+  ), [actionContract]);
+  const gate = contractAllows("gate.open") ? pendingGateForProject(project) : null;
+  const review = contractAllows("review.open") ? pendingReviewForProject(project) : null;
 
   const handleGateDecision = useCallback(async (decision, reason) => {
+    const actionId = decision === "approved" ? "gate.approve" : "gate.amend";
+    if (!contractAllows(actionId)) {
+      setError("当前研究决定与最新材料不一致，请刷新后重新核对。");
+      return;
+    }
     const id = selectedProjectIdRef.current;
     const gateId = firstText(gate?.id, gate?.gateId, gate?.nodeId);
     if (!id || !gateId) {
@@ -4570,9 +4696,14 @@ export function ResearchAgentWorkbench({
     } finally {
       setBusyAction("");
     }
-  }, [commitProject, gate, loadProject, request, revealUserBrief]);
+  }, [commitProject, contractAllows, gate, loadProject, request, revealUserBrief]);
 
   const handleReviewDecision = useCallback(async (decision, reason) => {
+    const actionId = decision === "accepted" ? "review.accept" : "review.revise";
+    if (!contractAllows(actionId)) {
+      setError("当前复核要求与最新材料不一致，请刷新后重新核对。");
+      return;
+    }
     const id = selectedProjectIdRef.current;
     const nodeId = firstText(review?.nodeId, review?.id, review?.reviewId);
     if (!id || !nodeId) {
@@ -4603,16 +4734,45 @@ export function ResearchAgentWorkbench({
     } finally {
       setBusyAction("");
     }
-  }, [commitProject, loadProject, request, revealUserBrief, review]);
+  }, [commitProject, contractAllows, loadProject, request, revealUserBrief, review]);
 
-  const contentMaturity = project?.contentMaturity && typeof project.contentMaturity === "object"
-    ? project.contentMaturity
-    : {};
-  const processDraft = firstText(contentMaturity.code)?.toLowerCase() === "guided_draft";
   const blockerRetryClass = firstText(project?.blocker?.retryClass);
 
   const primaryAction = useMemo(() => {
     if (!project) return { label: "开始一个研究项目", kind: "create", disabled: false };
+    if (actionContract) {
+      if (!actionContract.valid) {
+        return { label: "刷新研究材料", kind: "refresh", disabled: busyAction !== "" };
+      }
+      const primaryActionId = actionContract.frontstageAction.primaryActionId;
+      if (!primaryActionId) {
+        return { label: "正在整理研究材料…", kind: "busy", disabled: true };
+      }
+      const action = actionContract.actionById.get(primaryActionId);
+      if (!action) {
+        return { label: "刷新研究材料", kind: "refresh", disabled: busyAction !== "" };
+      }
+      const kind = action.target === "gate" || action.target === "review"
+        ? "decision"
+        : ["recovery", "retrieval_preflight", "retrieval_protocol"].includes(action.target)
+          ? "recovery"
+          : action.target === "brief"
+            ? "result"
+            : action.target === "new_project"
+              ? "restart"
+              : action.command === "resume"
+                ? "resume"
+                : action.command === "run"
+                  ? "run"
+                  : "refresh";
+      return {
+        label: action.label,
+        kind,
+        actionId: action.id,
+        command: action.command,
+        disabled: !action.enabled || (action.interaction === "submit" && busyAction !== ""),
+      };
+    }
     if (gate) return { label: "先完成这项研究决定", kind: "decision", disabled: false };
     if (review) return { label: "先完成人工复核", kind: "decision", disabled: false };
     if (status === "paused") return { label: "继续研究", kind: "resume", disabled: busyAction !== "" };
@@ -4633,7 +4793,7 @@ export function ResearchAgentWorkbench({
       return { label: "刷新待决定材料", kind: "refresh", disabled: busyAction !== "" };
     }
     return { label: "继续下一步", kind: "run", disabled: busyAction !== "" };
-  }, [blockerRetryClass, busyAction, gate, project, review, status]);
+  }, [actionContract, blockerRetryClass, busyAction, gate, project, review, status]);
 
   const handlePrimaryAction = useCallback(() => {
     if (primaryAction.kind === "create") {
@@ -4655,7 +4815,6 @@ export function ResearchAgentWorkbench({
       return;
     }
     if (primaryAction.kind === "restart") {
-      createIdempotencyKeyRef.current = "";
       setCreateStep("question");
       setQueryPreview(null);
       setSelectedQueryId("");
@@ -4764,7 +4923,7 @@ export function ResearchAgentWorkbench({
                     ? "先别急着检索。系统会扩展 MeSH 主题词、专业自由词、常用亚型与适用的邻近表达；你确认后才访问 PubMed。"
                     : `已选择“${directionSelection?.selectedDirection?.direction ?? "当前方向"}”。现在围绕收窄问题生成第二轮检索，首轮记录不会被覆盖。`}</p>
                   {scopingRound === 2 && directionSelection?.roundOneCheckpoint ? (
-                    <button className="rawb-create-form__restore" type="button" onClick={handleReturnToFirstRound}>返回首轮调整方向</button>
+                    <button className="rawb-create-form__restore" type="button" onClick={handleReturnToFirstRound}>重新开始首轮调整方向</button>
                   ) : null}
                   <label htmlFor="rawb-project-question">想研究的领域或大概问题</label>
                   <textarea
@@ -4844,7 +5003,7 @@ export function ResearchAgentWorkbench({
                   <div className="rawb-query-plan__question"><span>研究问题</span><strong>{createForm.question}</strong></div>
                   <QueryCalibrationReport calibration={queryCalibration} />
                   <fieldset className="rawb-query-strategies">
-                    <legend>{queryCalibration?.revision?.status === "completed" ? "选择自动修订方案" : "选择保留方案或手动修订"}</legend>
+                    <legend>{queryCalibration?.revision?.status === "completed" ? "选择本轮扫描方案" : "选择本轮已校准方案"}</legend>
                     {asArray(queryCalibration?.revisedPlan?.candidates).map((candidate) => (
                       <QueryStrategyCard
                         key={candidate.id}
@@ -4857,27 +5016,21 @@ export function ResearchAgentWorkbench({
                       />
                     ))}
                   </fieldset>
-                  <label htmlFor="rawb-project-search-query">确认前可由专家继续修订检索式</label>
+                  <label htmlFor="rawb-project-search-query">当前候选检索式（已与本轮校准记录绑定）</label>
                   <textarea
                     id="rawb-project-search-query"
                     value={createForm.searchQuery}
-                    onChange={(event) => setCreateForm((form) => ({ ...form, searchQuery: event.target.value }))}
                     rows={4}
                     maxLength={5000}
+                    readOnly
                     required
                   />
                   <p className="rawb-query-plan__boundary">{queryCalibration?.accessBoundary} 确认后才会使用当前式扫描 {queryCalibration?.revisedPlan?.reviewWindow?.from}—{queryCalibration?.revisedPlan?.reviewWindow?.to} 的 PubMed 综述。</p>
                   <div className="rawb-query-plan__actions">
-                    <button type="button" onClick={() => {
-                      const fallback = asArray(queryPlan?.candidates)[0];
-                      setQueryCalibration(null);
-                      setSelectedQueryId(fallback?.id ?? "");
-                      setCreateForm((form) => ({ ...form, searchQuery: fallback?.query ?? form.searchQuery }));
-                      setCreateStep("strategy");
-                    }}>返回初稿</button>
-                    <button type="submit" disabled={busyAction === "query-preview" || createForm.searchQuery.trim().length < 3}>{busyAction === "query-preview" ? "正在读取并分析综述摘要…" : "确认修订式并分析近五年综述"}</button>
+                    <button type="button" onClick={handleStartNewScopingChain}>修改问题或检索式：开始新的调查链</button>
+                    <button type="submit" disabled={busyAction === "query-preview" || createForm.searchQuery.trim().length < 3}>{busyAction === "query-preview" ? "正在读取并分析综述摘要…" : "确认当前候选并分析近五年综述"}</button>
                   </div>
-                  <p className="rawb-create-form__help">这是第二个人工确认点；任何手动改动都会作为新式重新执行基础抽查和综述扫描。</p>
+                  <p className="rawb-create-form__help">这是第二个人工确认点。本轮只能在已绑定候选中选择；如需改写词群或检索式，请开启新调查链，既有记录不会被覆盖。</p>
                 </>
               ) : (
                 <>
@@ -4929,26 +5082,18 @@ export function ResearchAgentWorkbench({
                     })}
                   </fieldset>
                   <p className="rawb-query-plan__boundary">{queryPreview?.accessBoundary} {queryPreview?.recallCheck?.boundary}</p>
-                  <label htmlFor="rawb-project-search-query">需要修订时，直接改当前基础检索式</label>
+                  <label htmlFor="rawb-project-search-query">本轮综述扫描检索式（只读）</label>
                   <textarea
                     id="rawb-project-search-query"
                     value={createForm.searchQuery}
-                    onChange={(event) => setCreateForm((form) => ({ ...form, searchQuery: event.target.value }))}
                     rows={4}
                     maxLength={5000}
+                    readOnly
                     required
                   />
-                  {!queryPreviewMatches && createForm.searchQuery.trim().length >= 3 ? <p className="rawb-create-form__help is-warning">检索式已改变；必须重新执行基础抽查与近五年综述扫描，不能沿用旧汇报建项。</p> : null}
+                  {!queryPreviewMatches && createForm.searchQuery.trim().length >= 3 ? <p className="rawb-create-form__help is-warning">当前显示值与服务端保存的扫描记录不一致；请开始新的调查链，不能沿用本轮简报建项。</p> : null}
                   <div className="rawb-query-plan__actions">
-                    <button type="button" onClick={() => {
-                      const fallback = asArray(queryCalibration?.revisedPlan?.candidates).find((candidate) => candidate.id === selectedQueryId)
-                        ?? asArray(queryCalibration?.revisedPlan?.candidates)[0];
-                      setQueryPreview(null);
-                      setSelectedQueryId(fallback?.id ?? "");
-                      setCreateForm((form) => ({ ...form, searchQuery: fallback?.query ?? form.searchQuery }));
-                      setCreateStep("calibration");
-                    }}>返回反馈校准</button>
-                    <button type="button" onClick={handleRecalibrateQueries} disabled={busyAction === "query-preview"}>{busyAction === "query-preview" ? "正在重新扫描…" : "重新扫描当前式"}</button>
+                    <button type="button" onClick={handleStartNewScopingChain}>修改问题或检索式：开始新的调查链</button>
                   </div>
                   </details>
                   {scopingRound === 2 ? (
@@ -4962,7 +5107,7 @@ export function ResearchAgentWorkbench({
                         <div><dt>第二轮问题</dt><dd>{directionSelection?.narrowedBrief?.question}</dd></div>
                       </dl>
                       <p>{directionSelection?.narrowedBrief?.evidenceBoundary}</p>
-                      <button type="button" onClick={handleReturnToFirstRound}>返回首轮调整方向</button>
+                      <button type="button" onClick={handleReturnToFirstRound}>重新开始首轮调整方向</button>
                     </section>
                     <details className="rawb-query-plan__advanced">
                     <summary>项目名称、约束与已有材料</summary>
@@ -5068,17 +5213,19 @@ export function ResearchAgentWorkbench({
                     {primaryAction.kind === "busy" ? <span className="rawb-button-spinner" aria-hidden="true" /> : null}
                     {primaryAction.label}
                   </button>
-                  {POLLING_STATUSES.has(status) || status === "paused" ? (
+                  {(actionContract
+                    ? contractAllows("project.pause") || contractAllows("project.cancel")
+                    : POLLING_STATUSES.has(status) || status === "paused") ? (
                     <div className="rawb-run-controls" aria-label="当前检索控制">
-                      {POLLING_STATUSES.has(status) ? (
+                      {(actionContract ? contractAllows("project.pause") : POLLING_STATUSES.has(status)) ? (
                         <button type="button" disabled={Boolean(busyAction)} onClick={() => performProjectAction("pause", { reason: "研究者从工作台暂停当前项目。" })}>暂停</button>
                       ) : null}
-                      {!cancelArmed ? (
+                      {!cancelArmed && (actionContract ? contractAllows("project.cancel") : true) ? (
                         <button className="is-danger" type="button" disabled={Boolean(busyAction)} onClick={() => setCancelArmed(true)}>停止本轮</button>
                       ) : null}
                     </div>
                   ) : null}
-                  {cancelArmed ? (
+                  {cancelArmed && contractAllows("project.cancel") ? (
                     <div className="rawb-cancel-confirm" role="group" aria-label="确认停止当前运行">
                       <p>停止本轮，但保留项目和已有记录？</p>
                       <button type="button" onClick={() => performProjectAction("cancel", { reason: "研究者明确停止当前运行；保留项目与记录。" })}>确认停止</button>
@@ -5127,6 +5274,7 @@ export function ResearchAgentWorkbench({
                     gate={gate}
                     review={review}
                     busy={Boolean(busyAction)}
+                    actionContract={actionContract}
                     onGateDecision={handleGateDecision}
                     onReviewDecision={handleReviewDecision}
                     onRetrySearch={handleRetrySearch}

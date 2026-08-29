@@ -57,11 +57,27 @@ function pubmedXmlSet(ids) {
 
 async function startMockPubMed() {
   const calls = [];
+  const control = { mode: "normal" };
   const server = createServer((request, response) => {
     const url = new URL(request.url, `http://${request.headers.host}`);
     calls.push({ pathname: url.pathname, query: Object.fromEntries(url.searchParams) });
     if (url.pathname.endsWith("/esearch.fcgi")) {
       const term = url.searchParams.get("term") ?? "";
+      if (control.mode === "service_unavailable") {
+        json(response, 503, { error: "temporary PubMed outage" });
+        return;
+      }
+      if (control.mode === "timeout") {
+        const timer = setTimeout(() => {
+          if (!response.destroyed) json(response, 200, { esearchresult: { count: "1", idlist: ["99999999"] } });
+        }, 250);
+        response.once("close", () => clearTimeout(timer));
+        return;
+      }
+      if (control.mode === "zero") {
+        json(response, 200, { esearchresult: { count: "0", idlist: [] } });
+        return;
+      }
       if (term.includes("service-unavailable")) {
         json(response, 503, { error: "temporary PubMed outage" });
         return;
@@ -105,6 +121,7 @@ async function startMockPubMed() {
   const port = await listen(server);
   return {
     calls,
+    control,
     baseUrl: `http://127.0.0.1:${port}/entrez/eutils/`,
     close: () =>
       new Promise((resolveClose, reject) =>
@@ -184,6 +201,128 @@ async function requestJson(baseUrl, pathname, options = {}) {
   return { response, body };
 }
 
+function scopingReference(result) {
+  const identity = result?.body?.scopingSession ?? result?.scopingSession;
+  assert.ok(identity?.id, "response must include the authoritative scoping session id");
+  assert.ok(Number.isInteger(identity.revision), "response must include the scoping session revision");
+  return {
+    scopingSessionId: identity.id,
+    scopingSessionRevision: identity.revision,
+  };
+}
+
+async function completeScopingSession(baseUrl, {
+  question,
+  beforeSecondPreview = null,
+} = {}) {
+  const firstPlan = await requestJson(baseUrl, "/api/research/query-plan", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question }),
+  });
+  assert.equal(firstPlan.response.status, 200, JSON.stringify(firstPlan.body));
+
+  const firstCalibration = await requestJson(baseUrl, "/api/research/query-calibration", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      question: firstPlan.body.question,
+      initialPlanHash: firstPlan.body.planHash,
+      selectedCandidateId: firstPlan.body.candidates[0].id,
+      ...scopingReference(firstPlan),
+    }),
+  });
+  assert.equal(firstCalibration.response.status, 200, JSON.stringify(firstCalibration.body));
+
+  const firstPreview = await requestJson(baseUrl, "/api/research/query-preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      question: firstCalibration.body.question,
+      candidateQueries: firstCalibration.body.revisedPlan.candidates,
+      reviewScanCandidateId: firstCalibration.body.revisedPlan.candidates[0].id,
+      reviewWindowYears: 5,
+      reviewSampleLimit: 20,
+      calibrationHash: firstCalibration.body.calibrationHash,
+      ...scopingReference(firstCalibration),
+    }),
+  });
+  assert.equal(firstPreview.response.status, 200, JSON.stringify(firstPreview.body));
+  const direction = firstPreview.body.reviewLandscape?.synthesis?.professorReport
+    ?.studentReviewDirections?.[0];
+  assert.ok(direction, "completed scoping helper requires a first-round review direction");
+
+  const selection = await requestJson(baseUrl, "/api/research/direction-selection", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      queryPlanHash: firstPreview.body.planHash,
+      reportBinding: firstPreview.body.reviewLandscape.researchReport.binding,
+      selectedDirectionId: direction.id,
+      selectionReason: "该方向对应当前最需要消除的不确定性，并具备可核查的研究边界。",
+      deferredReason: "其余方向保留为候选，待完成同题综述与原始研究窄检索后再比较。",
+      ...scopingReference(firstPreview),
+    }),
+  });
+  assert.equal(selection.response.status, 200, JSON.stringify(selection.body));
+
+  const secondPlan = await requestJson(baseUrl, "/api/research/query-plan", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      question: selection.body.narrowedBrief.question,
+      directionSelectionHash: selection.body.decisionHash,
+      ...scopingReference(selection),
+    }),
+  });
+  assert.equal(secondPlan.response.status, 200, JSON.stringify(secondPlan.body));
+
+  const secondCalibration = await requestJson(baseUrl, "/api/research/query-calibration", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      question: secondPlan.body.question,
+      initialPlanHash: secondPlan.body.planHash,
+      selectedCandidateId: secondPlan.body.candidates[0].id,
+      ...scopingReference(secondPlan),
+    }),
+  });
+  assert.equal(secondCalibration.response.status, 200, JSON.stringify(secondCalibration.body));
+  await beforeSecondPreview?.({
+    firstPlan,
+    firstCalibration,
+    firstPreview,
+    selection,
+    secondPlan,
+    secondCalibration,
+  });
+
+  const secondPreview = await requestJson(baseUrl, "/api/research/query-preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      question: secondCalibration.body.question,
+      candidateQueries: secondCalibration.body.revisedPlan.candidates,
+      reviewScanCandidateId: secondCalibration.body.revisedPlan.candidates[0].id,
+      reviewWindowYears: 5,
+      reviewSampleLimit: 20,
+      calibrationHash: secondCalibration.body.calibrationHash,
+      ...scopingReference(secondCalibration),
+    }),
+  });
+  assert.equal(secondPreview.response.status, 200, JSON.stringify(secondPreview.body));
+  assert.equal(secondPreview.body.scopingSession.stage, "complete");
+  return {
+    firstPlan,
+    firstCalibration,
+    firstPreview,
+    selection,
+    secondPlan,
+    secondCalibration,
+    secondPreview,
+  };
+}
+
 test("production API traverses mock PubMed, recovery, persistence, and safety boundaries", async (t) => {
   const dataDir = await mkdtemp(join(tmpdir(), "research-workbench-api-data-"));
   const staticDir = await mkdtemp(join(tmpdir(), "research-workbench-api-static-"));
@@ -241,6 +380,7 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
   assert.match(queryPlan.body.planner.claim, /检索 Agent 已完成专业词群扩展/);
   assert.match(queryPlan.body.promptExecution.boundary, /未调用实时模型/);
   assert.doesNotMatch(JSON.stringify(queryPlan.body), /钟教授|钟澄/);
+  assert.equal(queryPlan.body.scopingSession.stage, "first_plan");
   assert.equal(mock.calls.length, pubmedCallsBeforePlanning);
 
   const calibration = await requestJson(workbench.baseUrl, "/api/research/query-calibration", {
@@ -250,6 +390,7 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
       question: queryPlan.body.question,
       initialPlanHash: queryPlan.body.planHash,
       selectedCandidateId: queryPlan.body.candidates[0].id,
+      ...scopingReference(queryPlan),
     }),
   });
   assert.equal(calibration.response.status, 200);
@@ -263,6 +404,26 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
     "100",
   );
 
+  const duplicatedCalibratedCandidates = calibration.body.revisedPlan.candidates.map(
+    () => structuredClone(calibration.body.revisedPlan.candidates[0]),
+  );
+  assert.ok(duplicatedCalibratedCandidates.length > 1);
+  const rejectedDuplicatedPreview = await requestJson(workbench.baseUrl, "/api/research/query-preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      question: queryPlan.body.question,
+      candidateQueries: duplicatedCalibratedCandidates,
+      reviewScanCandidateId: duplicatedCalibratedCandidates[0].id,
+      reviewWindowYears: 5,
+      reviewSampleLimit: 20,
+      calibrationHash: calibration.body.calibrationHash,
+      ...scopingReference(calibration),
+    }),
+  });
+  assert.equal(rejectedDuplicatedPreview.response.status, 409);
+  assert.equal(rejectedDuplicatedPreview.body.code, "QUERY_CALIBRATION_STALE");
+
   const preview = await requestJson(workbench.baseUrl, "/api/research/query-preview", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -273,6 +434,7 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
       reviewWindowYears: 5,
       reviewSampleLimit: 20,
       calibrationHash: calibration.body.calibrationHash,
+      ...scopingReference(calibration),
     }),
   });
   assert.equal(preview.response.status, 200);
@@ -322,6 +484,7 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
         selectedDirectionId: firstDirection.id,
         selectionReason: "这个方向最贴近当前团队能力与待消除的不确定性。",
         deferredReason: "其余方向保留为备选，等待第二轮范围比较。",
+        ...scopingReference(preview),
       }),
     });
     assert.equal(rejected.response.status, 409);
@@ -336,6 +499,7 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
       selectedDirectionId: firstDirection.id,
       selectionReason: "这个方向最贴近当前团队能力与待消除的不确定性。",
       deferredReason: "其余方向保留为备选，等待第二轮范围比较。",
+      ...scopingReference(preview),
     }),
   });
   assert.equal(directionSelection.response.status, 200);
@@ -349,6 +513,7 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
     body: JSON.stringify({
       question: directionSelection.body.narrowedBrief.question,
       directionSelectionHash: directionSelection.body.decisionHash,
+      ...scopingReference(directionSelection),
     }),
   });
   assert.equal(secondPlan.response.status, 200);
@@ -371,6 +536,7 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
       question: secondPlan.body.question,
       initialPlanHash: secondPlan.body.planHash,
       selectedCandidateId: secondPlan.body.candidates[0].id,
+      ...scopingReference(secondPlan),
     }),
   });
   assert.equal(secondCalibration.response.status, 200);
@@ -390,10 +556,11 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
       reviewWindowYears: 5,
       reviewSampleLimit: 20,
       calibrationHash: secondCalibration.body.calibrationHash,
+      ...scopingReference(secondCalibration),
     }),
   });
   assert.equal(rejectedEditedFocusedPreview.response.status, 409);
-  assert.equal(rejectedEditedFocusedPreview.body.code, "SECOND_ROUND_DIRECTION_BINDING_MISMATCH");
+  assert.equal(rejectedEditedFocusedPreview.body.code, "QUERY_CALIBRATION_STALE");
   const secondPreview = await requestJson(workbench.baseUrl, "/api/research/query-preview", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -404,12 +571,32 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
       reviewWindowYears: 5,
       reviewSampleLimit: 20,
       calibrationHash: secondCalibration.body.calibrationHash,
+      ...scopingReference(secondCalibration),
     }),
   });
   assert.equal(secondPreview.response.status, 200);
   assert.equal(secondPreview.body.directionBinding.decisionHash, directionSelection.body.decisionHash);
   assert.equal(secondPreview.body.directionBinding.selectedDirectionId, firstDirection.id);
   assert.equal(secondPreview.body.directionBinding.reportHash, reportBinding.reportHash);
+  const persistedScopingSession = await requestJson(
+    workbench.baseUrl,
+    `/api/research/scoping-sessions/${encodeURIComponent(secondPreview.body.scopingSession.id)}`,
+  );
+  assert.equal(persistedScopingSession.response.status, 200);
+  assert.equal(persistedScopingSession.body.stage, "complete");
+  assert.equal(persistedScopingSession.body.revision, 7);
+  assert.equal(persistedScopingSession.body.firstRound.preview.planHash, preview.body.planHash);
+  assert.equal(persistedScopingSession.body.secondRound.preview.planHash, secondPreview.body.planHash);
+  const scopingRestartExit = await stopWorkbench(workbench);
+  assert.equal(scopingRestartExit.code, 0, workbench.output());
+  workbench = await startWorkbench({ port, dataDir, staticDir, pubmedBaseUrl: mock.baseUrl });
+  const recoveredScopingSession = await requestJson(
+    workbench.baseUrl,
+    `/api/research/scoping-sessions/${encodeURIComponent(secondPreview.body.scopingSession.id)}`,
+  );
+  assert.equal(recoveredScopingSession.response.status, 200);
+  assert.deepEqual(recoveredScopingSession.body.identity, secondPreview.body.scopingSession);
+  assert.equal(recoveredScopingSession.body.directionSelection.decisionHash, directionSelection.body.decisionHash);
 
   const unboundFocusedPreview = await requestJson(workbench.baseUrl, "/api/research/query-preview", {
     method: "POST",
@@ -422,26 +609,8 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
       reviewSampleLimit: 20,
     }),
   });
-  assert.equal(unboundFocusedPreview.response.status, 200);
-  const rejectedUnboundCreate = await requestJson(workbench.baseUrl, "/api/research/projects", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Idempotency-Key": "reject-unbound-second-round",
-    },
-    body: JSON.stringify({
-      title: "不得绕过方向绑定",
-      question: unboundFocusedPreview.body.question,
-      researchMode: "live_pubmed",
-      searchQuery: unboundFocusedPreview.body.candidates[0].query,
-      queryPlanHash: unboundFocusedPreview.body.planHash,
-      selectedCandidateId: unboundFocusedPreview.body.candidates[0].id,
-      directionSelectionHash: directionSelection.body.decisionHash,
-      completionProfileId: "audited_review",
-    }),
-  });
-  assert.equal(rejectedUnboundCreate.response.status, 409);
-  assert.equal(rejectedUnboundCreate.body.code, "SECOND_ROUND_DIRECTION_BINDING_MISMATCH");
+  assert.equal(unboundFocusedPreview.response.status, 400);
+  assert.equal(unboundFocusedPreview.body.code, "SCOPING_SESSION_REQUIRED");
 
   const unpreviewedCreate = await requestJson(workbench.baseUrl, "/api/research/projects", {
     method: "POST",
@@ -456,8 +625,27 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
       searchQuery: preview.body.candidates[0].query,
     }),
   });
-  assert.equal(unpreviewedCreate.response.status, 409);
-  assert.equal(unpreviewedCreate.body.code, "QUERY_PREVIEW_REQUIRED");
+  assert.equal(unpreviewedCreate.response.status, 400);
+  assert.equal(unpreviewedCreate.body.code, "SCOPING_SESSION_REQUIRED");
+
+  const directionlessCreate = await requestJson(workbench.baseUrl, "/api/research/projects", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": "reject-directionless-create",
+    },
+    body: JSON.stringify({
+      title: "不得丢失人工方向决定",
+      question: secondPreview.body.question,
+      researchMode: "live_pubmed",
+      searchQuery: secondPreview.body.candidates[0].query,
+      queryPlanHash: secondPreview.body.planHash,
+      selectedCandidateId: secondPreview.body.candidates[0].id,
+      ...scopingReference(secondPreview),
+    }),
+  });
+  assert.equal(directionlessCreate.response.status, 400);
+  assert.equal(directionlessCreate.body.code, "DIRECTION_SELECTION_REQUIRED");
 
   const stalePreviewCreate = await requestJson(workbench.baseUrl, "/api/research/projects", {
     method: "POST",
@@ -472,6 +660,7 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
       searchQuery: `${preview.body.candidates[0].query} AND humans[MeSH Terms]`,
       queryPlanHash: preview.body.planHash,
       selectedCandidateId: preview.body.candidates[0].id,
+      ...scopingReference(secondPreview),
     }),
   });
   assert.equal(stalePreviewCreate.response.status, 409);
@@ -509,6 +698,7 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
       selectedCandidateId: secondPreview.body.candidates[0].id,
       directionSelectionHash: directionSelection.body.decisionHash,
       completionProfileId: "audited_review",
+      ...scopingReference(secondPreview),
     }),
   };
   const selectedQueryCallsBeforeCreate = mock.calls.filter(
@@ -528,6 +718,10 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
   assert.equal(duplicateCreated.response.status, 201);
   assert.equal(duplicateCreated.body.id, created.body.id);
   assert.equal(created.body.status, "awaiting_gate");
+  assert.equal(created.body.frontstageAction.primaryActionId, "gate.open");
+  assert.equal(created.body.frontstageAction.binding.projectRevision, created.body.version);
+  assert.equal(created.body.userBrief.nextStepOrUserDecision, created.body.frontstageAction.nextDecision);
+  assert.ok(created.body.availableActions.some((action) => action.id === "gate.approve" && action.enabled));
   assert.equal(created.body.completionProfileId, "audited_review");
   assert.equal(created.body.pendingGate.nodeId, "approve_scope");
   assert.equal(created.body.scopingVerification.status, "exploratory_unverified");
@@ -537,7 +731,7 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
   assert.match(created.body.userBrief.currentResearchPeriod, /问题成形/);
   assert.deepEqual(created.body.userBrief.newConclusions, []);
   assert.match(created.body.userBrief.mainEvidenceAndBoundaries.accessSummary, /综述扫描/);
-  assert.match(created.body.userBrief.nextStepOrUserDecision, /请确认/);
+  assert.match(created.body.userBrief.nextStepOrUserDecision, /请核对/);
   assert.doesNotMatch(created.body.userBrief.nextStepOrUserDecision, /Agent|安全保存点|阶段边界|人工边界/);
   assert.equal(created.body.question, directionSelection.body.narrowedBrief.question);
   assert.equal(created.body.queryPreviewSelection.query, secondPreview.body.candidates[0].query);
@@ -580,6 +774,25 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
     mock.calls.filter((call) => call.pathname.endsWith("/efetch.fcgi")).length,
     allFetchCallsBeforeCreate,
   );
+  const createRestartExit = await stopWorkbench(workbench);
+  assert.equal(createRestartExit.code, 0, workbench.output());
+  workbench = await startWorkbench({ port, dataDir, staticDir, pubmedBaseUrl: mock.baseUrl });
+  const replayedCreate = await requestJson(
+    workbench.baseUrl,
+    "/api/research/projects",
+    createRequest,
+  );
+  assert.equal(replayedCreate.response.status, 201, JSON.stringify(replayedCreate.body));
+  assert.equal(replayedCreate.body.id, persistedProjectId);
+  assert.equal(replayedCreate.body.status, "awaiting_gate");
+  const projectsAfterReplayedCreate = await requestJson(
+    workbench.baseUrl,
+    "/api/research/projects",
+  );
+  assert.deepEqual(
+    projectsAfterReplayedCreate.body.map((item) => item.id),
+    [persistedProjectId],
+  );
 
   const unsignedExport = await requestJson(
     workbench.baseUrl,
@@ -613,7 +826,7 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
     },
   );
   assert.equal(amendment.response.status, 200, JSON.stringify(amendment.body));
-  assert.equal(amendment.body.status, "running");
+  assert.equal(amendment.body.status, "idle");
 
   let revisedScope = amendment.body;
   const revisedScopeDeadline = Date.now() + 15_000;
@@ -725,6 +938,9 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
     } while (Date.now() < deadline);
   }
   assert.equal(completed.status, "completed", JSON.stringify(completed));
+  assert.equal(completed.frontstageAction.primaryActionId, "brief.view");
+  assert.deepEqual(completed.availableActions.map((action) => action.id), ["brief.view"]);
+  assert.equal(completed.userBrief.nextStepOrUserDecision, completed.frontstageAction.nextDecision);
   const completedList = await requestJson(workbench.baseUrl, "/api/research/projects");
   const completedListItem = completedList.body.find((item) => item.id === persistedProjectId);
   assert.deepEqual(completedListItem.contentMaturity, completed.contentMaturity);
@@ -791,28 +1007,28 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
   assert.equal(stillNotFormal.response.status, 409);
   assert.equal(stillNotFormal.body.code, "EXPORT_NOT_READY");
 
+  const zeroResultScoping = await completeScopingSession(workbench.baseUrl, {
+    question: "围术期睡眠与术后恢复综述在零结果后如何修订检索式？",
+    beforeSecondPreview: () => {
+      mock.control.mode = "zero";
+    },
+  });
+  mock.control.mode = "normal";
+  const zeroResultPreview = zeroResultScoping.secondPreview.body;
+  const zeroResultCandidate = zeroResultPreview.candidates[0];
+  assert.equal(zeroResultCandidate.status, "zero_results");
   const failed = await requestJson(workbench.baseUrl, "/api/research/projects", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       title: "可恢复零结果",
-      question: "零结果后能否在同一项目修改检索式？",
+      question: zeroResultPreview.question,
       researchMode: "live_pubmed",
-      searchQuery: "no-result-query",
-      queryPlanHash: (
-        await requestJson(workbench.baseUrl, "/api/research/query-preview", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            question: "零结果后能否在同一项目修改检索式？",
-            candidateQueries: [
-              { id: "zero-result", query: "no-result-query" },
-              { id: "comparison", query: "revised recovery query" },
-            ],
-          }),
-        })
-      ).body.planHash,
-      selectedCandidateId: "zero-result",
+      searchQuery: zeroResultCandidate.query,
+      queryPlanHash: zeroResultPreview.planHash,
+      selectedCandidateId: zeroResultCandidate.id,
+      directionSelectionHash: zeroResultScoping.selection.body.decisionHash,
+      ...scopingReference(zeroResultScoping.secondPreview),
     }),
   });
   assert.equal(failed.response.status, 422);
@@ -821,7 +1037,7 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
   assert.equal(failed.body.project.id, failed.body.projectId);
   assert.equal(failed.body.project.status, "paused");
   assert.doesNotMatch(failed.body.project.userBrief.nextStepOrUserDecision, /Agent|安全保存点|安全边界|阶段边界|人工边界/);
-  assert.match(failed.body.project.userBrief.nextStepOrUserDecision, /已有材料均已保留/);
+  assert.match(failed.body.project.userBrief.nextStepOrUserDecision, /已有材料.*(?:保留|保持)/);
 
   const retried = await requestJson(
     workbench.baseUrl,
@@ -843,22 +1059,15 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
   const projects = await requestJson(workbench.baseUrl, "/api/research/projects");
   assert.equal(projects.body.length, 2);
 
-  const formalFailureQuestion = "正式试检零结果后能否修订当前项目的检索协议？";
-  const formalFailureQuery = "formal-zero sleep AND recovery";
+  const formalFailureQuestion = "围术期睡眠与术后恢复的正式试检零结果后如何修订检索协议？";
   const formalRevisionQuery = "sleep OR recovery";
-  const formalFailurePreview = await requestJson(workbench.baseUrl, "/api/research/query-preview", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      question: formalFailureQuestion,
-      candidateQueries: [
-        { id: "formal-zero", query: formalFailureQuery },
-        { id: "comparison", query: formalRevisionQuery },
-      ],
-    }),
+  const formalFailureScoping = await completeScopingSession(workbench.baseUrl, {
+    question: formalFailureQuestion,
   });
-  assert.equal(formalFailurePreview.response.status, 200);
-  assert.equal(formalFailurePreview.body.candidates[0].status, "ready");
+  const formalFailurePreview = formalFailureScoping.secondPreview.body;
+  const formalFailureCandidate = formalFailurePreview.candidates[0];
+  const formalFailureQuery = formalFailureCandidate.query;
+  assert.equal(formalFailureCandidate.status, "ready");
   const formalFailureCreated = await requestJson(workbench.baseUrl, "/api/research/projects", {
     method: "POST",
     headers: {
@@ -867,15 +1076,18 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
     },
     body: JSON.stringify({
       title: "正式零结果协议修订",
-      question: formalFailureQuestion,
+      question: formalFailurePreview.question,
       researchMode: "live_pubmed",
       searchQuery: formalFailureQuery,
-      queryPlanHash: formalFailurePreview.body.planHash,
-      selectedCandidateId: "formal-zero",
+      queryPlanHash: formalFailurePreview.planHash,
+      selectedCandidateId: formalFailureCandidate.id,
+      directionSelectionHash: formalFailureScoping.selection.body.decisionHash,
+      ...scopingReference(formalFailureScoping.secondPreview),
     }),
   });
   assert.equal(formalFailureCreated.response.status, 201);
   const formalFailureProjectId = formalFailureCreated.body.id;
+  mock.control.mode = "zero";
   const formalScopeDecision = await requestJson(
     workbench.baseUrl,
     `/api/research/projects/${encodeURIComponent(formalFailureProjectId)}/gates/${encodeURIComponent(formalFailureCreated.body.pendingGate.gateId)}/decision`,
@@ -905,11 +1117,14 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
   assert.equal(formalBlocked.status, "blocked", JSON.stringify(formalBlocked));
   assert.equal(formalBlocked.blocker.code, "PUBMED_NO_RESULTS");
   assert.equal(formalBlocked.blocker.retryClass, "protocol_revision_required");
+  assert.equal(formalBlocked.frontstageAction.primaryActionId, "retrieval.protocol.open");
+  assert.ok(formalBlocked.availableActions.some((action) => action.id === "retrieval.protocol.revise"));
   assert.equal(formalBlocked.blocker.failedRequest.query, formalFailureQuery);
   assert.equal(formalBlocked.recovery.action, "revise_protocol");
   assert.doesNotMatch(formalBlocked.userBrief.nextStepOrUserDecision, /Agent|安全保存点|安全边界|阶段边界|人工边界|指纹|哈希/);
-  assert.match(formalBlocked.userBrief.nextStepOrUserDecision, /研究需要处理/);
+  assert.match(formalBlocked.userBrief.nextStepOrUserDecision, /修订检索范围|修订.*词项/);
   assert.match(formalBlocked.recovery.safeCheckpoint.message, /已保存/);
+  mock.control.mode = "normal";
   const oldFormalQueryCalls = mock.calls.filter(
     (call) => call.pathname.endsWith("/esearch.fcgi") && call.query.term === formalFailureQuery,
   ).length;
@@ -970,22 +1185,21 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
     "failed zero-result protocol must not be retried after revision",
   );
 
-  for (const [query, expectedCode] of [
-    ["service-unavailable-query", "PUBMED_SEARCH_FAILED"],
-    ["timeout-query", "PUBMED_TIMEOUT"],
+  for (const [failureMode, expectedCode] of [
+    ["service_unavailable", "PUBMED_SEARCH_FAILED"],
+    ["timeout", "PUBMED_TIMEOUT"],
   ]) {
-    const failureQuestion = `当 PubMed ${expectedCode} 时是否保持同一项目并停止？`;
-    const failurePreview = await requestJson(workbench.baseUrl, "/api/research/query-preview", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        question: failureQuestion,
-        candidateQueries: [
-          { id: "failure-query", query },
-          { id: "comparison", query: "revised recovery query" },
-        ],
-      }),
+    const failureQuestion = `围术期睡眠与术后恢复在 PubMed ${expectedCode} 时如何保留研究记录？`;
+    const failureScoping = await completeScopingSession(workbench.baseUrl, {
+      question: failureQuestion,
+      beforeSecondPreview: () => {
+        mock.control.mode = failureMode;
+      },
     });
+    mock.control.mode = "normal";
+    const failurePreview = failureScoping.secondPreview.body;
+    const failureCandidate = failurePreview.candidates[0];
+    assert.equal(failureCandidate.status, "failed");
     const failure = await requestJson(workbench.baseUrl, "/api/research/projects", {
       method: "POST",
       headers: {
@@ -994,11 +1208,13 @@ test("production API traverses mock PubMed, recovery, persistence, and safety bo
       },
       body: JSON.stringify({
         title: `失败关闭 ${expectedCode}`,
-        question: failureQuestion,
+        question: failurePreview.question,
         researchMode: "live_pubmed",
-        searchQuery: query,
-        queryPlanHash: failurePreview.body.planHash,
-        selectedCandidateId: "failure-query",
+        searchQuery: failureCandidate.query,
+        queryPlanHash: failurePreview.planHash,
+        selectedCandidateId: failureCandidate.id,
+        directionSelectionHash: failureScoping.selection.body.decisionHash,
+        ...scopingReference(failureScoping.secondPreview),
       }),
     });
     assert.equal(failure.response.status, 502);

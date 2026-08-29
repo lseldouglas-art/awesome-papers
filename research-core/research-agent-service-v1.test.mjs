@@ -489,6 +489,100 @@ test("pause releases active work, resume can retry, and cancel is authoritative"
   );
 });
 
+test("a restarted service reconciles an in-flight run and lease without trusting partial output", async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), "research-agent-service-orphan-restart-"));
+  const machine = machineWithHumanReview();
+  machine.nodes[1].reviewerRole = "scope_reviewer";
+  const runtime = new PausableGuidedRuntime();
+  const sharedClock = monotonicClock();
+  const projectId = "agent-service-orphan-restart";
+  const first = new ResearchAgentServiceV1({
+    dataDir,
+    machine,
+    piRuntimeAdapter: runtime,
+    now: sharedClock,
+  });
+  await first.createProject(projectInput(projectId, "manual_review_test"));
+
+  // Intentionally leave this promise unresolved to model a process that dies
+  // after the persistent lease/run start events but before any terminal event.
+  void first.runUntilBoundary(projectId);
+  while (!runtime.waiting) await new Promise((resolve) => setImmediate(resolve));
+
+  const whileOwnedByFirstRuntime = await first.getProject(projectId);
+  assert.equal(whileOwnedByFirstRuntime.agentRunStatus.status, "running");
+  assert.equal(whileOwnedByFirstRuntime.projectStatus, "running");
+  assert.equal(whileOwnedByFirstRuntime.authoritativeProjectStatus.status, "running");
+  assert.ok(
+    Object.values(whileOwnedByFirstRuntime.state.workLeases).some(
+      (lease) => lease.status === "running",
+    ),
+  );
+
+  const restarted = new ResearchAgentServiceV1({
+    dataDir,
+    machine,
+    piRuntimeAdapter: guidedRuntime(),
+    now: sharedClock,
+  });
+  const recovered = await restarted.getProject(projectId);
+  const recoveryBlocker = Object.values(
+    recovered.state.nodeExecutions.human_reviewed_work.blockers,
+  ).find((blocker) => blocker.code === "RUNTIME_EXECUTION_ORPHANED");
+  assert.ok(recoveryBlocker);
+  assert.equal(recovered.projection.boundary.type, "blocked");
+  assert.equal(recovered.projectStatus, "blocked");
+  assert.equal(recovered.authoritativeProjectStatus.status, "blocked");
+  assert.equal(
+    recovered.authoritativeProjectStatus.authority,
+    "persistent_project_event_and_agent_run_logs",
+  );
+  assert.deepEqual(recovered.agentRunStatus.activeWorkOrderIds, []);
+  assert.deepEqual(recovered.agentRunStatus.activeRunIds, []);
+  assert.deepEqual(recovered.agentRunStatus.activeToolCallIds, []);
+  assert.ok(
+    Object.values(recovered.agentRunStatus.runs).some(
+      (run) =>
+        run.status === "failed" &&
+        run.terminalPayload?.code === "RUNTIME_EXECUTION_ORPHANED",
+    ),
+  );
+  assert.ok(
+    Object.values(recovered.state.workLeases).some(
+      (lease) =>
+        lease.status === "released" &&
+        lease.releaseReason === `blocked:${recoveryBlocker.id}`,
+    ),
+  );
+  assert.equal(recovered.runtimeProvenance.formalEligible, false);
+  assert.ok(
+    recovered.runtimeProvenance.blockers.some(
+      (blocker) => blocker.code === "agent_run_not_completed",
+    ),
+    "an interrupted invocation must remain fail-closed rather than gain a fabricated receipt",
+  );
+
+  const repeated = await restarted.getProject(projectId);
+  assert.equal(repeated.state.revision, recovered.state.revision);
+  assert.equal(repeated.agentRunStatus.version, recovered.agentRunStatus.version);
+
+  const resumed = await restarted.resumeProject({
+    projectId,
+    nodeId: "human_reviewed_work",
+    blockerId: recoveryBlocker.id,
+    actor: owner,
+    resolution: "已核对中断前没有可采信产物，按原输入重新执行。",
+  });
+  assert.equal(
+    resumed.state.nodeExecutions.human_reviewed_work.state,
+    EXECUTION_STATES.READY,
+  );
+  const completed = await restarted.runUntilBoundary(projectId);
+  assert.equal(completed.projection.boundary.type, "complete");
+  assert.equal(completed.projectStatus, "completed");
+  assert.deepEqual(completed.agentRunStatus.activeRunIds, []);
+});
+
 test("formal PubMed retrieval runs are protocol-bound, multi-round, and restart-idempotent", async () => {
   const dataDir = await mkdtemp(join(tmpdir(), "research-agent-service-live-retrieval-"));
   let searches = 0;

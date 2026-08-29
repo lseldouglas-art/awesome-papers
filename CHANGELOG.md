@@ -8,6 +8,33 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 - External usability testing of the two-step project creation flow.
 
+## [0.1.4] - 2026-08-29
+
+### Added
+
+- A persistent, append-only pre-project scoping session covering two rounds of query planning, calibration, preview, and the researcher's direction decision.
+- A server-authored frontstage action contract so the workspace, user brief, and API expose the same allowed research action.
+- Startup recovery for orphaned Agent runs, including explicit cancellation/failure receipts and a required human retry.
+
+### Changed
+
+- Kept exploratory scoping summaries separate from the formal research report, preventing an older preview from being presented as a current conclusion.
+- Restored the complete scoping session from the server after a restart; browser storage now retains only the session identity and unsaved form basics.
+- Derived project identity from the accepted scoping session so repeated creation requests remain idempotent across restarts.
+- Starting over now opens a new immutable investigation chain instead of rewriting the earlier chain.
+- Project status is projected from persisted events and run logs rather than the process-local active-run map.
+
+### Security and scientific integrity
+
+- The API cannot skip either calibration round, reorder calibrated candidates, substitute a query, or confirm a direction without the bound decision hash.
+- State or version conflicts fail closed, and unavailable recovery, gate, or review actions are removed from the frontstage contract.
+- Recovery never fabricates a model invocation receipt; interrupted work remains failed until the researcher explicitly retries it.
+
+### Verification
+
+- Passed 305 core tests, 11 workbench-model tests, 16 report-UI tests, and the API end-to-end test.
+- Passed the production build, diff check, 1448×1086 browser review, primary-action contract check, and no-horizontal-overflow check.
+
 ## [0.1.3] - 2026-08-28
 
 ### Changed

@@ -22,7 +22,10 @@ import {
 } from "../src/components/research-scoping-draft.js";
 import { buildResearchWorkbenchDirectionSelectionPayload } from "../src/research-agent-workbench-model.js";
 import { buildResearchDirectionSelection } from "../research-core/research-direction-selection-v1.js";
-import { assertResearchReportSelectionBinding } from "../research-core/research-report-contract-v1.js";
+import {
+  assertResearchReportSelectionBinding,
+  buildResearchReportContract,
+} from "../research-core/research-report-contract-v1.js";
 
 const gastricReport = JSON.parse(readFileSync(
   new URL("../research-core/fixtures/gastric-cancer-review-ledger-2021-2026.v1.json", import.meta.url),
@@ -132,6 +135,78 @@ test("four-chapter model normalizes contract label objects and uses review propo
   assert.doesNotMatch(brief, /reportHash|sourceSetHash|数字签名|可信根|事件库|版本库|内容指纹/);
   assert.doesNotMatch(brief, /PMID\s+\d{6,}/);
   assert.equal(buildResearchReviewReportModel({ landscape }).selectedDirection, null);
+});
+
+test("a formal report contract cannot be mixed with an older scoping synthesis", () => {
+  const scopingReport = structuredClone(gastricReport);
+  const records = scopingReport.ledger.rows.slice(0, 5).map((row) => ({
+    sourceId: row.sourceId,
+    pmid: row.pmid,
+    doi: row.doi,
+    title: row.title,
+    journal: row.journal,
+    year: row.year,
+    accessLevel: "title_only",
+    locator: row.locator,
+    sourceSnapshotHash: row.sourceSnapshotHash,
+  }));
+  const subjectConcepts = scopingReport.relevanceGate.subjectConcepts.map((concept) => ({
+    conceptId: concept.id,
+    sourceTerm: concept.sourceTerm,
+    role: concept.role,
+    mappedTerms: concept.terms,
+    meshTerms: concept.meshTerms,
+  }));
+  const formalReport = buildResearchReportContract({
+    projectId: "formal-project",
+    question: scopingReport.question,
+    records,
+    subjectConcepts,
+    reportRevision: 2,
+    generatedAt: "2026-08-28T00:00:00.000Z",
+  });
+  const landscape = landscapeFromReport(scopingReport);
+  const model = buildResearchReviewReportModel({
+    landscape,
+    researchReport: formalReport,
+  });
+  const formalSynthesis = formalReport.derivedAnalysis.reviewSynthesis;
+  const scopingSynthesis = scopingReport.derivedAnalysis.reviewSynthesis;
+  const brief = buildMentorBrief(model);
+
+  assert.equal(model.binding.reportHash, formalReport.binding.reportHash);
+  assert.equal(model.rows.length, formalReport.ledger.analyzedRowCount);
+  assert.equal(model.ledgerIntegrity.status, "passed");
+  assert.equal(model.executiveSummary, formalSynthesis.professorReport.executiveSummary);
+  assert.deepEqual(
+    model.directions.map((direction) => direction.id),
+    formalSynthesis.professorReport.studentReviewDirections.map((direction) => direction.id),
+  );
+  assert.match(brief, new RegExp(formalSynthesis.professorReport.executiveSummary.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.doesNotMatch(brief, new RegExp(scopingSynthesis.professorReport.executiveSummary.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+
+  const formalDirectionIds = new Set(
+    formalSynthesis.professorReport.studentReviewDirections.map((direction) => direction.id),
+  );
+  const oldOnlyDirection = scopingSynthesis.professorReport.studentReviewDirections.find(
+    (direction) => !formalDirectionIds.has(direction.id),
+  );
+  assert.ok(oldOnlyDirection, "fixture must contain a scoping direction absent from the formal report");
+  const oldModel = buildResearchReviewReportModel({
+    landscape,
+    selectedDirectionId: oldOnlyDirection.id,
+  });
+  const staleLockedModel = buildResearchReviewReportModel({
+    landscape,
+    researchReport: formalReport,
+    lockedDirection: {
+      ...oldModel.selectedDirection,
+      reportBinding: scopingReport.binding,
+      bindingVerified: true,
+    },
+  });
+  assert.equal(staleLockedModel.lockedSelectionStale, true);
+  assert.equal(staleLockedModel.selectedDirection, null);
 });
 
 test("opaque or caller-authored external review objects cannot upgrade any candidate competition status", () => {
@@ -365,6 +440,7 @@ test("researcher-facing decisions and errors do not expose runtime state languag
   const {
     researcherFacingErrorMessage,
     researcherFacingNextDecision,
+    researcherFacingPrimaryConclusion,
   } = await vite.ssrLoadModule("/src/components/ResearchAgentWorkbench.jsx");
   const forbidden = /Agent|安全保存点|安全边界|阶段边界|人工边界|内部执行状态|计划指纹|方向选择指纹|哈希|校验码/;
 
@@ -381,6 +457,42 @@ test("researcher-facing decisions and errors do not expose runtime state languag
   assert.match(researcherFacingNextDecision(projects[3]), /已有材料|检索式/);
   assert.match(researcherFacingNextDecision(projects[4]), /主题词|同义词|检索式/);
 
+  const contractWinsOverLegacyAliases = {
+    version: 7,
+    status: "blocked",
+    pendingGate: { status: "pending", userLabel: "旧范围决定" },
+    frontstageAction: {
+      schemaVersion: "research-frontstage-action/v1",
+      binding: { projectRevision: 7 },
+      attention: "none",
+      nextDecision: "本轮研究已经完成；请查看科研简报并按证据边界使用。",
+      primaryActionId: "brief.view",
+    },
+    availableActions: [{
+      id: "brief.view",
+      label: "查看科研简报",
+      interaction: "navigate",
+      target: "brief",
+      enabled: true,
+      binding: { projectRevision: 7 },
+    }],
+  };
+  assert.equal(
+    researcherFacingNextDecision(contractWinsOverLegacyAliases),
+    contractWinsOverLegacyAliases.frontstageAction.nextDecision,
+  );
+  assert.doesNotMatch(researcherFacingNextDecision(contractWinsOverLegacyAliases), /旧范围决定/);
+  assert.match(
+    researcherFacingNextDecision({
+      ...contractWinsOverLegacyAliases,
+      frontstageAction: {
+        ...contractWinsOverLegacyAliases.frontstageAction,
+        binding: { projectRevision: 6 },
+      },
+    }),
+    /刷新后重新核对/,
+  );
+
   const staleError = {
     code: "INVALID_DIRECTION_SELECTION_HASH",
     message: "方向选择指纹无效；请重新提交方向决定。",
@@ -394,6 +506,19 @@ test("researcher-facing decisions and errors do not expose runtime state languag
   assert.equal(staleError.payload.code, "INVALID_DIRECTION_SELECTION_HASH");
   assert.match(researcherFacingErrorMessage({ code: "PUBMED_NO_RESULTS", message: "零结果" }), /修改检索式/);
   assert.match(researcherFacingErrorMessage({ code: "NETWORK_ERROR", message: "无法连接科研运行时" }), /已有简报仍可查看/);
+
+  const exploratoryOnly = {
+    userBrief: { newConclusions: [] },
+    scopingRounds: [{}, { reviewLandscape: landscapeFromReport() }],
+  };
+  assert.match(researcherFacingPrimaryConclusion(exploratoryOnly), /尚未形成通过当前准入条件的研究结论/);
+  assert.doesNotMatch(
+    researcherFacingPrimaryConclusion(exploratoryOnly),
+    new RegExp(gastricReport.derivedAnalysis.reviewSynthesis.professorReport.executiveSummary.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+  );
+  assert.equal(researcherFacingPrimaryConclusion({
+    userBrief: { newConclusions: [{ claim: "已经通过服务端准入的结论。" }] },
+  }), "已经通过服务端准入的结论。");
 });
 
 test("two-round comparison reports sample structure without claiming novelty", () => {
@@ -571,4 +696,13 @@ test("responsive report CSS includes 390px, 200% zoom, focus, local overflow, an
   assert.doesNotMatch(workbench, /后台按科研边界推进|内部执行状态不占用前台简报空间/);
   assert.doesNotMatch(workbench, /function IntegrityRecord|技术审计信息|失败代码未记录/);
   assert.doesNotMatch(workbenchCss, /\.rawb-decision,\s*\n\s*\.rawb-review\s*\{[^}]*grid-row:\s*1/);
+});
+
+test("immutable scoping history exposes one explicit new-chain path instead of local-only backtracking", () => {
+  const workbench = readFileSync(new URL("../src/components/ResearchAgentWorkbench.jsx", import.meta.url), "utf8");
+  assert.doesNotMatch(workbench, /返回初稿|返回反馈校准|确认前可由专家继续修订检索式|重新扫描当前式/);
+  assert.match(workbench, /修改问题或检索式：开始新的调查链/);
+  assert.match(workbench, /当前候选检索式（已与本轮校准记录绑定）/);
+  assert.match(workbench, /本轮综述扫描检索式（只读）/);
+  assert.ok((workbench.match(/\breadOnly\b/g) ?? []).length >= 2);
 });

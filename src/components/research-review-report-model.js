@@ -280,7 +280,12 @@ export function buildResearchReviewReportModel({
   lockedDirection = null,
 } = {}) {
   const contract = reportContractFrom({ researchReport, landscape });
-  const synthesis = landscape?.synthesis ?? contract?.derivedAnalysis?.reviewSynthesis ?? {};
+  // A formal report is a single versioned evidence contract. Once it exists,
+  // no field may fall back to an older scoping landscape: doing so would place
+  // stale conclusions and directions under the formal report's binding.
+  const synthesis = contract
+    ? contract?.derivedAnalysis?.reviewSynthesis ?? {}
+    : landscape?.synthesis ?? {};
   const professorReport = synthesis?.professorReport ?? {};
   const ledger = normalizedLedger({ contract, landscape, sources: landscape?.sources });
   const rows = ledger.rows;
@@ -298,7 +303,9 @@ export function buildResearchReviewReportModel({
   };
   const externalReviewReceipts = verifiedExternalReviewReceipts(contract);
   const derived = contract?.derivedAnalysis ?? {};
-  const fallbackYears = normalizedDistribution(landscape?.yearDistribution);
+  const fallbackYears = contract
+    ? distributionFromRows(rows, (row) => [row?.year])
+    : normalizedDistribution(landscape?.yearDistribution);
   const yearDistribution = normalizedDistribution(
     derived?.yearDistribution,
     fallbackYears.length ? fallbackYears : distributionFromRows(rows, (row) => [row?.year]),
@@ -373,11 +380,9 @@ export function buildResearchReviewReportModel({
     ? `当前样本中“${leadingDirection.theme || leadingDirection.displayTitle}”覆盖 ${leadingDirection.existingCoverage.count}/${leadingDirection.existingCoverage.total}。优先任务不是把低频误写为空白，而是核查“${leadingDirection.displayTitle}”所设定的人群、比较、结局与验证层级能否构成区别于近两年同题综述的评价框架。`
     : "当前样本尚未形成可追溯的综述候选；应先修订研究对象和检索范围。";
   const lockedBindingMatches = Boolean(
-    lockedDirection?.bindingVerified === true
-    || (
-      lockedDirection?.reportBinding
-      && !researchReportBindingStatus(contract?.binding, lockedDirection.reportBinding).stale
-    ),
+    contract?.binding && lockedDirection?.reportBinding
+      ? !researchReportBindingStatus(contract.binding, lockedDirection.reportBinding).stale
+      : !contract && lockedDirection?.bindingVerified === true,
   );
   const lockedProposal = lockedDirection?.id && lockedBindingMatches
     ? directions.find((direction) => direction.id === lockedDirection.id) ?? null
@@ -478,7 +483,7 @@ export function buildResearchReviewReportModel({
     text(contract?.ledger?.samplingMetadata?.boundary),
     text(professorReport?.boundary),
     text(synthesis?.boundary),
-    text(landscape?.stageBrief?.evidenceBoundary),
+    text(contract ? null : landscape?.stageBrief?.evidenceBoundary),
   ].filter(Boolean);
   const technicalIntegrityBoundary = contractBoundarySentences
     .filter((sentence) => technicalBoundaryPattern.test(sentence))
@@ -496,7 +501,7 @@ export function buildResearchReviewReportModel({
     screeningRowCount: ledger.screeningRows.length,
     analyzedCount,
     abstractAvailableCount: finiteNumber(synthesis?.abstractAvailableCount, rows.filter((row) => row.accessLevel === "abstract_only").length),
-    periodLabel: text(professorReport?.periodLabel, landscape?.reviewWindow?.from && landscape?.reviewWindow?.to
+    periodLabel: text(professorReport?.periodLabel, !contract && landscape?.reviewWindow?.from && landscape?.reviewWindow?.to
       ? `${landscape.reviewWindow.from}—${landscape.reviewWindow.to}`
       : "") || "当前检索窗口",
     executiveSummary: text(professorReport?.executiveSummary, synthesis?.summaries?.coverage),
@@ -525,7 +530,11 @@ export function buildResearchReviewReportModel({
     externalReviewVerificationCount,
     reportBoundary,
     technicalIntegrityBoundary,
-    evidenceBoundary: text(professorReport?.traceability?.accessBoundary, landscape?.stageBrief?.evidenceBoundary, reportBoundary),
+    evidenceBoundary: text(
+      professorReport?.traceability?.accessBoundary,
+      contract ? null : landscape?.stageBrief?.evidenceBoundary,
+      reportBoundary,
+    ),
   };
 }
 

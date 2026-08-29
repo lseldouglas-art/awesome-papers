@@ -10,6 +10,7 @@ import {
   AGENT_RUN_LOG_GENESIS_HASH,
   AgentRunLog,
   AgentRunLogError,
+  ORPHANED_EXECUTION_CODE,
   createModelInvocationReceipt,
   deriveCurrentStatus,
   deriveProjectRuntimeProvenance,
@@ -194,6 +195,93 @@ test("appends, reloads, verifies, and derives work-order/run/tool status", async
     assert.equal(status.toolCalls["tool-call-1"].status, "completed");
     assert.deepEqual(status.activeRunIds, []);
     assert.deepEqual(status.activeToolCallIds, []);
+  } finally {
+    await cleanupLog(filePath);
+  }
+});
+
+test("restart reconciliation terminalizes orphaned tools, runs, and work orders idempotently", async () => {
+  const filePath = tempFilePath();
+  const projectId = `agent-orphan-${randomUUID()}`;
+  const makeEvent = eventFactory();
+  let reconciliationId = 0;
+  try {
+    const log = new AgentRunLog({ filePath, projectId });
+    await log.append({
+      expectedVersion: 0,
+      events: [
+        makeEvent(AGENT_RUN_EVENT_TYPES.WORK_ORDER_CREATED, {
+          workOrderId: "orphan-order",
+          payload: { nodeId: "clarify_question" },
+        }),
+        makeEvent(AGENT_RUN_EVENT_TYPES.WORK_ORDER_STARTED, {
+          workOrderId: "orphan-order",
+        }),
+        makeEvent(AGENT_RUN_EVENT_TYPES.RUN_CREATED, {
+          workOrderId: "orphan-order",
+          runId: "orphan-run",
+          payload: { runtime: { mode: "live" } },
+        }),
+        makeEvent(AGENT_RUN_EVENT_TYPES.RUN_STARTED, { runId: "orphan-run" }),
+        makeEvent(AGENT_RUN_EVENT_TYPES.TOOL_REQUESTED, {
+          runId: "orphan-run",
+          toolCallId: "orphan-tool",
+          payload: {
+            toolId: "research.search",
+            toolVersion: "1.0.0",
+          },
+        }),
+        makeEvent(AGENT_RUN_EVENT_TYPES.TOOL_STARTED, {
+          runId: "orphan-run",
+          toolCallId: "orphan-tool",
+        }),
+      ],
+    });
+
+    const before = await log.deriveCurrentStatus();
+    assert.equal(before.status, "running");
+    assert.deepEqual(before.activeWorkOrderIds, ["orphan-order"]);
+    assert.deepEqual(before.activeRunIds, ["orphan-run"]);
+    assert.deepEqual(before.activeToolCallIds, ["orphan-tool"]);
+
+    const reconciled = await log.reconcileOrphanedExecution({
+      actor: {
+        id: "restarted-research-runtime",
+        role: "research_runtime",
+        kind: "system",
+      },
+      occurredAt: "2026-08-12T03:05:00.000Z",
+      eventIdFactory: (type, entityId) =>
+        `reconcile-${++reconciliationId}-${type}-${entityId}`,
+    });
+
+    assert.equal(reconciled.reconciled, true);
+    assert.equal(reconciled.appendedCount, 3);
+    assert.deepEqual(reconciled.status.activeWorkOrderIds, []);
+    assert.deepEqual(reconciled.status.activeRunIds, []);
+    assert.deepEqual(reconciled.status.activeToolCallIds, []);
+    assert.equal(reconciled.status.workOrders["orphan-order"].status, "failed");
+    assert.equal(reconciled.status.runs["orphan-run"].status, "failed");
+    assert.equal(reconciled.status.toolCalls["orphan-tool"].status, "cancelled");
+    assert.equal(
+      reconciled.status.runs["orphan-run"].terminalPayload.code,
+      ORPHANED_EXECUTION_CODE,
+    );
+
+    const versionAfterFirstReconciliation = reconciled.status.version;
+    const repeated = await log.reconcileOrphanedExecution({
+      actor: {
+        id: "restarted-research-runtime",
+        role: "research_runtime",
+        kind: "system",
+      },
+      occurredAt: "2026-08-12T03:05:01.000Z",
+      eventIdFactory: (type, entityId) =>
+        `repeat-${++reconciliationId}-${type}-${entityId}`,
+    });
+    assert.equal(repeated.reconciled, false);
+    assert.equal(repeated.appendedCount, 0);
+    assert.equal(repeated.status.version, versionAfterFirstReconciliation);
   } finally {
     await cleanupLog(filePath);
   }
@@ -389,6 +477,7 @@ test("standalone derivation accepts an empty project log", () => {
     status: "idle",
     currentRunId: null,
     activeRunIds: [],
+    activeWorkOrderIds: [],
     activeToolCallIds: [],
     workOrders: {},
     runs: {},

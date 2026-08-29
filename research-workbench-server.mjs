@@ -16,6 +16,7 @@ import {
 } from "./research-core/export-authority-v1.js";
 import { ResearchEngineError, sha256 } from "./research-core/event-engine-v1.js";
 import { evaluateResearchFormalAuthority } from "./research-core/research-formal-authority-v1.js";
+import { buildFrontstageActionContract } from "./research-core/frontstage-action-contract-v1.js";
 import { PiRuntimeAdapter } from "./research-core/pi-runtime-adapter-v1.js";
 import { buildLiteratureLandscape } from "./research-core/research-literature-landscape-v1.js";
 import {
@@ -28,6 +29,11 @@ import {
 import {
   buildResearchDirectionSelection,
 } from "./research-core/research-direction-selection-v1.js";
+import {
+  ResearchScopingSessionError,
+  ResearchScopingSessionStoreV1,
+  SCOPING_SESSION_STAGES,
+} from "./research-core/research-scoping-session-store-v1.js";
 import { assertResearchReportSelectionBinding } from "./research-core/research-report-contract-v1.js";
 import {
   createQueryStrategyModel,
@@ -176,10 +182,9 @@ const service = new ResearchAgentServiceV1({
 });
 const activeRuns = new Map();
 const activeCreates = new Map();
-const queryPlans = new Map();
-const queryCalibrations = new Map();
-const queryPreviews = new Map();
-const directionSelections = new Map();
+const scopingSessionStore = new ResearchScopingSessionStoreV1({
+  rootDir: join(dataDir, "scoping-sessions"),
+});
 const queryStrategyModel = createQueryStrategyModel({ env });
 
 const vite = production
@@ -203,7 +208,10 @@ function sha256Bytes(value) {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function projectIdFromIdempotencyKey(request) {
+function projectIdFromIdempotencyKey(request, { scopingSessionId = null } = {}) {
+  if (scopingSessionId) {
+    return `research-${sha256Bytes(`scoping:${scopingSessionId}`).slice(0, 32)}`;
+  }
   const value = request.headers["idempotency-key"];
   if (value === undefined) return `research-${randomUUID()}`;
   if (Array.isArray(value) || !/^[A-Za-z0-9._:-]{8,200}$/.test(value)) {
@@ -215,59 +223,69 @@ function projectIdFromIdempotencyKey(request) {
   return `research-${sha256Bytes(`create:${value}`).slice(0, 32)}`;
 }
 
-function rememberQueryPreview(preview) {
-  queryPreviews.set(preview.planHash, {
-    preview: structuredClone(preview),
-    expiresAt: Date.now() + 30 * 60 * 1000,
-  });
-  if (queryPreviews.size > 200) {
-    for (const [planHash, entry] of queryPreviews) {
-      if (entry.expiresAt <= Date.now() || queryPreviews.size > 200) {
-        queryPreviews.delete(planHash);
-      }
-    }
-  }
-  return preview;
+function attachScopingSession(value, snapshot) {
+  return { ...value, scopingSession: structuredClone(snapshot.identity) };
 }
 
-function rememberExpiring(map, key, value) {
-  map.set(key, {
-    value: structuredClone(value),
-    expiresAt: Date.now() + 30 * 60 * 1000,
-  });
-  if (map.size > 200) {
-    for (const [entryKey, entry] of map) {
-      if (entry.expiresAt <= Date.now() || map.size > 200) map.delete(entryKey);
-    }
+function requireScopingSessionReference(body) {
+  if (
+    typeof body?.scopingSessionId !== "string"
+    || !/^scoping-[0-9a-f-]{36}$/i.test(body.scopingSessionId)
+  ) {
+    throw Object.assign(
+      new Error("请求必须绑定服务端保存的建项前调查会话。"),
+      { code: "SCOPING_SESSION_REQUIRED" },
+    );
   }
-  return value;
+  if (!Number.isInteger(body.scopingSessionRevision) || body.scopingSessionRevision < 1) {
+    throw Object.assign(
+      new Error("请求必须提交当前建项前调查修订号。"),
+      { code: "SCOPING_SESSION_REVISION_REQUIRED" },
+    );
+  }
+  return {
+    id: body.scopingSessionId,
+    revision: body.scopingSessionRevision,
+  };
 }
 
-function requireExpiring(map, key, { staleCode, staleMessage }) {
-  const entry = map.get(key);
-  if (!entry || entry.expiresAt <= Date.now()) {
-    map.delete(key);
-    throw Object.assign(new Error(staleMessage), { code: staleCode });
+async function loadReferencedScopingSession(body) {
+  const reference = requireScopingSessionReference(body);
+  const snapshot = await scopingSessionStore.load(reference.id);
+  if (snapshot.revision !== reference.revision) {
+    throw Object.assign(
+      new Error(`建项前调查已经更新（提交修订 ${reference.revision}，当前修订 ${snapshot.revision}）；请恢复最新记录后继续。`),
+      {
+        code: "SCOPING_SESSION_REVISION_MISMATCH",
+        details: { expectedRevision: reference.revision, currentRevision: snapshot.revision },
+      },
+    );
   }
-  return structuredClone(entry.value);
+  return snapshot;
 }
 
-function requireQueryPreviewSelection(body) {
+function assertScopingStage(snapshot, expectedStage, message) {
+  if (snapshot.stage !== expectedStage) {
+    throw Object.assign(new Error(message), {
+      code: "SCOPING_SESSION_STAGE_MISMATCH",
+      details: { expectedStage, currentStage: snapshot.stage },
+    });
+  }
+}
+
+function requireQueryPreviewSelection(body, preview) {
   if (typeof body.queryPlanHash !== "string" || !/^[a-f0-9]{64}$/i.test(body.queryPlanHash)) {
     throw Object.assign(
       new Error("建项前必须先完成 PubMed 真实试检，并提交该次计划指纹。"),
       { code: "QUERY_PREVIEW_REQUIRED" },
     );
   }
-  const entry = queryPreviews.get(body.queryPlanHash);
-  if (!entry || entry.expiresAt <= Date.now()) {
-    queryPreviews.delete(body.queryPlanHash);
+  if (!preview || preview.planHash !== body.queryPlanHash) {
     throw Object.assign(
-      new Error("检索试检记录不存在或已过期；请重新试检后再建立研究。"),
+      new Error("检索试检记录不属于当前服务端调查会话；请恢复最新调查后再建立研究。"),
       { code: "QUERY_PREVIEW_STALE" },
     );
   }
-  const preview = entry.preview;
   if (preview.question !== body.question.trim()) {
     throw Object.assign(
       new Error("研究问题已改变；请针对当前问题重新试检。"),
@@ -292,22 +310,21 @@ function requireQueryPreviewSelection(body) {
   return candidate;
 }
 
-function queryPreviewFailureForSelection(body) {
+function queryPreviewFailureForSelection(body, preview) {
   if (
     typeof body.queryPlanHash !== "string" ||
     !/^[a-f0-9]{64}$/i.test(body.queryPlanHash)
   ) {
     return null;
   }
-  const entry = queryPreviews.get(body.queryPlanHash);
   if (
-    !entry ||
-    entry.expiresAt <= Date.now() ||
-    entry.preview.question !== body.question?.trim()
+    !preview ||
+    preview.planHash !== body.queryPlanHash ||
+    preview.question !== body.question?.trim()
   ) {
     return null;
   }
-  const candidate = entry?.preview?.candidates?.find(
+  const candidate = preview?.candidates?.find(
     (item) => item.id === body.selectedCandidateId,
   );
   if (!candidate || candidate.query !== body.searchQuery?.trim()) return null;
@@ -328,12 +345,11 @@ function queryPreviewFailureForSelection(body) {
   return null;
 }
 
-function queryPreviewSelectionForBody(body) {
-  const entry = queryPreviews.get(body.queryPlanHash);
-  const candidate = entry?.preview?.candidates?.find(
+function queryPreviewSelectionForBody(body, preview) {
+  const candidate = preview?.candidates?.find(
     (item) => item.id === body.selectedCandidateId,
   );
-  if (!entry || !candidate) return null;
+  if (!preview || preview.planHash !== body.queryPlanHash || !candidate) return null;
   const samples = (candidate.samples ?? []).map((sample) => ({
     sourceId: sample.sourceId ?? (sample.pmid ? `pubmed:${sample.pmid}` : null),
     pmid: sample.pmid ?? null,
@@ -342,8 +358,8 @@ function queryPreviewSelectionForBody(body) {
     accessLevel: sample.accessLevel,
     locator: sample.locator ?? null,
   }));
-  const mappedConcepts = Array.isArray(entry.preview.mappings)
-    ? entry.preview.mappings
+  const mappedConcepts = Array.isArray(preview.mappings)
+    ? preview.mappings
     : [];
   const subjectMappings = mappedConcepts.filter((mapping) => mapping?.role === "subject");
   const subjectConcepts = (subjectMappings.length > 0 ? subjectMappings : mappedConcepts)
@@ -356,10 +372,10 @@ function queryPreviewSelectionForBody(body) {
     }));
   const selection = {
     schemaVersion: "research-query-preview-selection/v1",
-    planHash: entry.preview.planHash,
+    planHash: preview.planHash,
     candidateId: candidate.id,
     candidateStatus: candidate.status,
-    question: entry.preview.question,
+    question: preview.question,
     query: candidate.query,
     total: Number.isInteger(candidate.total) ? candidate.total : null,
     executedAt: candidate.executedAt ?? null,
@@ -367,34 +383,46 @@ function queryPreviewSelectionForBody(body) {
     samples,
     sampleSourceIds: samples.map((sample) => sample.sourceId),
     subjectConcepts,
-    ...(entry.preview.directionSeed
-      ? { directionSeed: structuredClone(entry.preview.directionSeed) }
+    ...(preview.directionSeed
+      ? { directionSeed: structuredClone(preview.directionSeed) }
       : {}),
-    ...(entry.preview.directionBinding
-      ? { directionBinding: structuredClone(entry.preview.directionBinding) }
+    ...(preview.directionBinding
+      ? { directionBinding: structuredClone(preview.directionBinding) }
       : {}),
-    ...(entry.preview.reviewLandscape
-      ? { reviewLandscape: structuredClone(entry.preview.reviewLandscape) }
+    ...(preview.reviewLandscape
+      ? { reviewLandscape: structuredClone(preview.reviewLandscape) }
       : {}),
-    ...(entry.preview.strategyCalibration
-      ? { strategyCalibration: structuredClone(entry.preview.strategyCalibration) }
+    ...(preview.strategyCalibration
+      ? { strategyCalibration: structuredClone(preview.strategyCalibration) }
       : {}),
   };
   return { ...selection, selectionHash: sha256(selection) };
 }
 
-function scopingContextForCreate(body, finalPreviewSelection) {
-  if (typeof body.directionSelectionHash !== "string") return null;
+function scopingContextForCreate(body, session, finalPreviewSelection) {
+  if (typeof body.directionSelectionHash !== "string") {
+    throw Object.assign(new Error("正式建项必须提交本次服务端调查中的研究者方向决定。"), {
+      code: "DIRECTION_SELECTION_REQUIRED",
+    });
+  }
   if (!/^[a-f0-9]{64}$/i.test(body.directionSelectionHash)) {
     throw Object.assign(new Error("方向选择指纹无效；请重新提交方向决定。"), {
       code: "INVALID_DIRECTION_SELECTION_HASH",
     });
   }
-  const context = requireExpiring(directionSelections, body.directionSelectionHash, {
-    staleCode: "DIRECTION_SELECTION_STALE",
-    staleMessage: "方向选择记录不存在或已过期；请从首轮综述重新确认方向。",
-  });
+  const context = {
+    decision: session.directionSelection,
+    roundOnePreviewSelection: queryPreviewSelectionForBody(
+      {
+        queryPlanHash: session.firstRound.preview?.planHash,
+        selectedCandidateId: session.firstRound.preview?.reviewLandscape?.selectedCandidateId
+          ?? session.firstRound.preview?.candidates?.find((candidate) => candidate.status === "ready")?.id,
+      },
+      session.firstRound.preview,
+    ),
+  };
   if (
+    !context.decision ||
     context.decision.decisionHash !== body.directionSelectionHash ||
     context.decision.narrowedBrief.question.trim().normalize("NFKC") !== body.question.trim().normalize("NFKC")
   ) {
@@ -411,9 +439,14 @@ function scopingContextForCreate(body, finalPreviewSelection) {
   }
   const decision = context.decision;
   const expectedFocusHash = sha256(decision.narrowedBrief?.focusMapping ?? null);
-  const expectedQuery = String(decision.narrowedBrief?.suggestedQuery ?? "").trim();
+  const calibratedCandidate = session.secondRound.calibration?.revisedPlan?.candidates?.find(
+    (candidate) => candidate.id === finalPreviewSelection.candidateId,
+  );
+  const expectedQuery = String(calibratedCandidate?.query ?? "").trim();
   const binding = finalPreviewSelection.directionBinding;
   if (
+    !expectedQuery
+    ||
     !binding
     || binding.decisionHash !== decision.decisionHash
     || binding.selectedDirectionId !== decision.selectedDirection.id
@@ -429,6 +462,7 @@ function scopingContextForCreate(body, finalPreviewSelection) {
     );
   }
   return {
+    scopingSession: structuredClone(session.identity),
     scopingDecision: context.decision,
     scopingVerification: {
       schemaVersion: "research-scoping-verification/v1",
@@ -946,7 +980,9 @@ function activeRunFor(projectId) {
 }
 
 function statusForResult(result) {
-  if (activeRunFor(result.project.id)) return "running";
+  if (typeof result.authoritativeProjectStatus?.status === "string") {
+    return result.authoritativeProjectStatus.status;
+  }
   const boundary = result.projection.boundary;
   if (boundary.type === "complete") return "completed";
   if (boundary.type === "human_gate") return "awaiting_gate";
@@ -975,6 +1011,7 @@ function userBriefFor({
   pendingGate,
   pendingReview,
   currentBlocker,
+  frontstageAction,
 }) {
   const currentArtifacts = artifactViews.filter(
     (artifact) => artifact.freshness !== "stale" && !["rejected", "superseded", "stale"].includes(artifact.status),
@@ -1037,7 +1074,7 @@ function userBriefFor({
       : null,
   ]);
 
-  const nextStepOrUserDecision = pendingGate
+  const nextStepOrUserDecision = frontstageAction?.nextDecision ?? (pendingGate
     ? `请确认「${pendingGate.userLabel}」；确认后将继续下一项科研工作。`
     : pendingReview
       ? `请复核「${pendingReview.userLabel}」的当前研究材料，并选择接受或要求修订。`
@@ -1051,7 +1088,7 @@ function userBriefFor({
               ? "当前研究需要处理；请核对研究问题、检索式与证据范围后选择重试或修订。"
               : status === "running"
                 ? `正在开展「${node.userLabel}」；形成新的可核查材料后，本页会更新。`
-                : `可以继续开展「${node.userLabel}」；涉及范围、选题或结论边界时仍需研究者确认。`;
+                : `可以继续开展「${node.userLabel}」；涉及范围、选题或结论边界时仍需研究者确认。`);
 
   return {
     schemaVersion: "research-user-brief/v1",
@@ -1475,6 +1512,18 @@ function serializeProject(result) {
         artifacts: pendingReviewArtifacts,
       }
     : null;
+  const frontstageContract = buildFrontstageActionContract({
+    project: {
+      ...result.project,
+      status,
+      version: result.state.revision,
+    },
+    status,
+    pendingGate,
+    pendingReview,
+    currentBlocker,
+    projectRevision: result.state.revision,
+  });
   const userBrief = userBriefFor({
     result,
     artifactViews,
@@ -1485,6 +1534,7 @@ function serializeProject(result) {
     pendingGate,
     pendingReview,
     currentBlocker,
+    frontstageAction: frontstageContract.frontstageAction,
   });
   return {
     id: result.project.id,
@@ -1550,6 +1600,9 @@ function serializeProject(result) {
       : null,
     scopingVerification: result.project.scopingVerification
       ? structuredClone(result.project.scopingVerification)
+      : null,
+    scopingSession: result.project.scopingSession
+      ? structuredClone(result.project.scopingSession)
       : null,
     scopingRounds: Array.isArray(result.project.scopingRounds)
       ? result.project.scopingRounds.map((round) => ({
@@ -1619,6 +1672,7 @@ function serializeProject(result) {
     literatureLandscape,
     researchQualityMetrics: researchQualityMetrics(result, literatureLandscape, decisions),
     userBrief,
+    ...frontstageContract,
     summary: {
       newConclusion: userBrief.newConclusions[0]?.claim ?? null,
       boundary: userBrief.mainEvidenceAndBoundaries.boundaries[0] ?? null,
@@ -1693,11 +1747,14 @@ function launchRun(projectId) {
 
 function errorStatus(error) {
   if (error?.code === "PROJECT_NOT_FOUND") return 404;
+  if (error?.code === "SCOPING_SESSION_NOT_FOUND") return 404;
   if (error?.code === "PROJECT_RUN_ACTIVE") return 409;
   if (error?.code === "EXPORT_NOT_READY") return 409;
   if (error?.code === "STALE_REVIEW_MATERIAL") return 409;
   if (error?.code === "STALE_RESEARCH_REPORT_BINDING") return 409;
   if (String(error?.code ?? "").startsWith("QUERY_PREVIEW_")) return 409;
+  if (String(error?.code ?? "").startsWith("QUERY_CALIBRATION_")) return 409;
+  if (String(error?.code ?? "").startsWith("QUERY_PLAN_")) return 409;
   if (error?.code === "QUERY_CANDIDATE_NOT_READY") return 409;
   if (error?.code === "PUBMED_NO_RESULTS") return 422;
   if (error?.code === "RESEARCH_SUBJECT_RELEVANCE_BLOCKED") return 422;
@@ -1705,6 +1762,7 @@ function errorStatus(error) {
   if (
     error instanceof ResearchEngineError ||
     error instanceof ResearchAgentServiceError ||
+    error instanceof ResearchScopingSessionError ||
     String(error?.code ?? "").includes("MISMATCH") ||
     String(error?.code ?? "").startsWith("INVALID_")
   ) {
@@ -1843,6 +1901,17 @@ async function apiHandler(request, response, pathname) {
     return true;
   }
 
+  const scopingSessionMatch = pathname.match(
+    /^\/api\/research\/scoping-sessions\/([^/]+)$/,
+  );
+  if (scopingSessionMatch && request.method === "GET") {
+    const snapshot = await scopingSessionStore.load(
+      decodeURIComponent(scopingSessionMatch[1]),
+    );
+    sendJson(response, 200, snapshot);
+    return true;
+  }
+
   if (pathname === "/api/research/query-plan" && request.method === "POST") {
     const body = await readJson(request);
     if (typeof body.question !== "string" || Array.from(body.question.trim()).length < 4) {
@@ -1851,17 +1920,28 @@ async function apiHandler(request, response, pathname) {
       });
     }
     let directionDecision = null;
+    let session = null;
     if (typeof body.directionSelectionHash === "string") {
-      const context = requireExpiring(directionSelections, body.directionSelectionHash, {
-        staleCode: "DIRECTION_SELECTION_STALE",
-        staleMessage: "方向选择记录不存在或已过期；请从首轮综述重新确认方向。",
-      });
-      if (context.decision.narrowedBrief.question.trim().normalize("NFKC") !== body.question.trim().normalize("NFKC")) {
+      session = await loadReferencedScopingSession(body);
+      assertScopingStage(
+        session,
+        SCOPING_SESSION_STAGES.DIRECTION_SELECTED,
+        "只有完成首轮综述并由研究者确认方向后，才能生成第二轮检索计划。",
+      );
+      if (
+        session.directionSelection?.decisionHash !== body.directionSelectionHash
+        || session.directionSelection.narrowedBrief.question.trim().normalize("NFKC") !== body.question.trim().normalize("NFKC")
+      ) {
         throw Object.assign(new Error("第二轮问题已经改变；请重新确认方向决定。"), {
           code: "SCOPING_DECISION_MISMATCH",
         });
       }
-      directionDecision = context.decision;
+      directionDecision = session.directionSelection;
+    } else if (body.scopingSessionId !== undefined || body.scopingSessionRevision !== undefined) {
+      throw Object.assign(
+        new Error("新的首轮调查会自动建立独立服务端会话；不能复用旧会话覆盖既有修订。"),
+        { code: "SCOPING_SESSION_RESTART_REQUIRED" },
+      );
     }
     const generatedPlan = await generatePromptDrivenPubMedQueryPlan({
       question: body.question.trim().slice(0, 1200),
@@ -1871,8 +1951,15 @@ async function apiHandler(request, response, pathname) {
     const plan = directionDecision
       ? queryPlanWithDirectionSeed(generatedPlan, directionDecision)
       : generatedPlan;
-    rememberExpiring(queryPlans, plan.planHash, plan);
-    sendJson(response, 200, plan);
+    session = directionDecision
+      ? await scopingSessionStore.append({
+          sessionId: session.id,
+          expectedRevision: session.revision,
+          eventType: "SECOND_PLAN_GENERATED",
+          payload: plan,
+        })
+      : await scopingSessionStore.createFirstPlan(plan);
+    sendJson(response, 200, attachScopingSession(plan, session));
     return true;
   }
 
@@ -1888,10 +1975,22 @@ async function apiHandler(request, response, pathname) {
         code: "QUERY_PLAN_REQUIRED",
       });
     }
-    const plan = requireExpiring(queryPlans, body.initialPlanHash, {
-      staleCode: "QUERY_PLAN_STALE",
-      staleMessage: "检索初稿不存在或已过期；请重新生成初稿。",
-    });
+    const session = await loadReferencedScopingSession(body);
+    const isFirstRound = session.stage === SCOPING_SESSION_STAGES.FIRST_PLAN;
+    const isSecondRound = session.stage === SCOPING_SESSION_STAGES.SECOND_PLAN;
+    if (!isFirstRound && !isSecondRound) {
+      assertScopingStage(
+        session,
+        SCOPING_SESSION_STAGES.FIRST_PLAN,
+        "当前调查步骤不能跳过检索计划，或重复覆盖已经保存的校准修订。",
+      );
+    }
+    const plan = isFirstRound ? session.firstRound.plan : session.secondRound.plan;
+    if (!plan || plan.planHash !== body.initialPlanHash) {
+      throw Object.assign(new Error("检索初稿不属于当前服务端调查修订；请恢复最新初稿。"), {
+        code: "QUERY_PLAN_STALE",
+      });
+    }
     if (plan.question !== body.question.trim()) {
       throw Object.assign(new Error("研究问题已改变；请重新生成检索初稿。"), {
         code: "QUERY_PLAN_STALE",
@@ -1906,9 +2005,15 @@ async function apiHandler(request, response, pathname) {
       model: queryStrategyModel,
       signal: AbortSignal.timeout(150_000),
     });
-    rememberExpiring(queryCalibrations, calibration.calibrationHash, calibration);
-    rememberExpiring(queryPlans, calibration.revisedPlan.planHash, calibration.revisedPlan);
-    sendJson(response, 200, calibration);
+    const nextSession = await scopingSessionStore.append({
+      sessionId: session.id,
+      expectedRevision: session.revision,
+      eventType: isFirstRound
+        ? "FIRST_CALIBRATION_COMPLETED"
+        : "SECOND_CALIBRATION_COMPLETED",
+      payload: calibration,
+    });
+    sendJson(response, 200, attachScopingSession(calibration, nextSession));
     return true;
   }
 
@@ -1919,29 +2024,56 @@ async function apiHandler(request, response, pathname) {
         code: "INVALID_RESEARCH_QUESTION",
       });
     }
+    const session = await loadReferencedScopingSession(body);
+    const isFirstRound = session.stage === SCOPING_SESSION_STAGES.FIRST_CALIBRATION;
+    const isSecondRound = session.stage === SCOPING_SESSION_STAGES.SECOND_CALIBRATION;
+    if (!isFirstRound && !isSecondRound) {
+      assertScopingStage(
+        session,
+        SCOPING_SESSION_STAGES.FIRST_CALIBRATION,
+        "综述扫描必须紧接当前轮次的前 100 篇反馈校准，不能跳过或复用旧校准。",
+      );
+    }
+    if (typeof body.calibrationHash !== "string" || !/^[a-f0-9]{64}$/i.test(body.calibrationHash)) {
+      throw Object.assign(new Error("综述扫描必须绑定当前轮次的前 100 篇反馈校准。"), {
+        code: "QUERY_CALIBRATION_REQUIRED",
+      });
+    }
+    const calibration = isFirstRound
+      ? session.firstRound.calibration
+      : session.secondRound.calibration;
+    if (!calibration || calibration.calibrationHash !== body.calibrationHash) {
+      throw Object.assign(new Error("前 100 篇反馈记录不属于当前服务端调查修订。"), {
+        code: "QUERY_CALIBRATION_STALE",
+      });
+    }
+    if (calibration.question !== body.question.trim()) {
+      throw Object.assign(new Error("研究问题已改变；请重新执行前 100 篇反馈。"), {
+        code: "QUERY_CALIBRATION_STALE",
+      });
+    }
+    const suppliedCandidates = Array.isArray(body.candidateQueries) ? body.candidateQueries : [];
+    const calibratedCandidates = calibration.revisedPlan?.candidates ?? [];
+    const candidatesMatch = suppliedCandidates.length === calibratedCandidates.length
+      && suppliedCandidates.every((candidate, index) => (
+        candidate?.id === calibratedCandidates[index]?.id
+        && candidate?.query === calibratedCandidates[index]?.query
+      ));
+    if (!candidatesMatch) {
+      throw Object.assign(
+        new Error("候选检索式已经改变；修改检索式后必须重新执行前 100 篇反馈校准。"),
+        { code: "QUERY_CALIBRATION_STALE" },
+      );
+    }
     let strategyCalibration = null;
     let directionBinding = null;
     let seededPlan = null;
-    if (typeof body.calibrationHash === "string") {
-      const calibration = requireExpiring(queryCalibrations, body.calibrationHash, {
-        staleCode: "QUERY_CALIBRATION_STALE",
-        staleMessage: "前 100 篇反馈记录不存在或已过期；请重新校准检索式。",
-      });
-      if (calibration.question !== body.question.trim()) {
-        throw Object.assign(new Error("研究问题已改变；请重新执行前 100 篇反馈。"), {
-          code: "QUERY_CALIBRATION_STALE",
-        });
-      }
-      seededPlan = calibration.revisedPlan?.directionSeed
-        ? calibration.revisedPlan
-        : null;
-      if (seededPlan) {
+    seededPlan = calibration.revisedPlan?.directionSeed
+      ? calibration.revisedPlan
+      : null;
+    if (seededPlan) {
         const seed = seededPlan.directionSeed;
-        const context = requireExpiring(directionSelections, seed.decisionHash, {
-          staleCode: "DIRECTION_SELECTION_STALE",
-          staleMessage: "第二轮方向选择记录不存在或已过期；请从首轮综述重新确认方向。",
-        });
-        const decision = context.decision;
+        const decision = session.directionSelection;
         const expectedCandidate = seededPlan.candidates?.find(
           (candidate) => candidate.id === body.reviewScanCandidateId,
         ) ?? seededPlan.candidates?.[0];
@@ -1952,6 +2084,7 @@ async function apiHandler(request, response, pathname) {
           !expectedCandidate
           || !suppliedCandidate
           || suppliedCandidate.query !== expectedCandidate.query
+          || !decision
           || seed.selectedDirectionId !== decision.selectedDirection.id
           || seed.sourcePreviewPlanHash !== decision.sourcePreviewPlanHash
           || seed.decisionHash !== decision.decisionHash
@@ -1971,8 +2104,8 @@ async function apiHandler(request, response, pathname) {
           focusMappingHash: sha256(decision.narrowedBrief?.focusMapping ?? null),
           focusedQueryHash: sha256(expectedCandidate.query),
         };
-      }
-      strategyCalibration = {
+    }
+    strategyCalibration = {
         schemaVersion: calibration.schemaVersion,
         calibrationHash: calibration.calibrationHash,
         initialPlanHash: calibration.initialPlanHash,
@@ -1986,7 +2119,6 @@ async function apiHandler(request, response, pathname) {
         ...(seededPlan ? { directionSeed: structuredClone(seededPlan.directionSeed) } : {}),
         ...(directionBinding ? { directionBinding: structuredClone(directionBinding) } : {}),
       };
-    }
     const generatedPreview = await previewPubMedQueryPlan({
       gateway: toolGateway,
       question: body.question.trim().slice(0, 1200),
@@ -1997,7 +2129,7 @@ async function apiHandler(request, response, pathname) {
       reviewSampleLimit: body.reviewSampleLimit,
       signal: AbortSignal.timeout(75_000),
     });
-    const preview = rememberQueryPreview({
+    const preview = {
       ...generatedPreview,
       ...(seededPlan ? {
         mappings: structuredClone(seededPlan.mappings ?? []),
@@ -2006,8 +2138,16 @@ async function apiHandler(request, response, pathname) {
       } : {}),
       ...(directionBinding ? { directionBinding } : {}),
       ...(strategyCalibration ? { strategyCalibration } : {}),
+    };
+    const nextSession = await scopingSessionStore.append({
+      sessionId: session.id,
+      expectedRevision: session.revision,
+      eventType: isFirstRound
+        ? "FIRST_PREVIEW_COMPLETED"
+        : "SECOND_PREVIEW_COMPLETED",
+      payload: preview,
     });
-    sendJson(response, 200, preview);
+    sendJson(response, 200, attachScopingSession(preview, nextSession));
     return true;
   }
 
@@ -2018,14 +2158,18 @@ async function apiHandler(request, response, pathname) {
         code: "DIRECTION_PREVIEW_REQUIRED",
       });
     }
-    const entry = queryPreviews.get(body.queryPlanHash);
-    if (!entry || entry.expiresAt <= Date.now()) {
-      queryPreviews.delete(body.queryPlanHash);
-      throw Object.assign(new Error("首轮综述记录不存在或已过期；请重新扫描后选择方向。"), {
+    const session = await loadReferencedScopingSession(body);
+    assertScopingStage(
+      session,
+      SCOPING_SESSION_STAGES.FIRST_PREVIEW,
+      "方向选择必须紧接已完成的首轮综述扫描，且只能由研究者提交一次。",
+    );
+    const preview = structuredClone(session.firstRound.preview);
+    if (!preview || preview.planHash !== body.queryPlanHash) {
+      throw Object.assign(new Error("首轮综述不属于当前服务端调查修订。"), {
         code: "DIRECTION_PREVIEW_STALE",
       });
     }
-    const preview = structuredClone(entry.preview);
     const researchReport = preview.reviewLandscape?.researchReport ?? null;
     if (researchReport) {
       try {
@@ -2042,7 +2186,7 @@ async function apiHandler(request, response, pathname) {
     const roundOnePreviewSelection = queryPreviewSelectionForBody({
       queryPlanHash: preview.planHash,
       selectedCandidateId,
-    });
+    }, preview);
     if (!roundOnePreviewSelection) {
       throw Object.assign(new Error("首轮综述没有可冻结的检索回执。"), {
         code: "DIRECTION_PREVIEW_STALE",
@@ -2055,11 +2199,13 @@ async function apiHandler(request, response, pathname) {
       deferredReason: body.deferredReason,
       actor: humanActor(),
     });
-    rememberExpiring(directionSelections, decision.decisionHash, {
-      decision,
-      roundOnePreviewSelection,
+    const nextSession = await scopingSessionStore.append({
+      sessionId: session.id,
+      expectedRevision: session.revision,
+      eventType: "DIRECTION_SELECTED",
+      payload: decision,
     });
-    sendJson(response, 200, decision);
+    sendJson(response, 200, attachScopingSession(decision, nextSession));
     return true;
   }
 
@@ -2083,22 +2229,39 @@ async function apiHandler(request, response, pathname) {
         code: "UNKNOWN_COMPLETION_PROFILE",
       });
     }
-    const id = projectIdFromIdempotencyKey(request);
+    let createScopingSession = null;
+    if (body.researchMode === "live_pubmed") {
+      createScopingSession = await loadReferencedScopingSession(body);
+      assertScopingStage(
+        createScopingSession,
+        SCOPING_SESSION_STAGES.COMPLETE,
+        "建立真实 PubMed 项目前，必须依次完成首轮计划、校准、综述扫描、研究者选向及第二轮计划、校准与扫描。",
+      );
+      if (body.scopingSessionRevision !== createScopingSession.revision) {
+        throw Object.assign(new Error("建项提交的调查修订不是服务端最新完成修订。"), {
+          code: "SCOPING_SESSION_REVISION_MISMATCH",
+        });
+      }
+    }
+    const id = projectIdFromIdempotencyKey(request, {
+      scopingSessionId: createScopingSession?.id ?? null,
+    });
     let pending = activeCreates.get(id);
     if (!pending) {
       pending = (async () => {
+        const finalPreview = createScopingSession?.secondRound?.preview ?? null;
         const previewFailure =
           body.researchMode === "live_pubmed"
-            ? queryPreviewFailureForSelection(body)
+            ? queryPreviewFailureForSelection(body, finalPreview)
             : null;
         if (body.researchMode === "live_pubmed") {
-          if (!previewFailure) requireQueryPreviewSelection(body);
+          if (!previewFailure) requireQueryPreviewSelection(body, finalPreview);
         }
         const queryPreviewSelection = body.researchMode === "live_pubmed"
-          ? queryPreviewSelectionForBody(body)
+          ? queryPreviewSelectionForBody(body, finalPreview)
           : null;
         const scopingContext = body.researchMode === "live_pubmed"
-          ? scopingContextForCreate(body, queryPreviewSelection)
+          ? scopingContextForCreate(body, createScopingSession, queryPreviewSelection)
           : null;
         const sources = normalizeSourceMaterials(body.sourceMaterials, id);
         let result = await service.createProject({
@@ -2176,7 +2339,7 @@ async function apiHandler(request, response, pathname) {
     }
     let preview;
     try {
-      preview = rememberQueryPreview(await previewPubMedQueryPlan({
+      preview = await previewPubMedQueryPlan({
         gateway: toolGateway,
         question: before.project.question,
         candidateQueries: [
@@ -2195,7 +2358,7 @@ async function apiHandler(request, response, pathname) {
         ],
         sampleLimit: 3,
         signal: AbortSignal.timeout(45_000),
-      }));
+      });
     } catch (error) {
       error.projectId = projectId;
       error.project = await currentProject(projectId);
@@ -2220,7 +2383,7 @@ async function apiHandler(request, response, pathname) {
     const selection = queryPreviewSelectionForBody({
       queryPlanHash: preview.planHash,
       selectedCandidateId: candidate.id,
-    });
+    }, preview);
     let result = await service.updateQueryPreviewSelection({ projectId, selection });
     for (const blocker of retrievalBlockers) {
       result = await service.resumeProject({

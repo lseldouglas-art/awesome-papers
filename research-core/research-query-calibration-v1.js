@@ -240,10 +240,10 @@ export async function calibratePubMedQueryStrategy({
         `其中 ${feedback.abstractAvailableCount} 条有摘要，${feedback.potentialNoiseCount} 条${expectedConceptCount === 1 ? "未字面命中当前单一概念组" : "仅字面命中 0–1 个当前概念组"}，需人工抽查。`,
         revision.status === "completed"
           ? "已完成第二轮自动修订并生成新策略。"
-          : "实时模型未完成自动修订；保留原策略和人工修改入口。",
+          : "实时模型未完成自动修订；保留原策略与可追溯样本，改变检索式需重新校准。",
       ],
       evidenceBoundary: "覆盖率是当前词群对题名/摘要的字面检查，不是语义相关性判定、正式纳排或数据库召回率。",
-      nextDecision: "比较初稿与修订策略，必要时手动修改；确认后再执行近五年综述扫描。",
+      nextDecision: "从本轮已绑定候选中选择扫描方案；若要修改检索式，请建立新的调查链并重新执行前 100 篇反馈。",
     },
   };
   return { ...result, calibrationHash: sha256(result) };

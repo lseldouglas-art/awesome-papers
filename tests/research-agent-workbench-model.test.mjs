@@ -31,6 +31,34 @@ test("confirmed professional strategy becomes one bounded five-year review scan"
   assert.deepEqual(payload.candidateQueries.map((candidate) => candidate.id), ["matrix_core", "matrix_free"]);
 });
 
+test("review preview preserves calibrated candidate order and rejects in-place query edits", () => {
+  const queryPlan = {
+    candidates: [
+      { id: "matrix_core", label: "核心组合", strategy: "完整词群", query: "sleep AND recovery" },
+      { id: "matrix_free", label: "扩展组合", strategy: "放宽路径", query: "sleep" },
+      { id: "matrix_outcome", label: "结局组合", strategy: "结局路径", query: "recovery" },
+    ],
+  };
+  const payload = buildResearchWorkbenchReviewPreviewPayload({
+    question: "围术期睡眠与术后恢复有什么关系？",
+    queryPlan,
+    selectedQueryId: "matrix_free",
+    calibrationHash: "c".repeat(64),
+  });
+  assert.equal(payload.reviewScanCandidateId, "matrix_free");
+  assert.deepEqual(
+    payload.candidateQueries.map((candidate) => [candidate.id, candidate.query]),
+    queryPlan.candidates.map((candidate) => [candidate.id, candidate.query]),
+  );
+  assert.equal(buildResearchWorkbenchReviewPreviewPayload({
+    question: "围术期睡眠与术后恢复有什么关系？",
+    queryPlan,
+    selectedQueryId: "matrix_free",
+    editedQuery: "sleep AND recovery",
+    calibrationHash: "c".repeat(64),
+  }), null);
+});
+
 test("initial strategy confirmation binds the 100-record calibration to the plan fingerprint", () => {
   const queryPlan = {
     planHash: "a".repeat(64),
@@ -53,6 +81,47 @@ test("initial strategy confirmation binds the 100-record calibration to the plan
     queryPlan,
     selectedQueryId: "missing",
   }), null);
+});
+
+test("every pre-project request carries only the authoritative scoping session identity", () => {
+  const scopingSession = {
+    schemaVersion: "research-scoping-session-identity/v1",
+    id: "scoping-00000000-0000-4000-8000-000000000001",
+    revision: 6,
+    revisionHash: "f".repeat(64),
+    stage: "second_calibration",
+  };
+  const queryPlan = {
+    planHash: "a".repeat(64),
+    candidates: [
+      { id: "matrix_abc", query: "sleep AND recovery" },
+      { id: "matrix_ab", query: "sleep" },
+      { id: "matrix_free", query: "recovery" },
+    ],
+  };
+  const calibration = buildResearchWorkbenchCalibrationPayload({
+    question: "围术期睡眠与术后恢复？",
+    queryPlan,
+    selectedQueryId: "matrix_abc",
+    scopingSession,
+  });
+  assert.equal(calibration.scopingSessionId, scopingSession.id);
+  assert.equal(calibration.scopingSessionRevision, 6);
+  const preview = buildResearchWorkbenchReviewPreviewPayload({
+    question: "围术期睡眠与术后恢复？",
+    queryPlan,
+    selectedQueryId: "matrix_abc",
+    calibrationHash: "c".repeat(64),
+    scopingSession,
+  });
+  assert.deepEqual(preview.candidateQueries.map((candidate) => candidate.id), [
+    "matrix_abc",
+    "matrix_ab",
+    "matrix_free",
+  ]);
+  assert.equal(preview.scopingSessionId, scopingSession.id);
+  assert.equal(preview.scopingSessionRevision, 6);
+  assert.equal(Object.prototype.hasOwnProperty.call(preview, "revisionHash"), false);
 });
 
 test("new research sends the exact preview plan and selected query candidate", () => {
