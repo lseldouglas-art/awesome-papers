@@ -4,9 +4,18 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [Unreleased]
 
+### Added
+
+- A public v0.2 direction document that separates the adopted product strategy, Phase 0 work, isolated engineering evidence, and unverified production claims.
+
+### Changed
+
+- Renamed the public project identity from Research Workbench to `awesome-papers` while retaining existing routes, environment variables, data directories, and historical paths for compatibility.
+- Updated the repository landing page and roadmap to distinguish the v0.1.4 runnable baseline from the not-yet-implemented v0.2 direction.
+
 ### Planned
 
-- External usability testing of the two-step project creation flow.
+- Phase 0 task contracts, object model, interaction flows, four visual primitives, and five cognitive walkthroughs.
 
 ## [0.1.4] - 2026-08-29
 

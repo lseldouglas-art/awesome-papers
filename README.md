@@ -1,19 +1,23 @@
-# Research Workbench
+# awesome-papers
 
-> 本地优先、可审计、证据边界明确的 PubMed 综述工作台。  
-> A local-first, auditable workbench for evidence-bounded PubMed reviews.
+> 人类主导、可恢复、可审计的科研连续性工作台。
+> A human-led, recoverable, auditable research continuity workbench.
 
-![Research Workbench v0.1.4 field-first research brief](./docs/audits/integrity-2026-08-29/01-field-first-1448x1086.jpg)
+`awesome-papers` is the new public name of Research Workbench. The existing
+`/research-workbench` route, `RESEARCH_WORKBENCH_*` environment variables, and
+local data directory remain unchanged for compatibility.
 
-[![CI](https://github.com/lseldouglas-art/research-workbench/actions/workflows/ci.yml/badge.svg)](https://github.com/lseldouglas-art/research-workbench/actions/workflows/ci.yml)
+![awesome-papers v0.1.4 field-first research brief](./docs/audits/integrity-2026-08-29/01-field-first-1448x1086.jpg)
+
+[![CI](https://github.com/lseldouglas-art/awesome-papers/actions/workflows/ci.yml/badge.svg)](https://github.com/lseldouglas-art/awesome-papers/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 [![Status: Alpha](https://img.shields.io/badge/status-alpha-f2b84b.svg)](./ROADMAP.md)
 
 ## Why this exists
 
-Research assistants are good at producing fluent text, but fluent text is not the same as a defensible research result. Research Workbench keeps retrieval receipts, access levels, artifact lineage, independent review, human decisions, and export authority separate so that a candidate conclusion cannot silently become an approved one.
+Research assistants are good at producing fluent text, but fluent text is not the same as a defensible research result. awesome-papers keeps retrieval receipts, access levels, artifact lineage, review, human decisions, and export authority separate so that a candidate conclusion cannot silently become an approved one.
 
-The V1 product guides a researcher through five natural-language periods:
+The current v0.1.4 product guides a researcher through five natural-language periods:
 
 1. shape the research question;
 2. search and calibrate the literature;
@@ -23,7 +27,31 @@ The V1 product guides a researcher through five natural-language periods:
 
 ## Current status
 
-**Alpha / local single-researcher release.** The core product loop is usable and tested. It is not yet a hosted multi-user service, a medical device, or a substitute for systematic-review, statistical, clinical, or ethical expertise.
+**v0.1.4 Alpha / local single-researcher release.** The core product loop is usable and tested. It is not yet a hosted multi-user service, a medical device, or a substitute for systematic-review, statistical, clinical, or ethical expertise.
+
+### v0.2 direction — Phase 0 ready to start
+
+The v0.2 product direction and validation plan were adopted on 2026-09-04.
+The next track reframes the project as a human-led research continuity layer:
+research objects, evidence boundaries, human decisions, versions, and next
+actions stay in one understandable and recoverable chain.
+
+Completed so far:
+
+- competitive and substitute-stack analysis;
+- the product thesis, target wedge, build/partner boundaries, and four-stage plan;
+- version isolation, success metrics, stop conditions, and evaluation boundaries.
+
+Not completed yet:
+
+- Phase 0 task contracts, interaction references, object model, flows, and wireframes;
+- a v0.2 production codebase, live-model quality testing, or a connector;
+- external researcher comparison, multi-user production hardening, or pricing validation.
+
+The runnable baseline remains v0.1.4. An internal isolated evaluation record
+reports 362 passing automated checks for selected persistence, authorization,
+and recovery mechanisms, but the candidate is neither the v0.2 implementation
+nor a public release. See the [v0.2 direction and stage gates](./docs/awesome-papers-v0.2-direction.md).
 
 Working today:
 
@@ -50,8 +78,8 @@ See [ROADMAP.md](./ROADMAP.md) for the production gap.
 Requirements: Node.js 22.19 or newer.
 
 ```bash
-git clone https://github.com/lseldouglas-art/research-workbench.git
-cd research-workbench
+git clone https://github.com/lseldouglas-art/awesome-papers.git
+cd awesome-papers
 npm install
 cp .env.example .env.local
 npm run dev
@@ -133,7 +161,7 @@ Use persistent storage for `RESEARCH_WORKBENCH_DATA_DIR`. See [docs/deployment.m
 
 For a disposable, password-protected evaluation instance only:
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/lseldouglas-art/research-workbench)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/lseldouglas-art/awesome-papers)
 
 Render's free filesystem is ephemeral. Projects created there can disappear after idle shutdown, restart, or redeploy; do not use the free instance for real research records.
 

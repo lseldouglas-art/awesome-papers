@@ -696,7 +696,7 @@ export function ResearchReviewReport({
     <section className="rawb-four-chapter-report" aria-labelledby={`${tabBase}-title`}>
       <header className="rawb-four-chapter-report__header">
         <div className="rawb-four-chapter-report__identity">
-          <span>科研工作台 · 综述选题报告</span>
+          <span>awesome-papers · 综述选题报告</span>
           <h1 id={`${tabBase}-title`}>{readerQuestion ? `${readerQuestion}：领域图景与综述选题` : "领域图景与综述选题"}</h1>
           <p>{model.periodLabel} · {model.analyzedCount} 篇题名与摘要</p>
           <div className="rawb-report-scope-summary" aria-label="报告用途与证据边界">

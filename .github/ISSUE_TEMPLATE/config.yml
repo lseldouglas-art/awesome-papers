@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
   - name: Private security report
-    url: https://github.com/lseldouglas-art/research-workbench/security/advisories/new
+    url: https://github.com/lseldouglas-art/awesome-papers/security/advisories/new
     about: Report vulnerabilities or sensitive data exposure privately.

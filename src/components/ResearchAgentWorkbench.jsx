@@ -3818,7 +3818,7 @@ function LoadingWorkspace() {
   return (
     <div className="rawb-loading" role="status" aria-live="polite">
       <span className="rawb-loading__firefly" aria-hidden="true" />
-      <strong>正在打开科研工作台…</strong>
+      <strong>正在打开 awesome-papers…</strong>
       <p>同步项目、证据与当前研究简报。</p>
     </div>
   );
@@ -4871,7 +4871,7 @@ export function ResearchAgentWorkbench({
       <header className="rawb-header">
         <div className="rawb-brand">
           <img className="rawb-brand__mark" src={evidenceFirefly} alt="" />
-          <span><strong>科研工作台 · 领域研究简报</strong><small>领域图景 · 趋势分析 · 选题与证据</small></span>
+          <span><strong>awesome-papers · 领域研究简报</strong><small>领域图景 · 趋势分析 · 选题与证据</small></span>
         </div>
         <button className="rawb-new-button" type="button" onClick={() => {
           if (createOpen) resetQueryPlanning();

@@ -1,8 +1,8 @@
 {
-  "name": "research-workbench",
+  "name": "awesome-papers",
   "version": "0.1.4",
   "private": true,
-  "description": "A local-first, auditable research workbench for evidence-bounded PubMed reviews.",
+  "description": "A human-led, recoverable, auditable research continuity workbench.",
   "type": "module",
   "license": "MIT",
   "engines": {

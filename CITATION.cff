@@ -1,20 +1,21 @@
 cff-version: 1.2.0
-message: "If you use Research Workbench in a project, please cite this software release."
-title: "Research Workbench"
+message: "If you use awesome-papers in a project, please cite this software release."
+title: "awesome-papers"
 type: software
-version: 0.1.1
-date-released: 2026-08-15
+version: 0.1.4
+date-released: 2026-08-29
 authors:
   - alias: "lseldouglas-art"
     website: "https://github.com/lseldouglas-art"
-repository-code: "https://github.com/lseldouglas-art/research-workbench"
-url: "https://github.com/lseldouglas-art/research-workbench"
+repository-code: "https://github.com/lseldouglas-art/awesome-papers"
+url: "https://github.com/lseldouglas-art/awesome-papers"
 license: MIT
 abstract: >-
   A local-first, auditable research workbench for evidence-bounded PubMed
   reviews with append-only events, immutable artifacts, independent review,
   human gates, and restricted export authority.
 keywords:
+  - research continuity
   - research software
   - evidence synthesis
   - PubMed
