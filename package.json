@@ -19,7 +19,7 @@
     "test:api": "node --test tests/research-workbench-api.e2e.test.mjs"
   },
   "dependencies": {
-    "@earendil-works/pi-agent-core": "0.84.1",
+    "@earendil-works/pi-agent-core": "0.84.4",
     "@earendil-works/pi-ai": "0.84.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
