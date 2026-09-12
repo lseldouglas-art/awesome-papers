@@ -1,0 +1,24 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,readFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {randomUUID} from 'node:crypto';
+import {startServer} from '../src/server.mjs';
+import {seedWriting} from './fixtures/writing.mjs';
+import {editTemplates} from '../src/research-templates.mjs';
+const bytes=await readFile(new URL('../../audits/2026-09-12-fulltext-revision/template-PMC13408707.pdf',import.meta.url));
+test('HTTP PDF import preserves history, trusts server parsing only and rejects cross-project/foreign access',async t=>{
+ const app=await startServer({directory:await mkdtemp(join(tmpdir(),'pdf-http-')),port:0});t.after(()=>app.close());
+ const {p,a,ids}=await app.store.update(seedWriting);
+ const paper=await app.store.update(s=>{const p0=s.projects[p.id];editTemplates(p0,p0.artifacts[a.id],{action:'add-existing',accessId:ids[0],baseTemplateVersion:1},'add');const paper=Object.values(p0.templateLibrary.papers)[0];paper.doi='10.1002/deo2.70381';return structuredClone(paper);});
+ const url=`${app.url}/api/projects/${p.id}/templates/${paper.id}`;
+ const response=await fetch(url+'/fulltext',{method:'POST',headers:{'Content-Type':'application/json','X-Request-Id':randomUUID()},body:JSON.stringify({artifactId:a.id,baseTemplateVersion:2,base64:bytes.toString('base64'),filename:'original.pdf'})});assert.equal(response.status,200,await response.clone().text());
+ const saved=await app.store.read(s=>s.projects[p.id].templateLibrary.papers[paper.id]);assert.equal(saved.document.pageCount,8);assert.equal(saved.textHistory.length,1);assert.equal(saved.document.complete,false);
+ const pdf=await fetch(url+'/pdf');assert.equal(pdf.headers.get('content-type'),'application/pdf');assert.deepEqual(Buffer.from(await pdf.arrayBuffer()),bytes);
+ assert.equal((await fetch(url+'/pdf',{headers:{Origin:'https://foreign.invalid'}})).status,403);
+ assert.equal((await fetch(url+'/pdf?version=../../config')).status,404);
+ await assert.rejects(()=>app.store.update(s=>editTemplates(s.projects[p.id],s.projects[p.id].artifacts[a.id],{action:'register-pdf',paperId:paper.id,baseTemplateVersion:3},'forge')),e=>e.code==='invalid_scope');
+ await app.store.update(s=>editTemplates(s.projects[p.id],s.projects[p.id].artifacts[a.id],{action:'confirm-document',paperId:paper.id,documentHash:saved.document.sha256,baseTemplateVersion:3},'confirm'));
+ assert.equal(await app.store.read(s=>s.projects[p.id].templateLibrary.papers[paper.id].document.complete),true);
+});

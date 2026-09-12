@@ -1,0 +1,5 @@
+import { OUTLINE_VERSION } from '../../../shared/topic-outline.mjs';
+export function outlineFixture(papers=[]) {
+  const evidence=papers.filter(p=>['direct','indirect','peripheral'].includes(p.relationship)).map(p=>({ref:p.ref,passage:p.passages[0].id,role:p.relationship==='peripheral'?'background':'direct',use:'用于说明已有观察方式及其适用边界，不作为本研究已实施记录。'}));
+  return {framework:OUTLINE_VERSION,title:'成像研究的观察顺序与证据适用条件',route:'方案论文，待确认',positioning:{question:'如何区分成像方式与观察顺序对检出表现的影响？',contribution:'拟检验既有研究尚不能区分的观察顺序解释。',scope:'基于已存摘要级发现形成方案，真实实施与结果尚未提供。'},sections:[{heading:'研究方法与可识别条件',purpose:'将研究问题对应到可比较的观察流程。',children:[{heading:'观察顺序的分配与比较条件',purpose:'明确顺序、比较条件及实施需求。',question:'怎样使观察顺序与成像方式的影响可被分别评估？',claim:'拟通过可比较的顺序安排区分两者影响，效果有待验证。',argument:[{point:'先比较已有观察方式，为对照选择提供依据。',refs:evidence.map(e=>e.ref)},{point:'再明确本研究需要记录的顺序安排和方案偏离。',refs:[]}],counterpoint:'当前材料未充分评估观察者记忆影响，仍需核对实施方案。',transition:'由顺序控制转入结局定义，明确应如何记录和比较检测表现。',evidence,figures:['观察流程图：标注每一步的成像方式和记录时点，解释比较条件。'],needs:['真实实施记录与顺序分配方案']}]}]};
+}

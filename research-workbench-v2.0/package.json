@@ -1,0 +1,20 @@
+{
+  "name": "research-workbench-v2",
+  "version": "0.25.2",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.23.1"
+  },
+  "workspaces": [
+    "demo-api",
+    "demo-app"
+  ],
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env --use-env-proxy demo-app/server.mjs",
+    "start": "node --env-file-if-exists=.env --use-env-proxy demo-app/server.mjs --production",
+    "build": "npm run build --workspace demo-app",
+    "test": "node --test --test-reporter=spec demo-api/test/*.test.mjs",
+    "check": "npm test && npm run build"
+  }
+}

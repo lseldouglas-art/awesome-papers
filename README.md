@@ -13,6 +13,22 @@ local data directory remain unchanged for compatibility.
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 [![Status: Alpha](https://img.shields.io/badge/status-alpha-f2b84b.svg)](./ROADMAP.md)
 
+## Current implementation — second-generation local Demo
+
+**2026-09-12: [Demo v0.25.2 source](research-workbench-v2.0/) is now published alongside the preserved v0.1.4 baseline.**
+
+The second-generation implementation includes domain understanding, topic libraries, research outlines, manuscript drafting, full-text template reading, and editable scientific figures. This review adds a read-only comparison of cited studies, shared outcome-first generation rules, and draft provenance in SVG exports. The underlying research workflow and human decisions remain intact.
+
+- [Review and evidence boundaries](docs/research-workbench-v2-results-review-2026-09-12.md)
+- [Outcome-first design principles](docs/research-workbench-results-first-design-2026-09-12.md)
+- [Install and run the second-generation Demo](research-workbench-v2.0/README.md)
+
+The original baseline passed 281 engineering checks; the reviewed version passed 282 checks and a production build. These are engineering results, not validation of scientific conclusions, model quality, or publication readiness. No live research model calls were added by this review. The public code contains no user workspace database or model credentials.
+
+The historical **v0.2** below names the direction proposed on 2026-09-04. **research-workbench-v2.0** names the second product generation; **0.25.2** is its Demo package version. The root-level application remains the legacy implementation. Use the subdirectory instructions for the current Demo.
+
+---
+
 ## Why this exists
 
 Research assistants are good at producing fluent text, but fluent text is not the same as a defensible research result. awesome-papers keeps retrieval receipts, access levels, artifact lineage, review, human decisions, and export authority separate so that a candidate conclusion cannot silently become an approved one.
@@ -25,11 +41,11 @@ The current v0.1.4 product guides a researcher through five natural-language per
 4. write and verify individual claims;
 5. audit, freeze, and export the result.
 
-## Current status
+## Historical v0.1.4 status (retained for comparison)
 
 **v0.1.4 Alpha / local single-researcher release.** The core product loop is usable and tested. It is not yet a hosted multi-user service, a medical device, or a substitute for systematic-review, statistical, clinical, or ethical expertise.
 
-### v0.2 direction — Phase 0 ready to start
+### Historical v0.2 direction — recorded 2026-09-04
 
 The v0.2 product direction and validation plan were adopted on 2026-09-04.
 The next track reframes the project as a human-led research continuity layer:

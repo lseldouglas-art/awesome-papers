@@ -1,0 +1,17 @@
+import { useEffect, useState } from 'react';
+import { Icon } from './icons.jsx';
+import { api, date, Modal } from './ui.jsx';
+import { Workspace } from './Workspace.jsx';
+export function App() {
+  const [projects, setProjects] = useState([]), [project, setProject] = useState(null), [loading, setLoading] = useState(true), [error, setError] = useState('');
+  const [goal, setGoal] = useState(''), [creating, setCreating] = useState(false);
+  const [showProjects, setShowProjects] = useState(false);
+  const loadProjects = async () => { const list = await api.listProjects(); setProjects(list.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))); };
+  const open = async id => { setError(''); try { const p = await api.workspace(id); setProject(p); localStorage.setItem('rw2:last-project', id); setShowProjects(false); } catch (e) { setError(e.message); } };
+  useEffect(() => { (async () => { try { await loadProjects(); const id = localStorage.getItem('rw2:last-project'); if (id) await open(id); } catch (e) { setError('无法连接本机工作台。请检查服务是否正在运行。'); } finally { setLoading(false); } })(); }, []);
+  const create = async example => { if (creating) return; setCreating(true); setError(''); try { const p = await api.createProject(example ? { example: true } : { name: goal.trim().slice(0, 60), goal: goal.trim() }); setProject(p); localStorage.setItem('rw2:last-project', p.id); setGoal(''); await loadProjects(); } catch (e) { setError(e.message); } finally { setCreating(false); } };
+  if (loading) return <div className="loading"><Icon name="leaf" size={32}/><p>正在打开你的工作区…</p></div>;
+  return <>{project ? <Workspace key={project.id} project={project} setProject={setProject} onProjects={async () => { await loadProjects(); setShowProjects(true); }} onHome={() => { setProject(null); localStorage.removeItem('rw2:last-project'); }}/>
+    : <div className="home"><header><span className="brand"><Icon name="leaf" size={28}/>科研工作台</span><button onClick={async () => { await loadProjects().catch(e => setError(e.message)); setShowProjects(true); }}><Icon name="folder"/>我的课题</button></header><main className="home-main"><Icon name="leaf" size={44}/><h1>围绕科学问题，推进研究。</h1><p>明确研究方向，整合文献证据，形成研究方案与正文。</p><form onSubmit={e => { e.preventDefault(); create(false); }} className="home-composer"><textarea aria-label="研究想法" value={goal} maxLength={10000} onChange={e => setGoal(e.target.value)} placeholder="输入研究问题、领域或已有研究目标…"/><div><span>建立课题并保存研究目标</span><button className="primary" disabled={!goal.trim() || creating} type="submit">{creating ? '正在建立…' : '建立课题'}<Icon name="arrow"/></button></div></form><button className="text-button example-entry" disabled={creating} onClick={() => create(true)}>体验数字学习示例<Icon name="return"/></button><p className="honest-note">本机体验版 · 研究记录自动保存，研究流程分阶段推进。</p>{error && <p role="alert" className="error-text">{error}</p>}{projects.length > 0 && <div className="recent"><h2>继续最近的课题</h2>{projects.slice(0, 3).map(p => <button key={p.id} onClick={() => open(p.id)}><Icon name="folder"/><span>{p.name}</span><time>{date(p.updatedAt)}</time></button>)}</div>}</main><footer>研究决定由研究者作出，成果与依据持续保留。</footer></div>}
+    {showProjects && <Modal title="我的课题" onClose={() => setShowProjects(false)}><div className="project-list">{projects.map(p => <button key={p.id} onClick={() => open(p.id)}><Icon name="folder"/><span><strong>{p.name}</strong><small>{p.example ? '交互示例 · ' : ''}{date(p.updatedAt)}</small></span></button>)}{projects.length === 0 && <p>还没有课题，从一句想法开始。</p>}</div>{error && <p className="error-text">{error}</p>}</Modal>}</>;
+}

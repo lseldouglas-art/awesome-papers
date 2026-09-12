@@ -1,0 +1,54 @@
+{
+  "mode": "built-in image_gen",
+  "model": "not disclosed by tool",
+  "cost": {
+    "status": "unknown"
+  },
+  "createdAt": "2026-09-12",
+  "entries": [
+    {
+      "id": "gen-h-pylori",
+      "prompt": "Create ONE reusable biomedical illustration asset: a single Helicobacter pylori bacterium, isolated, true transparent alpha background. No text, letters, labels, arrows, frame, shadow plane, watermark or other objects. This is a scientific explanatory schematic, NOT microscopy or experimental data. Anatomical motif: a slender gently helical/curved rod with 2–3 gentle bends, rounded ends, a small tuft of 4–5 thin flagella emerging together from ONE pole. No legs, face, eyes, spikes or flagella on the sides. Entire bacterium and flagella within frame with 12% clear margin, horizontal composition centered. Clean editorial biomedical illustration, subtly dimensional but primarily flat vector-like shapes, muted teal body (#4e9995), darker teal thin crisp outlines, very gentle flat highlights, flagella clean dark teal lines, no grain or glossy 3D. Calm restrained style suitable as a small component of a high-quality medical-journal mechanism figure. Transparent background, not a checkerboard painted into image. High resolution 1536 x 1024. The organism's species is indicated in library metadata separately, not rendered as text. Do not add a surrounding cell or diagram.",
+      "editPrompt": "Refine this existing Helicobacter pylori schematic into a clean isolated library asset. Keep the same shape, single-pole tuft of flagella, teal body, and composition. REMOVE ALL diffuse glow, haze, bloom, drop shadow, soft background shading and background color. Background must be strictly transparent (alpha 0) everywhere outside the crisp organism silhouette and narrow antialiased edges. Inside the bacterium use solid opaque muted teal with very subtle flat highlights; opaque crisp dark-teal flagella. Do not fade body or flagella into the background. No text, no new objects. Preserve entire visible flagella, keep at least 6% margin. This should be a flat, clean, publication-figure clipart asset readable on white, gray or pastel backgrounds.",
+      "calls": 2,
+      "file": "exec-0243ea94-9afd-4612-b347-4628ab547419.png",
+      "original": "exec-4ce56d6d-9ca7-4f30-943f-a37ec0ba7a58.png",
+      "name": "幽门螺杆菌",
+      "category": "microbes",
+      "keywords": [
+        "Helicobacter pylori",
+        "HP",
+        "胃癌",
+        "细菌"
+      ]
+    },
+    {
+      "id": "gen-gastric-epithelium",
+      "prompt": "Create a single reusable biomedical illustration component: a short strip of six adjacent gastric surface mucous epithelial cells, seen in a simplified frontal cutaway schematic. A continuous orderly monolayer of tall columnar cells, subtly rounded apical tops aligned horizontally, simple basal oval nuclei, small pale apical mucin granule areas. No brush border, no dense cilia, no intestinal villi, no goblet-shaped cells, no connective tissue or muscle beneath. This is a generic illustrative motif, not microscopy, histology or experimental data. Restrained publication editorial style: opaque pale coral cytoplasm, thin crisp dusty rose outlines, muted violet nuclei, a very thin pale-teal band representing mucus above the apical surface. Subtle simple flat shape highlights, no textures. One centered strip only, generous 15 percent empty margins, no labels/text/arrows/scalebars/frames. REAL TRANSPARENT BACKGROUND: alpha zero outside the narrow crisp silhouette, no glow, haze or shadow around object. High resolution 1536 x 1024. Entire composition isolated to allow placement in a mechanism diagram.",
+      "calls": 1,
+      "file": "exec-c7b18b24-16d2-4551-830f-6689f4795146.png",
+      "name": "胃表面黏液上皮",
+      "category": "cells",
+      "keywords": [
+        "gastric epithelium",
+        "胃黏膜",
+        "上皮",
+        "胃癌"
+      ]
+    },
+    {
+      "id": "gen-extracellular-vesicle",
+      "prompt": "Create ONE isolated reusable biomedical illustration: a small extracellular vesicle in a three-quarter cutaway. A simple round lipid-bilayer vesicle, with a clean quarter wedge removed to reveal a hollow pale interior and two small generic curved RNA strands plus a few simple protein spheres. No precise molecular identity, receptor labels, cargo function, or claim about exosomal origin. Generic explanatory schematic only, not a measured electron micrograph or experimental data. Crisp vector-like scientific editorial style, restrained muted teal and pale blue lipid membrane, muted lavender RNA and warm coral proteins. Lipid heads on the outer and inner surfaces, paired hydrophobic tails facing the middle of the bilayer, visibly legible but simplified. Subtle flat shading, fine outlines, no diffuse lighting, glow, haze, shadow, backdrop or texture. No text, labels, arrows, scale bars or watermark. One centered sphere with 18% empty margin; transparent alpha background outside the object. Square 1024x1024, high detail suitable for a small component in a publication mechanism diagram.",
+      "calls": 1,
+      "file": "exec-a6ae09ee-779f-4c53-83ca-34bd5d3c3304.png",
+      "name": "细胞外囊泡 · 剖面",
+      "category": "molecules",
+      "keywords": [
+        "extracellular vesicle",
+        "EV",
+        "囊泡",
+        "RNA"
+      ]
+    }
+  ]
+}

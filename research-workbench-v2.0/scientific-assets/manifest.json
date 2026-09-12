@@ -1,0 +1,2020 @@
+{
+  "schemaVersion": 1,
+  "id": "biomedical-starter",
+  "version": "1.0.0",
+  "title": "科研工作台 · 生物医学常用素材",
+  "createdAt": "2026-09-12",
+  "catalogSource": {
+    "url": "https://github.com/duerrsimon/bioicons",
+    "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+    "indexedItems": 2804
+  },
+  "categories": [
+    {
+      "id": "animals",
+      "name": "实验动物",
+      "description": "小鼠、大鼠、兔、斑马鱼；品系和基因型需另行标注"
+    },
+    {
+      "id": "anatomy",
+      "name": "器官与组织",
+      "description": "胃、肝、肺、脑、上皮及血管"
+    },
+    {
+      "id": "cells",
+      "name": "细胞与培养",
+      "description": "通用细胞、上皮细胞、成纤维细胞、类器官"
+    },
+    {
+      "id": "membrane",
+      "name": "细胞膜与受体",
+      "description": "磷脂双层、跨膜蛋白、受体、细胞连接"
+    },
+    {
+      "id": "organelles",
+      "name": "细胞器",
+      "description": "细胞核、线粒体、内质网、高尔基体"
+    },
+    {
+      "id": "immunity",
+      "name": "免疫与血液",
+      "description": "T/B 淋巴细胞、巨噬细胞、红细胞与抗体"
+    },
+    {
+      "id": "molecules",
+      "name": "分子与遗传",
+      "description": "DNA、RNA、质粒、蛋白和转录"
+    },
+    {
+      "id": "microbes",
+      "name": "微生物",
+      "description": "细菌与幽门螺杆菌；示意形态不替代鉴定"
+    },
+    {
+      "id": "oncology",
+      "name": "肿瘤与过程",
+      "description": "肿瘤细胞、血管生成、迁移与凋亡"
+    },
+    {
+      "id": "lab",
+      "name": "实验与器材",
+      "description": "培养皿、培养瓶、孔板、离心管、移液器"
+    }
+  ],
+  "assets": [
+    {
+      "id": "bio-mouse-gray",
+      "name": "小鼠",
+      "englishName": "mouse-gray",
+      "category": "animals",
+      "keywords": [
+        "mouse",
+        "小白鼠",
+        "Mus",
+        "musculus"
+      ],
+      "format": "svg",
+      "file": "files/bio-mouse-gray.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Animals/Servier/mouse-gray.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Animals/Servier/mouse-gray.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "06a18b85a335b215cd0788906f53613ff78ee888948ca905adb82fb0d27f9ef1",
+      "bytes": 17136,
+      "viewBox": "0 0 218.457 199.748",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-rat-white",
+      "name": "大鼠",
+      "englishName": "rat-white",
+      "category": "animals",
+      "keywords": [
+        "rat",
+        "白鼠",
+        "Rattus",
+        "norvegicus"
+      ],
+      "format": "svg",
+      "file": "files/bio-rat-white.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Animals/Servier/rat-white.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Animals/Servier/rat-white.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "dd7d5f29329b8cccd382f5f703243a12b368372745661b353fd9875f315a7453",
+      "bytes": 25657,
+      "viewBox": "0 0 506.268 188.901",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-rabbit-brown",
+      "name": "实验兔",
+      "englishName": "rabbit-brown",
+      "category": "animals",
+      "keywords": [
+        "rabbit"
+      ],
+      "format": "svg",
+      "file": "files/bio-rabbit-brown.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Animals/Servier/rabbit-brown.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Animals/Servier/rabbit-brown.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "32f1d779abdf84fe3ac6e6c9d8fde33ee70233365de548b296ad31ec2fcf9344",
+      "bytes": 18124,
+      "viewBox": "0 0 227.679 181.795",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-dog-beagle",
+      "name": "比格犬",
+      "englishName": "dog_beagle",
+      "category": "animals",
+      "keywords": [
+        "beagle"
+      ],
+      "format": "svg",
+      "file": "files/bio-dog-beagle.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Animals/Servier/dog_beagle.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Animals/Servier/dog_beagle.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "d86b456b1b3b9c8ac2fd7a7477ba9535a8e6bcf4854bb7ca9d4259df52acae1c",
+      "bytes": 22786,
+      "viewBox": "0 0 331.54 271.143",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-stomach",
+      "name": "胃",
+      "englishName": "stomach",
+      "category": "anatomy",
+      "keywords": [
+        "gastric",
+        "stomach",
+        "胃癌"
+      ],
+      "format": "svg",
+      "file": "files/bio-stomach.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Human_physiology/Servier/stomach.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Human_physiology/Servier/stomach.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "c6c9118947e87b0ffcc74ff2130d4aa761c7387cb845c0115c18ccfbcf336b06",
+      "bytes": 3667,
+      "viewBox": "0 0 252.472 258.142",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-stomach-wall",
+      "name": "胃壁",
+      "englishName": "stomach-wall",
+      "category": "anatomy",
+      "keywords": [
+        "gastric",
+        "wall",
+        "黏膜"
+      ],
+      "format": "svg",
+      "file": "files/bio-stomach-wall.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Human_physiology/Servier/stomach-wall.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Human_physiology/Servier/stomach-wall.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "083a7d3f4ee927b9b6a7c4e4357839ee4ca7af6fad2ca1149349c9627db455c1",
+      "bytes": 94260,
+      "viewBox": "0 0 155.225 540.813",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-liver",
+      "name": "肝脏",
+      "englishName": "liver",
+      "category": "anatomy",
+      "keywords": [
+        "liver",
+        "hepatic"
+      ],
+      "format": "svg",
+      "file": "files/bio-liver.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Human_physiology/Servier/liver.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Human_physiology/Servier/liver.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "954233ef7f988c7bdc0e816bd42ed36493a51d8acaa548fb1e209b0770fe68d9",
+      "bytes": 3776,
+      "viewBox": "0 0 329.235 275.225",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-healthy-lung",
+      "name": "肺",
+      "englishName": "healthy-lung",
+      "category": "anatomy",
+      "keywords": [
+        "lung",
+        "pulmonary"
+      ],
+      "format": "svg",
+      "file": "files/bio-healthy-lung.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Human_physiology/Servier/healthy-lung.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Human_physiology/Servier/healthy-lung.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "da461d2e22994a5619b12512c9cad7d05ff81c98aacc5bdf7481b387b76ca457",
+      "bytes": 61301,
+      "viewBox": "0 0 366.69 417.109",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-brain-1",
+      "name": "大脑",
+      "englishName": "brain-1",
+      "category": "anatomy",
+      "keywords": [
+        "brain"
+      ],
+      "format": "svg",
+      "file": "files/bio-brain-1.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Human_physiology/Servier/brain-1.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Human_physiology/Servier/brain-1.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "c495518cd1dfac90750c3d9e3c49149b1e150250efa139522e68068849a6051e",
+      "bytes": 27090,
+      "viewBox": "0 0 346.696 244.951",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-capillary",
+      "name": "毛细血管",
+      "englishName": "capillary",
+      "category": "anatomy",
+      "keywords": [
+        "capillary",
+        "血管"
+      ],
+      "format": "svg",
+      "file": "files/bio-capillary.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Human_physiology/Servier/capillary.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Human_physiology/Servier/capillary.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "364f35a65c7f69d9235cf89addf583122d29063250c26db8057a9f860cd0af64",
+      "bytes": 22873,
+      "viewBox": "0 0 556.082 317.934",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-cell-column-1",
+      "name": "柱状上皮细胞",
+      "englishName": "cell-column-1",
+      "category": "cells",
+      "keywords": [
+        "epithelial",
+        "columnar",
+        "胃上皮"
+      ],
+      "format": "svg",
+      "file": "files/bio-cell-column-1.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Tissues/Servier/cell-column-1.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Tissues/Servier/cell-column-1.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "325d9816a0c273d4985bed9cd4e1721e7ef4547d860e8d9352af598277ea5b05",
+      "bytes": 4377,
+      "viewBox": "0 0 57.902 194.532",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-fibroblast-1",
+      "name": "成纤维细胞",
+      "englishName": "fibroblast-1",
+      "category": "cells",
+      "keywords": [
+        "fibroblast",
+        "CAF"
+      ],
+      "format": "svg",
+      "file": "files/bio-fibroblast-1.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Tissues/Servier/fibroblast-1.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Tissues/Servier/fibroblast-1.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "f18d4631a4eef3faccc0238b39164fbe9e4db85489ca0045b84ac524271aa890",
+      "bytes": 6988,
+      "viewBox": "0 0 363.25 122.343",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-cell-complete",
+      "name": "通用动物细胞",
+      "englishName": "cell-complete",
+      "category": "cells",
+      "keywords": [
+        "cell",
+        "动物细胞"
+      ],
+      "format": "svg",
+      "file": "files/bio-cell-complete.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Intracellular_components/Servier/cell-complete.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Intracellular_components/Servier/cell-complete.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "69cc37b942ac3e1985a80ec6f42bd56f40e6f0830141300d0e1a0825335658a5",
+      "bytes": 776364,
+      "viewBox": "0 0 859.087 565.72",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-organoid",
+      "name": "类器官",
+      "englishName": "organoid",
+      "category": "cells",
+      "keywords": [
+        "organoid",
+        "三维培养"
+      ],
+      "format": "svg",
+      "file": "files/bio-organoid.svg",
+      "style": "community",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Marcel Tisch",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-0/Cell_culture/Marcel_Tisch/organoid.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-0/Cell_culture/Marcel_Tisch/organoid.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC0-1.0",
+        "url": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "attributionRequired": false
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "7c8384e0e92c38c0c9f3b6f58923ea361c2c1d4402bf53c1aca8a916342a78cb",
+      "bytes": 9366,
+      "viewBox": "0 0 42.9 43.27",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-membrane-2d-bluelight",
+      "name": "磷脂双层 · 平面",
+      "englishName": "membrane-2d-bluelight",
+      "category": "membrane",
+      "keywords": [
+        "membrane",
+        "bilayer",
+        "细胞膜"
+      ],
+      "format": "svg",
+      "file": "files/bio-membrane-2d-bluelight.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Cell_membrane/Servier/membrane-2d-bluelight.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Cell_membrane/Servier/membrane-2d-bluelight.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "f0c7a3cf3176c0fe920f829b56e65ce7b75934b701f0cac8cb599a55492ad713",
+      "bytes": 48873,
+      "viewBox": "0 0 229.077 69.77",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-membrane-3d-bluelight",
+      "name": "磷脂双层 · 立体",
+      "englishName": "membrane-3d-bluelight",
+      "category": "membrane",
+      "keywords": [
+        "membrane",
+        "bilayer",
+        "细胞膜"
+      ],
+      "format": "svg",
+      "file": "files/bio-membrane-3d-bluelight.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Cell_membrane/Servier/membrane-3d-bluelight.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Cell_membrane/Servier/membrane-3d-bluelight.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "08c1d1f01f984af0d834a2b6df23cacb3e0deb6bdf69c358fb8a9aa1698777a3",
+      "bytes": 141162,
+      "viewBox": "0 0 245.707 82.243",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-lipid-bluelight",
+      "name": "磷脂",
+      "englishName": "lipid-bluelight",
+      "category": "membrane",
+      "keywords": [
+        "phospholipid",
+        "lipid"
+      ],
+      "format": "svg",
+      "file": "files/bio-lipid-bluelight.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Cell_membrane/Servier/lipid-bluelight.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Cell_membrane/Servier/lipid-bluelight.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "53ee2aba8f6dd807bb155f7529f4ee9166ba02aaa0189bf84c432b24340f6495",
+      "bytes": 1851,
+      "viewBox": "0 0 31.332 68.825",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-receptor-membrane-ligand",
+      "name": "膜受体与配体",
+      "englishName": "receptor-membrane-ligand",
+      "category": "membrane",
+      "keywords": [
+        "receptor",
+        "ligand"
+      ],
+      "format": "svg",
+      "file": "files/bio-receptor-membrane-ligand.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Receptors_channels/Servier/receptor-membrane-ligand.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Receptors_channels/Servier/receptor-membrane-ligand.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "88be78fa7ead71c6fecc62729127f7b2f5f2403b7b3eeb99d416bcd8e0ff9bf0",
+      "bytes": 174001,
+      "viewBox": "0 0 875.981 138.86",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-ionchannel-membrane",
+      "name": "离子通道",
+      "englishName": "ionchannel-membrane",
+      "category": "membrane",
+      "keywords": [
+        "ion",
+        "channel"
+      ],
+      "format": "svg",
+      "file": "files/bio-ionchannel-membrane.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Receptors_channels/Servier/ionchannel-membrane.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Receptors_channels/Servier/ionchannel-membrane.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "e3a3adedb047440bd529cd9ca4964a009c3af7a05b76078c077a993f83af54be",
+      "bytes": 186699,
+      "viewBox": "0 0 875.981 186.028",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-tight-junction",
+      "name": "紧密连接",
+      "englishName": "tight-junction",
+      "category": "membrane",
+      "keywords": [
+        "tight",
+        "junction"
+      ],
+      "format": "svg",
+      "file": "files/bio-tight-junction.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Tissues/Servier/tight-junction.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Tissues/Servier/tight-junction.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "e1b6877ebdda79f32d698322aa1af14467590fdd71ec5fec01c605cda82ced42",
+      "bytes": 50168,
+      "viewBox": "0 0 315.553 539.112",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-nucleus",
+      "name": "细胞核",
+      "englishName": "nucleus",
+      "category": "organelles",
+      "keywords": [
+        "nucleus",
+        "nuclear"
+      ],
+      "format": "svg",
+      "file": "files/bio-nucleus.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Intracellular_components/Servier/nucleus.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Intracellular_components/Servier/nucleus.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "7e7364f834a0f6c897aeee09198eb7e72d39e689df458ce7faf442a356b5774e",
+      "bytes": 321740,
+      "viewBox": "0 0 377.915 401.613",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-mitochondrium-1",
+      "name": "线粒体",
+      "englishName": "mitochondrium-1",
+      "category": "organelles",
+      "keywords": [
+        "mitochondria",
+        "mitochondrion"
+      ],
+      "format": "svg",
+      "file": "files/bio-mitochondrium-1.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Intracellular_components/Servier/mitochondrium-1.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Intracellular_components/Servier/mitochondrium-1.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "e291791574ae2fa9bf1159d0415ef81816bf437f619170b03a33d3552acacfa8",
+      "bytes": 20304,
+      "viewBox": "0 0 253.002 124.762",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-endoplasmatic-reticulum-rough",
+      "name": "粗面内质网",
+      "englishName": "endoplasmatic-reticulum-rough",
+      "category": "organelles",
+      "keywords": [
+        "rough",
+        "ER"
+      ],
+      "format": "svg",
+      "file": "files/bio-endoplasmatic-reticulum-rough.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Intracellular_components/Servier/endoplasmatic-reticulum-rough.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Intracellular_components/Servier/endoplasmatic-reticulum-rough.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "32d31ae68c93405085fe5e4b3e1a27e56afd342483d63cdf41dcf80a8b5d8d74",
+      "bytes": 29190,
+      "viewBox": "0 0 282.18 134.627",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-golgi-2d-1",
+      "name": "高尔基体",
+      "englishName": "golgi-2d-1",
+      "category": "organelles",
+      "keywords": [
+        "golgi"
+      ],
+      "format": "svg",
+      "file": "files/bio-golgi-2d-1.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Intracellular_components/Servier/golgi-2d-1.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Intracellular_components/Servier/golgi-2d-1.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "7a741868c249a38414cb858b6a290944230aa094c09d880a1d5a01719d622009",
+      "bytes": 22520,
+      "viewBox": "0 0 281.537 141.808",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-microtubule",
+      "name": "微管",
+      "englishName": "microtubule",
+      "category": "organelles",
+      "keywords": [
+        "microtubule",
+        "cytoskeleton"
+      ],
+      "format": "svg",
+      "file": "files/bio-microtubule.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Intracellular_components/Servier/microtubule.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Intracellular_components/Servier/microtubule.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "0ab399351ba3635d846c6931ffe7bd10a8f27dcb8518a46ca5956372eaae7326",
+      "bytes": 96401,
+      "viewBox": "0 0 181.077 69.619",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-t-lymphocyte",
+      "name": "T 淋巴细胞",
+      "englishName": "t-lymphocyte",
+      "category": "immunity",
+      "keywords": [
+        "T",
+        "cell",
+        "CD8",
+        "CD4"
+      ],
+      "format": "svg",
+      "file": "files/bio-t-lymphocyte.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Blood_Immunology/Servier/t-lymphocyte.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Blood_Immunology/Servier/t-lymphocyte.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "45d8313b71bc0520304dd58495ac64f5492b48a7485739c9bee5f818b88de7aa",
+      "bytes": 3687,
+      "viewBox": "0 0 123.931 126.992",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-b-lymphocyte",
+      "name": "B 淋巴细胞",
+      "englishName": "b-lymphocyte",
+      "category": "immunity",
+      "keywords": [
+        "B",
+        "cell"
+      ],
+      "format": "svg",
+      "file": "files/bio-b-lymphocyte.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Blood_Immunology/Servier/b-lymphocyte.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Blood_Immunology/Servier/b-lymphocyte.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "8e253390864cbb52f5b32feacecd6c31048aa2020eb43d1ae6d78443435d0dc4",
+      "bytes": 4309,
+      "viewBox": "0 0 121.701 118.186",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-macrophage",
+      "name": "巨噬细胞",
+      "englishName": "macrophage",
+      "category": "immunity",
+      "keywords": [
+        "macrophage",
+        "TAM"
+      ],
+      "format": "svg",
+      "file": "files/bio-macrophage.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Blood_Immunology/Servier/macrophage.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Blood_Immunology/Servier/macrophage.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "837f87a98ceb4c4ed88b84f73e7698695c1ebf0b919084603cbe144872449863",
+      "bytes": 7997,
+      "viewBox": "0 0 149.972 161.802",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-dendritic-cell-1",
+      "name": "树突状细胞",
+      "englishName": "dendritic-cell-1",
+      "category": "immunity",
+      "keywords": [
+        "dendritic",
+        "DC"
+      ],
+      "format": "svg",
+      "file": "files/bio-dendritic-cell-1.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Blood_Immunology/Servier/dendritic-cell-1.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Blood_Immunology/Servier/dendritic-cell-1.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "bb30e0e4ac687422314c18706397a73405abaacdf7ecd56146214f7f7df8e2a2",
+      "bytes": 19242,
+      "viewBox": "0 0 159.609 150.614",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-nk-cell",
+      "name": "自然杀伤细胞",
+      "englishName": "nk-cell",
+      "category": "immunity",
+      "keywords": [
+        "NK",
+        "cell"
+      ],
+      "format": "svg",
+      "file": "files/bio-nk-cell.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Blood_Immunology/Servier/nk-cell.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Blood_Immunology/Servier/nk-cell.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "b7c828722ef1823da037ea3dfeae5e0cff0a35a496f374cf97e774d474d181ab",
+      "bytes": 6883,
+      "viewBox": "0 0 112.403 125.707",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-erythrocyte",
+      "name": "红细胞",
+      "englishName": "erythrocyte",
+      "category": "immunity",
+      "keywords": [
+        "erythrocyte",
+        "RBC"
+      ],
+      "format": "svg",
+      "file": "files/bio-erythrocyte.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Blood_Immunology/Servier/erythrocyte.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Blood_Immunology/Servier/erythrocyte.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "fdd518e18ffd02f5c48b665846afa5a581f955233d32f7b909d7a609831fd7e3",
+      "bytes": 2457,
+      "viewBox": "0 0 98.419 95.395",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-antibody",
+      "name": "抗体",
+      "englishName": "antibody",
+      "category": "immunity",
+      "keywords": [
+        "antibody",
+        "immunoglobulin"
+      ],
+      "format": "svg",
+      "file": "files/bio-antibody.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Blood_Immunology/Servier/antibody.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Blood_Immunology/Servier/antibody.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "a2b5250fdf91cad1c6a959ba76c6bad92edc71c7b8e3aea83e015f6102c43974",
+      "bytes": 988,
+      "viewBox": "0 0 70.072 83.452",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-dna-1",
+      "name": "DNA 双链",
+      "englishName": "dna-1",
+      "category": "molecules",
+      "keywords": [
+        "DNA",
+        "double",
+        "helix"
+      ],
+      "format": "svg",
+      "file": "files/bio-dna-1.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Nucleic_acids/Servier/dna-1.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Nucleic_acids/Servier/dna-1.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "680a80b4580ec735995723524a119cc58c701b2aba47ffe862cef1965bf2b400",
+      "bytes": 107100,
+      "viewBox": "0 0 127.408 249.373",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-rna",
+      "name": "RNA",
+      "englishName": "rna",
+      "category": "molecules",
+      "keywords": [
+        "RNA",
+        "核糖核酸"
+      ],
+      "format": "svg",
+      "file": "files/bio-rna.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Nucleic_acids/Servier/rna.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Nucleic_acids/Servier/rna.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "c72fefdd2ae9d85d1f12ae582877c148ad39a019bbee943e25e3de1074ae2798",
+      "bytes": 32160,
+      "viewBox": "0 0 97.928 493.493",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-plasmid",
+      "name": "质粒",
+      "englishName": "plasmid",
+      "category": "molecules",
+      "keywords": [
+        "plasmid"
+      ],
+      "format": "svg",
+      "file": "files/bio-plasmid.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Nucleic_acids/Servier/plasmid.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Nucleic_acids/Servier/plasmid.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "beff4a1c1b7b8d1105d8e6df74d1f9a5a546f71373d4acd862d55b2b2a24b32a",
+      "bytes": 38397,
+      "viewBox": "0 0 360.491 385.02",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-protein-1",
+      "name": "通用蛋白",
+      "englishName": "protein-1",
+      "category": "molecules",
+      "keywords": [
+        "protein",
+        "kinase",
+        "STAT3"
+      ],
+      "format": "svg",
+      "file": "files/bio-protein-1.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Intracellular_components/Servier/protein-1.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Intracellular_components/Servier/protein-1.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "2efeb8d4b36d0a6f024f5ed79ba2fbc6f6bdb30ff86252932d69a25cbad54907",
+      "bytes": 4253,
+      "viewBox": "0 0 95.164941 212.79026",
+      "width": "95.16494",
+      "height": "212.79027"
+    },
+    {
+      "id": "bio-transkription",
+      "name": "转录",
+      "englishName": "transkription",
+      "category": "molecules",
+      "keywords": [
+        "transcription"
+      ],
+      "format": "svg",
+      "file": "files/bio-transkription.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Nucleic_acids/Servier/transkription.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Nucleic_acids/Servier/transkription.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "dc1d7e892198a484d7633ad5f9343bc76e356943fe5440d36476ef7f13fe5017",
+      "bytes": 79810,
+      "viewBox": "0 0 753.6 353.991",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-bacterium",
+      "name": "通用细菌",
+      "englishName": "bacterium",
+      "category": "microbes",
+      "keywords": [
+        "bacteria",
+        "bacterium"
+      ],
+      "format": "svg",
+      "file": "files/bio-bacterium.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Microbiology/Servier/bacterium.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Microbiology/Servier/bacterium.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "6a5f268757a4ef6146c532bb7463321e4d0966186ddf3157436197dd8b0e9fd0",
+      "bytes": 147348,
+      "viewBox": "0 0 395.906 442.772",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-bacterium-interior",
+      "name": "细菌内部",
+      "englishName": "bacterium-interior",
+      "category": "microbes",
+      "keywords": [
+        "prokaryote",
+        "bacteria"
+      ],
+      "format": "svg",
+      "file": "files/bio-bacterium-interior.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Microbiology/Servier/bacterium-interior.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Microbiology/Servier/bacterium-interior.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "5393cae74a24c7aa59daf0c6126e0dfa4dd051934b6f2a6a80bb294869754aea",
+      "bytes": 104793,
+      "viewBox": "0 0 395.452 442.431",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-cancerous-cell-1",
+      "name": "肿瘤细胞",
+      "englishName": "cancerous-cell-1",
+      "category": "oncology",
+      "keywords": [
+        "tumor",
+        "cancer",
+        "胃癌"
+      ],
+      "format": "svg",
+      "file": "files/bio-cancerous-cell-1.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Oncology/Servier/cancerous-cell-1.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Oncology/Servier/cancerous-cell-1.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "497c4c5bf179fbe5bc968eea4464eb6a09b5ebee6bdb46f2947eee16f48dad97",
+      "bytes": 8114,
+      "viewBox": "0 0 143.131 156.283",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-normal-cell-1",
+      "name": "正常细胞",
+      "englishName": "normal-cell-1",
+      "category": "oncology",
+      "keywords": [
+        "normal",
+        "cell"
+      ],
+      "format": "svg",
+      "file": "files/bio-normal-cell-1.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Oncology/Servier/normal-cell-1.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Oncology/Servier/normal-cell-1.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "2283a12e7d03651ecf29b2edf749611e62114befb9e435efd5a9bd98c57bd592",
+      "bytes": 4355,
+      "viewBox": "0 0 145.285 150.841",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-angiogenesis",
+      "name": "血管生成",
+      "englishName": "angiogenesis",
+      "category": "oncology",
+      "keywords": [
+        "angiogenesis",
+        "VEGF"
+      ],
+      "format": "svg",
+      "file": "files/bio-angiogenesis.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Oncology/Servier/angiogenesis.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Oncology/Servier/angiogenesis.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "b6db796211e3fa4db95de35e431a7297d3ffcf8d0cffa2e7fc31aed0cd4046bb",
+      "bytes": 185054,
+      "viewBox": "0 0 456.718 466.394",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-tumor",
+      "name": "肿瘤组织",
+      "englishName": "tumor",
+      "category": "oncology",
+      "keywords": [
+        "tumor",
+        "tissue"
+      ],
+      "format": "svg",
+      "file": "files/bio-tumor.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Oncology/Servier/tumor.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Oncology/Servier/tumor.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "6cd973883a822be8e9bf362edcf0e280d4fd624a7208ddbcc7ac14c2021044b4",
+      "bytes": 6687,
+      "viewBox": "0 0 96.567 94.715",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-petri-dish-lid-blue",
+      "name": "培养皿",
+      "englishName": "petri-dish-lid-blue",
+      "category": "lab",
+      "keywords": [
+        "petri",
+        "dish"
+      ],
+      "format": "svg",
+      "file": "files/bio-petri-dish-lid-blue.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Microbiology/Servier/petri-dish-lid-blue.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Microbiology/Servier/petri-dish-lid-blue.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "961498efd8d3b591c35a8ab57c2dcbcab1a5e93c49fb2d65d3fde278d6316db4",
+      "bytes": 17533,
+      "viewBox": "0 0 286.488 157.833",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-culture-flask-filled-lid",
+      "name": "细胞培养瓶",
+      "englishName": "culture-flask-filled-lid",
+      "category": "lab",
+      "keywords": [
+        "cell",
+        "culture",
+        "flask"
+      ],
+      "format": "svg",
+      "file": "files/bio-culture-flask-filled-lid.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Microbiology/Servier/culture-flask-filled-lid.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Microbiology/Servier/culture-flask-filled-lid.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "dc9f70130454321c63c8cf6c69081942789268601e9150c788e71f04cad2a1f5",
+      "bytes": 14460,
+      "viewBox": "0 0 293.14 92.409",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-6-well-plate",
+      "name": "六孔板",
+      "englishName": "6-well-plate",
+      "category": "lab",
+      "keywords": [
+        "6",
+        "well",
+        "plate"
+      ],
+      "format": "svg",
+      "file": "files/bio-6-well-plate.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Microbiology/Servier/6-well-plate.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Microbiology/Servier/6-well-plate.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "810e4cb8f8277136db9ca9fccad4464c8b90d397dbe42d327a1e464e4fc98733",
+      "bytes": 19137,
+      "viewBox": "0 0 280.63 414.576",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-falcon-15ml-empty",
+      "name": "15 mL 离心管",
+      "englishName": "falcon-15ml-empty",
+      "category": "lab",
+      "keywords": [
+        "centrifuge",
+        "tube"
+      ],
+      "format": "svg",
+      "file": "files/bio-falcon-15ml-empty.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Microbiology/Servier/falcon-15ml-empty.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Microbiology/Servier/falcon-15ml-empty.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "c65f05e4b708fba568bafb521e703335838fd9ba164ff3c4b6c1a34df1b46774",
+      "bytes": 14169,
+      "viewBox": "0 0 69.354 418.809",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-microtube-open-blue",
+      "name": "微量离心管",
+      "englishName": "microtube-open-blue",
+      "category": "lab",
+      "keywords": [
+        "microtube",
+        "eppendorf"
+      ],
+      "format": "svg",
+      "file": "files/bio-microtube-open-blue.svg",
+      "style": "servier",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "Servier",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Microbiology/Servier/microtube-open-blue.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-by-3.0/Microbiology/Servier/microtube-open-blue.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC-BY-3.0",
+        "url": "https://creativecommons.org/licenses/by/3.0/",
+        "attributionRequired": true
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "bcb1ff601a6d59519eb3213ac9b564e4c5bdbcb4e4fa5cd141c52653246dc5e5",
+      "bytes": 12378,
+      "viewBox": "0 0 129.524 371.83",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "bio-pipette",
+      "name": "移液器",
+      "englishName": "Pipette",
+      "category": "lab",
+      "keywords": [
+        "pipette"
+      ],
+      "format": "svg",
+      "file": "files/bio-pipette.svg",
+      "style": "community",
+      "source": {
+        "kind": "open-library",
+        "library": "Bioicons",
+        "author": "James-Lloyd",
+        "url": "https://github.com/duerrsimon/bioicons/blob/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-0/Lab_apparatus/James-Lloyd/Pipette.svg",
+        "downloadUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/d29e766ea7580b8063c4f47b29e872db40a4d979/static/icons/cc-0/Lab_apparatus/James-Lloyd/Pipette.svg",
+        "revision": "d29e766ea7580b8063c4f47b29e872db40a4d979",
+        "retrievedAt": "2026-09-12"
+      },
+      "license": {
+        "id": "CC0-1.0",
+        "url": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "attributionRequired": false
+      },
+      "changes": "原始 SVG 未修改；在图稿中可调整大小与位置。",
+      "review": {
+        "status": "schematic",
+        "note": "示意素材；具体物种、细胞身份、分子功能及研究机制由使用者核对。"
+      },
+      "sha256": "04f7a03d50413d1f0b70eb4c0234e3b0b57f32c9b5588ebe1ac40f84ff4cb232",
+      "bytes": 424925,
+      "viewBox": "0 0 612 792",
+      "width": null,
+      "height": null
+    },
+    {
+      "id": "gen-h-pylori",
+      "name": "幽门螺杆菌",
+      "englishName": "Helicobacter pylori",
+      "category": "microbes",
+      "keywords": [
+        "Helicobacter pylori",
+        "HP",
+        "胃癌",
+        "细菌"
+      ],
+      "format": "png",
+      "file": "files/gen-h-pylori.png",
+      "style": "workbench",
+      "source": {
+        "kind": "ai-generated",
+        "library": "科研工作台",
+        "author": "Image Generator · 用户委托生成",
+        "tool": "built-in image_gen",
+        "model": null,
+        "generatedAt": "2026-09-12",
+        "promptId": "gen-h-pylori",
+        "calls": 2,
+        "cost": {
+          "status": "unknown"
+        }
+      },
+      "license": {
+        "id": "AI-generated",
+        "url": null,
+        "attributionRequired": false,
+        "note": "生成来源记录，不声明公共领域或第三方权利已清除；投稿时按目标期刊政策披露。"
+      },
+      "changes": "原始生成 PNG，未裁切或重绘。",
+      "review": {
+        "status": "candidate",
+        "note": "经外观检查的概念插图，未经独立生物医学专家审核；不表示实验结果。"
+      },
+      "width": 1536,
+      "height": 1024,
+      "alpha": true,
+      "sha256": "24b3b4654fe196dc4b5a761f983de2bec2dee2a72756c21860f86207e5c06cd8",
+      "bytes": 917940
+    },
+    {
+      "id": "gen-gastric-epithelium",
+      "name": "胃表面黏液上皮",
+      "englishName": "gastric epithelium",
+      "category": "cells",
+      "keywords": [
+        "gastric epithelium",
+        "胃黏膜",
+        "上皮",
+        "胃癌"
+      ],
+      "format": "png",
+      "file": "files/gen-gastric-epithelium.png",
+      "style": "workbench",
+      "source": {
+        "kind": "ai-generated",
+        "library": "科研工作台",
+        "author": "Image Generator · 用户委托生成",
+        "tool": "built-in image_gen",
+        "model": null,
+        "generatedAt": "2026-09-12",
+        "promptId": "gen-gastric-epithelium",
+        "calls": 1,
+        "cost": {
+          "status": "unknown"
+        }
+      },
+      "license": {
+        "id": "AI-generated",
+        "url": null,
+        "attributionRequired": false,
+        "note": "生成来源记录，不声明公共领域或第三方权利已清除；投稿时按目标期刊政策披露。"
+      },
+      "changes": "原始生成 PNG，未裁切或重绘。",
+      "review": {
+        "status": "candidate",
+        "note": "经外观检查的概念插图，未经独立生物医学专家审核；不表示实验结果。"
+      },
+      "width": 1536,
+      "height": 1024,
+      "alpha": true,
+      "sha256": "70075803c78be5abe570952032fc4f0e4cdb42346ae5e59d877904bfa015f8a7",
+      "bytes": 1122840
+    },
+    {
+      "id": "gen-extracellular-vesicle",
+      "name": "细胞外囊泡 · 剖面",
+      "englishName": "extracellular vesicle",
+      "category": "molecules",
+      "keywords": [
+        "extracellular vesicle",
+        "EV",
+        "囊泡",
+        "RNA"
+      ],
+      "format": "png",
+      "file": "files/gen-extracellular-vesicle.png",
+      "style": "workbench",
+      "source": {
+        "kind": "ai-generated",
+        "library": "科研工作台",
+        "author": "Image Generator · 用户委托生成",
+        "tool": "built-in image_gen",
+        "model": null,
+        "generatedAt": "2026-09-12",
+        "promptId": "gen-extracellular-vesicle",
+        "calls": 1,
+        "cost": {
+          "status": "unknown"
+        }
+      },
+      "license": {
+        "id": "AI-generated",
+        "url": null,
+        "attributionRequired": false,
+        "note": "生成来源记录，不声明公共领域或第三方权利已清除；投稿时按目标期刊政策披露。"
+      },
+      "changes": "原始生成 PNG，未裁切或重绘。",
+      "review": {
+        "status": "candidate",
+        "note": "经外观检查的概念插图，未经独立生物医学专家审核；不表示实验结果。"
+      },
+      "width": 1254,
+      "height": 1254,
+      "alpha": true,
+      "sha256": "a05c2876c610e3244fa13fdba1f184ed0effda40896c6d50ec11cd8e5a7bbce3",
+      "bytes": 1133629
+    }
+  ]
+}

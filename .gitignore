@@ -9,3 +9,12 @@ dist-research/
 coverage/
 npm-debug.log*
 *.tgz
+
+# Second-generation local runtime and private configuration
+**/.local/
+**/.env
+**/.env.local
+**/dist/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
