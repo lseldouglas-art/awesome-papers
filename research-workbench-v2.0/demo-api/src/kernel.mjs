@@ -8,6 +8,8 @@ import { getProject, getRevision } from './domain.mjs';
 import { readableArtifactBlocks } from './artifact-content.mjs';
 import { parentReference } from '../../shared/research-path.mjs';
 import { assessmentText, normalizeAssessment } from '../../shared/question-assessment.mjs';
+import {continuityCommands,applyContinuityCommand,linkContinuityOutput} from './continuity.mjs';
+import {resolveResearchRef,continuitySnapshot,sameRef} from '../../shared/research-continuity.mjs';
 
 // The research kernel has no model, transport or storage dependency. Choices belong
 // to the researcher; model results can only create proposed research content.
@@ -121,9 +123,10 @@ export function researchState(project) {
     artifacts: Object.values(p.artifacts).map(a => ({ id: a.id, kind: a.kind, title: a.title, revisionId: a.headRevisionId, draftVersion: a.draft?.version ?? null, resultId: a.draft?.resultId ?? null,
       createdAt: a.createdAt, needsReview: Object.values(p.researchImpacts).some(i => i.artifactId === a.id && i.status === 'needs_review') })),
     impacts: clone(Object.values(p.researchImpacts)), position: clone(k.position), positions: clone(k.positions ?? {}),
-    decisionHistory: Object.values(p.decisions).filter(d => d.category === 'research_question').map(d => clone(d)),
+    decisionHistory: Object.values(p.decisions).map(d => clone(d)),
+    continuity: continuitySnapshot(p, k.position?.artifactId),
     materialScope: { sourceCount: Object.keys(p.sources).length, accessCount: accesses.length, levels },
-    unknowns: [...new Set(items.flatMap(i => revisionOf(i).unknowns ?? []))] };
+    unknowns: [...new Set([k.currentQuestion,k.exploration].filter(Boolean).flatMap(ref => revisionOf(p.researchItems[ref.itemId],ref.revisionId).unknowns ?? []))] };
 }
 
 // Legacy results are indexed with explicit origin; no absent human decision is
@@ -151,8 +154,9 @@ export function registerResearchResult(project, result, operationId) {
   for (const { block, citations } of prepared) {
     const isDirection = block.type === 'candidate' || /^research-branches-\d+$/.test(block.id);
     const kind = isDirection ? 'direction' : 'claim';
-    const { item, revision } = addItem(p, kind, { text: block.text, title: block.headline ?? '', informationStatus: block.informationStatus ?? 'unknown', unknowns: block.informationStatus === 'unknown' ? [block.text] : [] },
+    const { item, revision } = addItem(p, kind, { text: block.text, title: block.headline ?? '', ...(block.recordAnchor?{recordAnchor:clone(block.recordAnchor)}:{}), informationStatus: block.informationStatus ?? 'unknown', unknowns: block.informationStatus === 'unknown' ? [block.text] : [] },
       { operationId, actor: indexActor, origin: { resultId: result.id, artifactId: a.id, revisionId: actualRevision?.id ?? null, blockId: block.id, framework: result.framework ?? null } });
+    if(block.recordAnchor?.ref&&resolveResearchRef(p,block.recordAnchor.ref))link(p,itemNode(item),block.recordAnchor.ref);
     for (const c of citations) {
       const evidence = addEvidence(p, { itemId: item.id, itemRevisionId: revision.id, artifactId: a.id, revisionId: actualRevision?.id ?? null, resultId: result.id, blockId: block.id }, c, operationId, indexActor);
       evidence.derivation = { kind: 'research_result_index', mode: legacyEnrichment ? 'legacy_enrichment' : 'result_generation', sourceResultId: result.id, indexActor: 'local_program', contentOrigin: 'saved_model_result' };
@@ -302,12 +306,12 @@ function markAffected(p, cause, operationId, explanation) {
     if (visited.has(key)) continue; visited.add(key);
     for (const dependency of Object.values(p.dependencies).filter(d => sameNode(d.to, current))) {
       pending.push(dependency.from);
-      if (dependency.from.type !== 'artifact') continue;
-      const a = p.artifacts[dependency.from.id];
+      const resolved = resolveResearchRef(p,dependency.from);
+      const a = p.artifacts[resolved?.artifactId];
       if (!a) continue;
-      const exists = Object.values(p.researchImpacts).some(i => i.artifactId === a.id && i.artifactRevisionId === dependency.from.revisionId && sameNode(i.cause, cause));
+      const exists = Object.values(p.researchImpacts).some(i => sameRef(i.target??node('artifact',i.artifactId,i.artifactRevisionId),dependency.from) && sameNode(i.cause, cause));
       if (exists) continue;
-      const impact = { id: uid('impact'), artifactId: a.id, artifactRevisionId: dependency.from.revisionId, cause: clone(cause), explanation, status: 'needs_review', createdAt: now(), operationId, resolutions: [] };
+      const impact = { id: uid('impact'), artifactId: a.id, artifactRevisionId: dependency.from.revisionId, target:clone(dependency.from), targetTitle:resolved.title, cause: clone(cause), explanation, status: 'needs_review', createdAt: now(), operationId, resolutions: [] };
       p.researchImpacts[impact.id] = impact;
     }
   }
@@ -547,12 +551,14 @@ export function saveTopicReview(project, task, parsed, provenance) {
   changed(p);return {resultId:report.id,outputArtifactId:a.id,applied:true};
 }
 
-export const kernelCommands = new Set(['update-research-templates', 'create-question', 'decide-question', 'revise-question', 'compose-brief', 'open-branch', 'open-topic-library', 'update-topic-library', 'update-topic-workspace', 'resolve-impact', 'set-position']);
+export function recordOutputDependencies(p,ref,snapshot) { return linkContinuityOutput(p,ref,snapshot,{link}); }
+export const kernelCommands = new Set([...continuityCommands,'update-research-templates', 'create-question', 'decide-question', 'revise-question', 'compose-brief', 'open-branch', 'open-topic-library', 'update-topic-library', 'update-topic-workspace', 'resolve-impact', 'set-position']);
 export function kernelCommand(state, projectId, name, body, operationId) {
   requireThat(kernelCommands.has(name), 'unknown_command', '不支持此研究操作。', 404);
   const p = ensureKernel(getProject(state, projectId)), k = p.researchKernel, eventStart = p.researchEvents.length;
   let result;
-  if(name==='update-research-templates') result=editTemplates(p,find(p.artifacts,body.artifactId,'研究页面'),body,operationId);
+  if(continuityCommands.has(name)) result=applyContinuityCommand(p,name,body,operationId,{checkState,find,addItem,link,markAffected,emit,changed,userIntent,uid,now});
+  else if(name==='update-research-templates') result=editTemplates(p,find(p.artifacts,body.artifactId,'研究页面'),body,operationId);
   else if (name === 'compose-brief') result = composeResearchBrief(p, body, operationId);
   else if (name === 'open-branch') result = openResearchBranch(state, p, body, operationId);
   else if (name === 'open-topic-library') result = openTopicLibrary(p, body, operationId);
@@ -637,12 +643,13 @@ export function kernelCommand(state, projectId, name, body, operationId) {
       const impact = find(p.researchImpacts, body.impactId, '影响提示');
       requireThat(['keep', 'defer', 'updated'].includes(body.choice), 'invalid_input', '请选择保留、暂缓或更新完成。');
       if (body.choice === 'updated') {
-        requireThat(typeof body.updatedArtifactRevisionId === 'string' && body.updatedArtifactRevisionId !== impact.artifactRevisionId, 'invalid_input', '更新完成需要关联实际保存的新成果版本。');
-        getRevision(p, impact.artifactId, body.updatedArtifactRevisionId);
+        const oldTarget=impact.target??node('artifact',impact.artifactId,impact.artifactRevisionId);
+        const updated=body.updatedTarget??node('artifact',impact.artifactId,body.updatedArtifactRevisionId);
+        requireThat(updated.type===oldTarget.type&&updated.id===oldTarget.id&&updated.revisionId!==oldTarget.revisionId&&resolveResearchRef(p,updated), 'invalid_input', '更新完成需要关联同一成果实际保存的新版本。');
       }
       const intent = userIntent(p, body, name, { impactId: impact.id }, operationId);
       const resolution = { id: uid('resolution'), choice: body.choice, previousStatus: impact.status, actor: 'local_user', intent, createdAt: now(), operationId,
-        updatedArtifactRevisionId: body.updatedArtifactRevisionId ?? null };
+        updatedArtifactRevisionId: body.updatedArtifactRevisionId ?? null, updatedTarget:body.updatedTarget?clone(body.updatedTarget):null };
       impact.resolutions.push(resolution); impact.status = { keep: 'kept', defer: 'deferred', updated: 'updated' }[body.choice];
       emit(p, 'research_impact_resolved', 'local_user', operationId, { impactId: impact.id }, resolution); changed(p); result = clone(impact);
     }

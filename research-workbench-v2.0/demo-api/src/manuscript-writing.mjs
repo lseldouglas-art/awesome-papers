@@ -1,3 +1,4 @@
+import {taskInputsChanged,continuitySnapshot,continuitySignature,continuityChanged} from '../../shared/research-continuity.mjs';
 import {randomUUID} from 'node:crypto';
 import {requireThat} from './errors.mjs';
 import {writingInput,executeWriting} from './topic-writing.mjs';
@@ -10,8 +11,8 @@ export function manuscriptInput(p,a,body){
   requireThat(selected.length===ids.length&&new Set(selected).size===ids.length&&selected.every(id=>ids.includes(id)),'invalid_scope','完整初稿仅使用已确认大纲各节关联的材料。');
   const workspace=w.writingWorkspaces?.[outline.id],language=options.language??'zh';
   const contexts=sections.map(section=>{
-    const saved=currentSectionVersion(workspace?.sections[section.id]),reuse=saved?.language===language&&saved.paragraphs.length>0||saved?.language===language&&saved.status==='generating';
-    const context=writingInput(p,a,{text:reuse?saved.request:body.text,accessIds:sectionAccessIds(section),topicOptions:{outlineId:outline.id,sectionId:section.id,language,recordText:saved?.recordText??''}});
+    const saved=currentSectionVersion(workspace?.sections[section.id]),reuse=(saved?.language===language&&saved.paragraphs.length>0||saved?.language===language&&saved.status==='generating')&&(!saved?.continuity&&!continuitySnapshot(p,a.id).protocol&&!continuitySnapshot(p,a.id).result||continuitySignature(saved?.continuity)===continuitySignature(continuitySnapshot(p,a.id)));
+    const context=writingInput(p,a,{text:reuse?saved.request:body.text,accessIds:sectionAccessIds(section),topicOptions:{outlineId:outline.id,sectionId:section.id,language,...(reuse?{recordText:saved.recordText}:{}),...(options.outputMode?{outputMode:options.outputMode}:{})}});
     return {context,reuseVersionId:reuse?saved.id:null};
   });
   return {outline:structuredClone(outline),language,sections:contexts};
@@ -41,12 +42,14 @@ export async function executeManuscript(service,task,config,signal){
   await service.store.update(s=>{
     signal.throwIfAborted();const p=s.projects[task.projectId],t=p.researchTasks[task.id],a=p.artifacts[task.artifactId],w=a.topicWorkspace,workspace=w.writingWorkspaces[input.outline.id];
     requireThat(['queued','running'].includes(t.status),'cancelled','生成已停止。',409);
-    const snapshot=manuscriptSnapshot(input.outline,workspace);
+    const stale=taskInputsChanged(p,a.id,task.input);
+    const snapshotWorkspace=structuredClone(workspace);for(const [id,versionId] of Object.entries(t.writingVersionIds??{}))if(snapshotWorkspace.sections[id])snapshotWorkspace.sections[id].activeVersionId=versionId;
+    const snapshot=manuscriptSnapshot(input.outline,snapshotWorkspace);
     workspace.manuscripts??=[];
     const prior=workspace.manuscripts.find(m=>JSON.stringify(m.sectionVersions)===JSON.stringify(snapshot.sectionVersions)&&JSON.stringify(m.chapters)===JSON.stringify(snapshot.chapters));
     const manuscript=prior??{...snapshot,id:`manuscript_${randomUUID()}`,at:new Date().toISOString(),taskId:task.id};
     if(!prior)workspace.manuscripts.push(manuscript);
-    workspace.activeManuscriptId=manuscript.id;t.manuscriptId=manuscript.id;t.manuscriptComplete=snapshot.complete;w.version++;
+    if(!stale)workspace.activeManuscriptId=manuscript.id;else{manuscript.staleInput=true;t.staleInput=true;}t.manuscriptId=manuscript.id;t.manuscriptComplete=snapshot.complete;w.version++;
   });
   const failed=Object.values(progress).filter(s=>s.status==='failed');
   await service.updateTask(task,{status:failed.length?'failed':'completed',finishedAt:new Date().toISOString(),sectionProgress:structuredClone(progress),...(failed.length?{errorCode:'manuscript_incomplete',error:`初稿已保存，${failed.length} 个小节尚未完成；继续生成将接续已有段落。`}:{}),progress:failed.length?'已有初稿保留，可继续完成剩余小节':'完整初稿已保存，可以导出或开始阅读模板文献。'});

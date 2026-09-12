@@ -99,12 +99,13 @@ export function createPubmed({ fetchImpl = globalThis.fetch, intervalMs = 350 } 
       }
       return records;
     },
-    async search(query, { signal } = {}) {
+    async search(query, { signal, offset = 0 } = {}) {
     requireThat(typeof query === 'string' && query.trim() && query.length <= 2000, 'invalid_query', '请提供本次 PubMed 检索式。');
+    requireThat(Number.isSafeInteger(offset) && offset >= 0 && offset < 10000, 'invalid_query', '请按具体问题或年代细化检索后继续获取。');
     const searches = [], warnings = []; let ids = [];
     for (const sort of ['relevance', 'pub_date']) {
       try {
-        const body = JSON.parse(await fetchText('esearch.fcgi', { term: query, sort, retmax: '20', retmode: 'json' }, signal));
+        const body = JSON.parse(await fetchText('esearch.fcgi', { term: query, sort, retmax: '20', ...(offset ? { retstart: String(offset) } : {}), retmode: 'json' }, signal));
         const result = body.esearchresult;
         requireThat(result && /^\d+$/.test(String(result.count)) && Array.isArray(result.idlist) && result.idlist.every(id => /^\d+$/.test(id)), 'retrieval_invalid', 'PubMed 检索响应不完整。', 502);
         const selected = result.idlist.slice(0, 20);
@@ -120,7 +121,7 @@ export function createPubmed({ fetchImpl = globalThis.fetch, intervalMs = 350 } 
       catch (e) { if (signal?.aborted) throw e; warnings.push({ message: e instanceof DomainError ? e.message : '记录获取失败。' }); }
     }
     const byId = new Map(records.map(r => [r.pmid, r])); records = ids.map(id => byId.get(id)).filter(Boolean);
-    return { query, database: 'PubMed', searchedAt: new Date().toISOString(), dateRange: '遵循本次检索式的日期条件；未额外添加年份限制', searches, records,
-      missingIds: ids.filter(id => !byId.has(id)), warnings, coverage: '相关性与发表时间排序各取前 20 条，去重后读取题名／摘要；属于初步扫描。' };
+    return { query, offset, database: 'PubMed', searchedAt: new Date().toISOString(), dateRange: '遵循本次检索式的日期条件；未额外添加年份限制', searches, records,
+      missingIds: ids.filter(id => !byId.has(id)), warnings, coverage: `相关性与发表时间排序各读取第 ${offset + 1}–${offset + 20} 条，去重后读取题名／摘要；这是一个获取批次，不代表内容覆盖完整。` };
   } };
 }

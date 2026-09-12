@@ -1,3 +1,5 @@
+import {taskInputsChanged,nestedRef,continuityChanged} from '../../shared/research-continuity.mjs';
+import {recordOutputDependencies} from './kernel.mjs';
 import {researchInstruction} from '../../shared/research-language.mjs';
 import {openWriting,editWriting} from './topic-writing.mjs';
 import { RELEVANCE_VERSION, relevanceInstructions, needsRelevanceReview, mergeTopicClassifications, conciseRelevance, coreTitleMatches } from '../../shared/topic-relevance.mjs';
@@ -184,7 +186,7 @@ export async function executeTopicWorkflow(service,task,config,signal) {
       await write((p,a,t,w)=>{
         const outline={...parsed,id:uid('outline'),inputFingerprint,taskId:task.id,at:now(),status:'proposed',context:outlineContext(task.input),inputRevisionId:task.input.revisionId,papers:outlinePacket(ready),provenance:output.provenance};
         // Preserve old outlines and their confirmations. No draft or library decision is rewritten.
-        w.outlines??=[];w.outlines.push(outline);w.activeOutlineId=outline.id;w.version++;t.outlineId=outline.id;t.provenance=output.provenance;t.usage=output.usage;t.cost=output.cost;if(recovered)t.recoveredOutlineCallId=recovered.id;
+        w.outlines??=[];w.outlines.push(outline);outline.continuity=clone(task.input.continuity??null);outline.dependencies=recordOutputDependencies(p,nestedRef('outline',a,null,null,outline.id),{...outline.continuity,extraRefs:materials.map(m=>({type:'access',id:m.accessId,revisionId:m.accessId}))});if(!taskInputsChanged(p,a.id,task.input))w.activeOutlineId=outline.id;else{outline.staleInput=true;t.staleInput=true;}w.version++;t.outlineId=outline.id;t.provenance=output.provenance;t.usage=output.usage;t.cost=output.cost;if(recovered)t.recoveredOutlineCallId=recovered.id;
       });
     }
   }

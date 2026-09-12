@@ -72,6 +72,7 @@ export function buildResearchContext(project, artifact, taskInput = {}) {
   return clone({ goal: taskInput.goal ?? project.goal, originalGoal: project.originalGoal ?? project.goal,
     conditions: taskInput.conditions ?? project.conditions ?? '', metadataVersion: taskInput.metadataVersion ?? project.metadataVersion,
     notes: taskInput.notes ?? artifact.draft?.notes ?? {}, question: taskInput.text ?? '', query: taskInput.query ?? '', target,
+    continuity: taskInput.continuity ?? null,
     currentQuestion: researchItem(project, project.researchKernel?.currentQuestion, ids),
     exploration: researchItem(project, project.researchKernel?.exploration, ids),
     selectedArtifact: { id: artifact.id, kind: artifact.kind, title: artifact.title, revisionId,

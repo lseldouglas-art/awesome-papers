@@ -309,3 +309,33 @@ test('analysis, comparison and research questions share academic instructions wh
   const p=await f.store.read(s=>s.projects[f.p.id]);
   assert.equal(p.accesses[f.a.draft.sourceAccessIds[0]].text,'This test record reports an association.');
 });
+
+test('domain supplements retrieve successive batches and preserve the original report and accumulated materials', async t => {
+  const offsets = [];
+  const f = await fixture(t, { pubmed:{ search:async(query,{offset=0}) => {
+    offsets.push(offset); const pmid=String(990000+offset);
+    return { query,offset,database:'PubMed',searchedAt:new Date().toISOString(),searches:[{sort:'relevance',total:41,ids:[pmid]}],records:[{pmid,title:`Engineering batch ${offset}`,year:'2026',authors:['Fixture'],level:'abstract',text:`Engineering batch at position ${offset}.`}],warnings:[],missingIds:[] };
+  },metadata:async()=>[] } });
+  const initial = await done(f, await start(f, 'revise', {text:'整理已有材料'}));
+  assert.equal(initial.status,'completed',initial.error);
+  const before = await f.store.read(s => s.projects[f.p.id]);
+  const a = before.artifacts[f.a.id], originalResult = structuredClone(before.researchResults[a.draft.resultId]);
+  assert.ok(originalResult);
+  for (const retrievalOffset of [0,20]) {
+    const task = await done(f, await start(f,'retrieve',{query:'gastric review',retrievalOffset,accessIds:[]}));
+    assert.equal(task.status,'completed',task.error); assert.equal(task.input.retrievalOffset,retrievalOffset);
+  }
+  const after = await f.store.read(s => s.projects[f.p.id]);
+  assert.deepEqual(offsets,[0,20]);
+  assert.deepEqual(after.researchResults[a.draft.resultId],originalResult);
+  assert.equal(after.artifacts[f.a.id].draft.sourceAccessIds.length,a.draft.sourceAccessIds.length+2);
+  assert.deepEqual(Object.values(after.searches).map(s=>s.offset),[0,20]);
+  await assert.rejects(start(f,'retrieve',{query:'gastric review',retrievalOffset:-1}),e=>e.code==='invalid_query');
+});
+
+test('domain query preparation records the review-content strategy and keeps the candidate scoped to its artifact', async t => {
+  let instruction='';
+  const f = await fixture(t,{generate:async input=>{instruction=input.instruction;return envelope(JSON.stringify({explanation:'按历史综述的内容补充认识',scope:'变量关系的综述',query:'relationship[tiab] AND Review[pt]',questions:[]}));}});
+  const task = await done(f,await start(f,'clarify',{text:'从历年综述理解变化',accessIds:[]}));
+  assert.equal(task.status,'completed',task.error);assert.match(instruction,/篇数与排序样本不能裁决/);assert.equal(task.artifactId,f.a.id);assert.match(task.proposal.query,/Review\[pt\]/);
+});

@@ -1,4 +1,5 @@
 import { materialPacket, sourcePassages } from './material-scope.mjs';
+import {continuityContext,hasContinuity} from './research-continuity.mjs';
 import { topicClassifications } from './topic-library-workflow.mjs';
 import { RELEVANCE_VERSION, screeningSummary } from './topic-relevance.mjs';
 export const OUTLINE_VERSION = 'topic-outline-v2';
@@ -23,11 +24,11 @@ export function outlinePacket(rows) {
     findings:m.note?.segmentFindings??[],passages:m.passages.map(({id,text})=>({id,text})),reuse:m.reuse}));
 }
 export function outlineContext(input, version=OUTLINE_VERSION) {
-  return {version,topic:input.itemTarget,goal:input.goal,conditions:input.conditions,notes:input.notes,request:input.text};
+  return {version,topic:input.itemTarget,goal:input.goal,conditions:input.conditions,notes:input.notes,request:input.text,...(hasContinuity(input.continuity)?{continuity:input.continuity}:{})};
 }
 export function currentOutlineContext(project,artifact,request) {
   const item=project.researchItems[artifact.branchQuestion.itemId],revision=item.revisions.find(r=>r.id===artifact.branchQuestion.revisionId);
-  return {itemTarget:{itemId:item.id,revisionId:revision.id,kind:item.kind,text:revision.text,scope:revision.scope},goal:project.goal,conditions:project.conditions,notes:artifact.draft.notes,text:request};
+  return {itemTarget:{itemId:item.id,revisionId:revision.id,kind:item.kind,text:revision.text,scope:revision.scope},goal:project.goal,conditions:project.conditions,notes:artifact.draft.notes,text:request,continuity:continuityContext(project,artifact.id)};
 }
 
 export function outlineMarkdown(outline) {

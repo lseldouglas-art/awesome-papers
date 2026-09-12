@@ -1,3 +1,4 @@
+import {continuitySnapshot,continuitySignature,hasContinuity,continuityChanged} from '../../shared/research-continuity.mjs';
 import {compositionInput,executeComposition} from './figure-workspace.mjs';
 import {researchInstruction,RESEARCH_LANGUAGE_VERSION} from '../../shared/research-language.mjs';
 import {manuscriptInput,executeManuscript} from './manuscript-writing.mjs';
@@ -13,7 +14,7 @@ import { DomainError, requireThat } from './errors.mjs';
 import { executeCommand, getProject } from './domain.mjs';
 import { artifactOf, capture, checkDraft, checkpoint } from './progress.mjs';
 import { MODEL_OUTPUT_PARSER_VERSION, normalizeOuterJsonFence, parseModelJsonObject, extractLeadingJsonObject } from './model-output.mjs';
-import { ensureKernel, researchState, createQuestionComparison, composeResearchBrief, registerResearchResult, saveBranchInvestigation, saveTopicReview, applyTopicScreeningPolicy } from './kernel.mjs';
+import { ensureKernel, researchState, createQuestionComparison, composeResearchBrief, registerResearchResult, recordOutputDependencies, saveBranchInvestigation, saveTopicReview, applyTopicScreeningPolicy } from './kernel.mjs';
 import { materialPacket } from '../../shared/material-scope.mjs';
 import { searchesForArtifact, topicSearchMethod } from '../../shared/topic-search.mjs';
 import { LANDSCAPE_FRAMEWORK, materialCoverage } from '../../shared/domain-landscape.mjs';
@@ -30,8 +31,8 @@ const clone = value => structuredClone(value);
 const nonempty = value => typeof value === 'string' && value.trim();
 const fingerprint = input => createHash('sha256').update(JSON.stringify(input)).digest('hex');
 const modes = new Set([...Object.keys(workflowRegistry), ...topicTaskModes, ...templateModes, 'figure-compose', 'connection']);
-export const RESEARCH_PROMPT_VERSION = 'research-workbench-v0.14-topic-decisions-v2';
-const promptVersionFor = mode => mode==='figure-compose'?'research-workbench-figure-compose-v1': ['topic-writing','manuscript-writing'].includes(mode) ? 'research-workbench-v0.22.1-academic-manuscript-v2' : mode==='topic-outline' ? 'research-workbench-v0.18-argument-outline-v2' : ['topic-screen','topic-preview'].includes(mode) ? 'research-workbench-v0.19-relevance-recovery-v2' : mode==='topic-review' ? 'research-workbench-v0.16-topic-abcd-v1' : mode === 'topic-plan' ? 'research-workbench-v0.15-search-repair-digest-v1' : RESEARCH_PROMPT_VERSION;
+export const RESEARCH_PROMPT_VERSION = 'research-workbench-v0.14-topic-decisions-v2-continuity-v0.28';
+const promptVersionFor = mode => ['landscape','revise','clarify'].includes(mode)?'research-workbench-domain-storyboard-v2':mode==='figure-compose'?'research-workbench-figure-compose-v1': ['topic-writing','manuscript-writing'].includes(mode) ? 'research-workbench-v0.22.1-academic-manuscript-v2' : mode==='topic-outline' ? 'research-workbench-v0.18-argument-outline-v2' : ['topic-screen','topic-preview'].includes(mode) ? 'research-workbench-v0.19-relevance-recovery-v2' : mode==='topic-review' ? 'research-workbench-v0.16-topic-abcd-v1' : mode === 'topic-plan' ? 'research-workbench-v0.15-search-repair-digest-v1' : RESEARCH_PROMPT_VERSION;
 const landscapeSelfCheck = `输出前逐项检查最终 JSON（检查包括每一节的每个 items 元素，以及七个维度各自的 comparison）：每个 status=reported 或 inference 的陈述必须至少有一个实际支持本陈述的 citations:{ref,passage}，且 R/P 编号确实存在于本次给定材料中。不能因 comparison 是解释文字就省略其依据，也不能借用不相关片段来通过结构检查。
 找不到相关依据时，把该项的 status 改为 unknown，并把正文改为具体的待了解内容或“本次材料未覆盖／摘要未报告”；不要保留肯定结论再贴 unknown 标签。建议性的下一步用 suggestion。coverage=insufficient 的维度，其 items 和 comparison 都只能使用 unknown 或 suggestion；有局部依据的维度仍需展示具体支持片段与缺失边界。
 材料数量、年份范围、访问层级等来源统计由程序和界面展示，不要在 overview 中重复这些统计，也不要把来源范围说明标成 reported 的科研发现。确需解释材料边界时，用 unknown 说明本次不能回答什么。
@@ -83,11 +84,14 @@ export class ResearchApplication extends ResearchService {
   }
 
   isResearchInputStale(project, task) {
-    return project.researchKernel?.version !== task.input.baseStateVersion;
+    if(!task.input.continuity) return project.researchKernel?.version !== task.input.baseStateVersion;
+    const focus=ref=>ref?{itemId:ref.itemId,revisionId:ref.revisionId}:null;
+    return continuityChanged(project,task.artifactId,task.input.continuity) || JSON.stringify(focus(project.researchKernel?.currentQuestion))!==JSON.stringify(focus(task.input.adoptionContext?.currentQuestion)) || JSON.stringify(focus(project.researchKernel?.exploration))!==JSON.stringify(focus(task.input.adoptionContext?.exploration));
   }
 
   registerResearchOutput(project, result, task) {
     result.adoptionContext = clone(task.input.adoptionContext);
+    result.continuity = clone(task.input.continuity??null);
     registerResearchResult(project, result, task.requestId ?? task.id);
   }
 
@@ -102,6 +106,7 @@ export class ResearchApplication extends ResearchService {
       requireThat(body.text === undefined || nonempty(body.text), 'invalid_input', '请填写本次问题。');
       requireThat(body.baseStateVersion === undefined || body.baseStateVersion === p.researchKernel.version, 'research_state_conflict', '研究选择已有变化，请重新查看后继续。', 409);
       if (['retrieve', 'landscape'].includes(body.mode)) requireThat(nonempty(body.query) && body.query.length <= 2000, 'invalid_query', '先填写或生成本次检索式。');
+      requireThat(body.retrievalOffset === undefined || body.mode === 'retrieve' && Number.isSafeInteger(body.retrievalOffset) && body.retrievalOffset >= 0 && body.retrievalOffset < 10000, 'invalid_query', '继续获取的位置不合法；超过 PubMed 单次排序范围时，请按具体问题或年代细化检索。');
       let reuseSearch = null;
       if (body.reuseSearchId !== undefined) {
         reuseSearch = p.searches[body.reuseSearchId];
@@ -113,7 +118,7 @@ export class ResearchApplication extends ResearchService {
         && selectedIds.every(id => a.draft.sourceAccessIds.includes(id) && p.accesses[id]), 'invalid_scope', '请选择当前成果实际保存的材料。');
       const materials = materialPacket(p, selectedIds);
       requireThat(materials.every(m => p.sources[m.sourceId]?.origin !== 'synthetic_fixture'), 'fixture_scope', '虚构交互示例不能作为真实研究资料。');
-      if (['ask', 'revise', 'compare', 'deepen', 'topic-review', 'topic-screen', 'topic-outline'].includes(body.mode) || reuseSearch) requireThat(materials.length > 0, 'materials_required', '请先选择本次使用的实际材料。');
+      if (['ask', 'revise', 'compare', 'deepen', 'topic-review', 'topic-screen', 'topic-outline'].includes(body.mode) || reuseSearch) requireThat(materials.length > 0 || body.mode==='ask'&&hasContinuity(continuitySnapshot(p,a.id)), 'materials_required', '请先选择本次使用的实际材料。');
       if(body.mode==='topic-outline') requireThat(materials.every(m=>p.researchResults[a.draft.resultId]?.library?.entries?.some(e=>e.accessId===m.accessId&&e.decision==='included')),'invalid_scope','请先纳入认可的材料，再选择用于大纲的范围。');
       if (body.mode === 'topic-review') requireThat(a.kind === 'topic_library', 'invalid_scope', '请先打开当前选题的专题文献库。');
       const revision = capture(p, a, requestId, 'task_input');
@@ -133,9 +138,9 @@ export class ResearchApplication extends ResearchService {
         itemTarget = { itemId: item.id, revisionId: itemRevision.id, kind: item.kind, text: itemRevision.text, scope: itemRevision.scope };
       }
       const state = researchState(p);
-      const input = { notes: clone(a.draft.notes), name: p.name, originalGoal: p.originalGoal, goal: p.goal, conditions: p.conditions, metadataVersion: p.metadataVersion,
+      const input = { continuity:continuitySnapshot(p,a.id), notes: clone(a.draft.notes), name: p.name, originalGoal: p.originalGoal, goal: p.goal, conditions: p.conditions, metadataVersion: p.metadataVersion,
         baseVersion: a.draft.version, baseStateVersion: state.version, revisionId: revision.id, resultId: a.draft.resultId,
-        target, itemTarget, query: body.query ?? '', text: body.text ?? '', materials, reuseSearchId: reuseSearch?.id ?? null,
+        target, itemTarget, retrievalOffset: body.retrievalOffset ?? 0, query: body.query ?? '', text: body.text ?? '', materials, reuseSearchId: reuseSearch?.id ?? null,
         currentBrief: a.draft.resultId ? clone(p.researchResults[a.draft.resultId]?.blocks ?? []) : [], recentExchanges: [],
         searchScope: Object.values(p.searches).filter(search => search.accessIds.some(id => selectedIds.includes(id))).map(({ query, searchedAt, coverage, searches, missingIds, warnings }) => ({ query, searchedAt, coverage, searches, missingIds, warnings })),
         adoptionContext: { version: state.version, currentQuestion: state.currentQuestion, exploration: state.exploration,
@@ -171,7 +176,7 @@ export class ResearchApplication extends ResearchService {
         requireThat(previous && ['failed', 'cancelled', 'interrupted'].includes(previous.status) && previous.mode === body.mode && previous.artifactId === a.id,
           'invalid_retry', '请选择本课题未完成的同一研究任务进行手动重试。', 409);
         const previousIds = [...new Set([...(previous.input.materials ?? []).map(m => m.accessId), ...(previous.searchId ? p.searches[previous.searchId]?.accessIds ?? [] : [])])].sort();
-        requireThat(previous.input.query === input.query && previous.input.text === input.text
+        requireThat(previous.input.query === input.query && (previous.input.retrievalOffset ?? 0) === input.retrievalOffset && previous.input.text === input.text
           && (previous.input.searchScopeMode ?? 'focused') === (input.searchScopeMode ?? 'focused')
           && JSON.stringify(previousIds) === JSON.stringify(materials.map(m => m.accessId).sort()),
         'invalid_retry', '本次问题或所选材料已经变化，请作为新任务运行。', 409);
@@ -180,6 +185,7 @@ export class ResearchApplication extends ResearchService {
         requireThat(previous.input.goal === input.goal && previous.input.conditions === input.conditions
           && JSON.stringify(previous.input.notes) === JSON.stringify(input.notes)
           && JSON.stringify(previous.input.itemTarget ?? null) === JSON.stringify(input.itemTarget)
+          && (!previous.input.continuity || continuitySignature(previous.input.continuity)===continuitySignature(input.continuity))
           && JSON.stringify(researchFocus(previous.input.context)) === JSON.stringify(researchFocus(input.context)),
         'invalid_retry', '课题意图、认识或采用的问题已有变化，请按当前上下文创建新任务。', 409);
         // Retrieval adds materials to the draft without rewriting the original
@@ -299,7 +305,7 @@ export class ResearchApplication extends ResearchService {
       }
       const parsed = task.mode === 'topic-review' ? validateTopicReview(text, task.input.materials, {criteriaVersion:/v0\.16-topic-abcd/.test(call.promptVersion??'')?'topic-abcd-v1':null}) : task.mode === 'compare' ? validateComparisonOutput(text, task.input.materials, {requireAssessment: /v0\.(12-decision-estimates|13-topic-library|14-topic-decisions)/.test(call.promptVersion ?? ''), requireDifficulty: /v0\.14-topic-decisions/.test(call.promptVersion ?? '')})
         : validateResearchOutput(text, task.mode === 'deepen' ? 'ask' : task.mode, task.input.materials,
-          { requirePaperNotes: ['landscape', 'revise', 'topic-review'].includes(task.mode), requireDimensions: ['landscape', 'revise', 'topic-review'].includes(task.mode) });
+          { records:task.input.continuity?.records??[], requirePaperNotes: ['landscape', 'revise', 'topic-review'].includes(task.mode), requireDimensions: ['landscape', 'revise', 'topic-review'].includes(task.mode) });
       signal.throwIfAborted();
       await this.store.update(s => {
         const p = ensureKernel(s.projects[task.projectId]), t = p.researchTasks[task.id], a = artifactOf(p, task.artifactId);
@@ -361,7 +367,8 @@ export class ResearchApplication extends ResearchService {
     const context = { ...clone(task.input.context), searchScope, selectedMaterialRefs: materials.map(({ text, ...rest }) => rest), materialCoverage: materialCoverage(materials) };
     await this.updateTask(task, { modelContext: context });
     // Existing slice prompt text is retained; its former all-history payload is replaced.
-    const scoped = task.mode === 'connection' ? instruction : `${instruction.split(marker)[0]}${['landscape', 'revise'].includes(task.mode) ? `\n${landscapeSelfCheck}` : ''}${marker}${JSON.stringify(context)}`;
+    const recordRule=task.mode==='ask'&&task.input.continuity?.records?.length?'\n本次实际执行记录位于context.continuity.records（U编号）。描述这些记录直接报告的事实时使用status=researcher_record，并附record:{ref:实际U编号,field:被引用的payload字段名,quote:该字段的逐字片段}；citations可为空。记录主体及实际执行者照实说明，不升级为外部文献或独立核验。对执行结果的可能解释须用unknown或suggestion并说明待核对原因；外部论文不能证明本次已经执行。':'';
+    const scoped = task.mode === 'connection' ? instruction : `${instruction.split(marker)[0]}${recordRule}${['landscape', 'revise'].includes(task.mode) ? `\n${landscapeSelfCheck}` : ''}${marker}${JSON.stringify(context)}`;
     const options = { ...limits, scopeKey: { provider: task.provider, model: task.model }, instruction: task.mode==='connection'?scoped:researchInstruction(scoped) };
     if (task.retryOfTaskId && ['landscape', 'revise', 'topic-review'].includes(task.mode)) {
       const recovered = await this.reuseValidatedExtraction(task, materials);
@@ -560,12 +567,12 @@ export class ResearchApplication extends ResearchService {
             : `返回 JSON {items:[{headline,text,status,citations:[{ref,passage}]}]}。${deepArgumentInstructions} reported/inference 必须有本次实际 R/P 引用，unknown/suggestion 区分未知与拟议设计。每段标题给具体判断，正文解释证据与对设计的影响。只返回完整JSON，不追加尾注。`;
           output = await this.callModel(task, config, task.input.materials, instruction, signal); signal.throwIfAborted();
           parsed = task.mode === 'topic-review' ? validateTopicReview(output.text,task.input.materials) : task.mode === 'compare' ? validateComparisonOutput(output.text, task.input.materials, {requireAssessment:true,requireDifficulty:true})
-            : validateResearchOutput(output.text, 'ask', task.input.materials);
+            : validateResearchOutput(output.text, 'ask', task.input.materials,{records:task.input.continuity?.records??[]});
         }
         await this.store.update(s => {
           const p = ensureKernel(s.projects[task.projectId]), t = p.researchTasks[task.id], a = p.artifacts[task.artifactId];
           if (isTerminalRun(t.status) || signal.aborted) return;
-          t.staleInput = a.draft.version !== task.input.baseVersion || p.metadataVersion !== task.input.metadataVersion || p.researchKernel.version !== task.input.baseStateVersion;
+          t.staleInput = a.draft.version !== task.input.baseVersion || p.metadataVersion !== task.input.metadataVersion || this.isResearchInputStale(p, task);
           if (task.mode === 'compare') {
             const result = createQuestionComparison(p, parsed, { operationId: task.requestId, taskId: task.id, inputArtifactId: a.id,
               inputRevisionId: task.input.revisionId, accessIds: task.input.materials.map(m => m.accessId), provenance: output.provenance, adoptionContext: task.input.adoptionContext,
@@ -597,7 +604,7 @@ export class ResearchApplication extends ResearchService {
     } finally {
       await this.store.update(s => {
         const p = ensureKernel(s.projects[task.projectId]), t = p.researchTasks[task.id];
-        if (t.resultId && p.researchResults[t.resultId]) registerResearchResult(p, p.researchResults[t.resultId], task.requestId);
+        if (t.resultId && p.researchResults[t.resultId]) {const result=p.researchResults[t.resultId];registerResearchResult(p,result,task.requestId);if(task.input.continuity){result.continuity=clone(task.input.continuity);for(const id of p.kernelRegistrations[result.id]?.itemIds??[]){const item=p.researchItems[id];recordOutputDependencies(p,{type:'research_item',id,revisionId:item.headRevisionId},task.input.continuity);}}}
         const attempt = t.attempts?.at(-1);
         if (attempt && !isTerminalRun(attempt.status) && isTerminalRun(t.status)) Object.assign(attempt, transitionRun(attempt, t.status, { usage: t.usage ?? null, cost: t.cost, errorCode: t.errorCode ?? null }));
         if (!['compare', 'deepen', 'brief', 'topic-review'].includes(t.mode) && t.status === 'completed') event(p, t, 'research_task_completed', { resultId: t.resultId ?? null, outcome: t.outcome ?? null });

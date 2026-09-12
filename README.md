@@ -15,17 +15,19 @@ local data directory remain unchanged for compatibility.
 
 ## Current implementation — second-generation local Demo
 
-**2026-09-12: [Demo v0.25.2 source](research-workbench-v2.0/) is now published alongside the preserved v0.1.4 baseline.**
+**2026-09-13: [Demo v0.28.0 source](research-workbench-v2.0/) completes the three P0 engineering batches for continuous research before a personal, same-topic comparison with GPT.**
 
-The second-generation implementation includes domain understanding, topic libraries, research outlines, manuscript drafting, full-text template reading, and editable scientific figures. This review adds a read-only comparison of cited studies, shared outcome-first generation rules, and draft provenance in SVG exports. The underlying research workflow and human decisions remain intact.
+Adopted protocols now remain separate from editable drafts. External execution records and interpretations retain their actual inputs, actor and versions. Research tasks, writing and figures can carry exact dependencies, identify affected outputs after a change, and export the selected historical content with a separate provenance manifest. A small practice log records meaningful interruptions and work brought back from GPT.
 
-- [Review and evidence boundaries](docs/research-workbench-v2-results-review-2026-09-12.md)
+The release also includes the v0.26–v0.27 source-grounded domain reading improvements. It reuses the existing research kernel, SQLite store, tasks and UI components; no runtime dependencies were added for P0.
+
+- [P0 delivery, validation and remaining boundaries](research-workbench-v2.0/P0科研连续性优化与验收-v0.28.md)
 - [Outcome-first design principles](docs/research-workbench-results-first-design-2026-09-12.md)
 - [Install and run the second-generation Demo](research-workbench-v2.0/README.md)
 
-The original baseline passed 281 engineering checks; the reviewed version passed 282 checks and a production build. These are engineering results, not validation of scientific conclusions, model quality, or publication readiness. No live research model calls were added by this review. The public code contains no user workspace database or model credentials.
+**314 engineering checks and a production build passed**, together with desktop and narrow-screen interaction checks. Two public-material rehearsals used two real model calls; provider cost was unavailable. These checks do not establish scientific correctness, publication readiness, or superiority over GPT. The researcher's continuous trial and same-topic comparison are still to come. Credentials, local workspace databases, backups and private research screenshots are excluded from the public source.
 
-The historical **v0.2** below names the direction proposed on 2026-09-04. **research-workbench-v2.0** names the second product generation; **0.25.2** is its Demo package version. The root-level application remains the legacy implementation. Use the subdirectory instructions for the current Demo.
+The historical **v0.2** below names the direction proposed on 2026-09-04. **research-workbench-v2.0** names the second product generation; **0.28.0** is its current Demo package version. The root-level application remains the legacy implementation. Use the subdirectory instructions for the current Demo.
 
 ---
 

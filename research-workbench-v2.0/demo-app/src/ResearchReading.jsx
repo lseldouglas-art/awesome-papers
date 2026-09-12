@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { artifactKindLabels, parentReference, researchPath, landscapeCandidates, briefIsOutdated } from '../../shared/research-path.mjs';
-import { DOMAIN_DIMENSIONS, COVERAGE_LABELS } from '../../shared/domain-landscape.mjs';
 import './research-reading.css';
 
 export function statementTitle(block) {
@@ -40,30 +39,7 @@ export function BriefContinuity({ project, artifact, result, disabled, onOpen, o
     <div className="journey-actions">{(selected || parent) && <button onClick={() => onOpen(selected || parent.artifactId)}>查看完整领域报告</button>}<button disabled={disabled || missing && !selected} onClick={() => onRepair(missing ? selected : parent?.artifactId)}>补齐认识与当前取舍</button></div>
   </section>;
 }
-function citedSources(project, result, block) {
-  const ids = [...new Set((result.citations ?? []).filter(c => c.blockId === block.id).map(c => c.accessId))];
-  return ids.map(id => ({ ...project.sources[project.accesses[id]?.sourceId], accessId: id })).filter(s => s.id);
-}
-export function ResearchVisuals({ project, artifact, onOpen, result, numbers, onJump, onSource, onCompare, onDeepen, disabled }) {
-  const [view, setView] = useState('map');
-  if (result?.kind !== 'brief') return null;
-  const comparisons = Object.values(project.artifacts).filter(a => a.kind === 'questions' && parentReference(project,a)?.artifactId === artifact.id);
-  const blocks = result.blocks, sections = DOMAIN_DIMENSIONS.map(d => ({ ...d, heading: blocks.find(b => b.id === `research-${d.id}-heading`), items: blocks.filter(b => new RegExp(`^research-${d.id}-\\d+$`).test(b.id)) }));
-  const overview = blocks.filter(b => /^research-overview-\d+$/.test(b.id)), lead = overview.find(b => ['reported', 'inference'].includes(b.informationStatus)) ?? overview[0];
-  const branches = sections.find(s => s.id === 'branches').items.filter(b => b.analysisRole !== 'comparison');
-  const history = sections.find(s => s.id === 'history').items.filter(b => b.analysisRole !== 'comparison');
-  return <section className="research-visuals" aria-label="领域认识图解">
-    <div className="reading-intro"><span className="eyebrow">领域研判</span><h2>{lead ? statementTitle(lead) : '领域证据综合'}</h2>{lead && <button className="text-button" onClick={() => onJump(lead.id)}>阅读完整判断与依据 →</button>}</div>
-    <div className="visual-tabs" role="tablist" aria-label="领域图解视图">{[['map','研究地图'],['timeline','发展脉络'],['evidence','证据分布']].map(([id,label]) => <button role="tab" id={`visual-tab-${id}`} aria-controls={`visual-panel-${id}`} aria-selected={view === id} tabIndex={view === id ? 0 : -1} key={id} onClick={() => setView(id)} onKeyDown={e => { if (['ArrowRight','ArrowLeft','Home','End'].includes(e.key)) { e.preventDefault(); const ids=['map','timeline','evidence']; const next=e.key==='Home'?0:e.key==='End'?2:(ids.indexOf(id)+(e.key==='ArrowRight'?1:2))%3; setView(ids[next]); requestAnimationFrame(() => document.getElementById(`visual-tab-${ids[next]}`)?.focus()); } }}>{label}</button>)}</div>
-    <div role="tabpanel" id={`visual-panel-${view}`} aria-labelledby={`visual-tab-${view}`}>
-      {view === 'map' && <><div className="map-root">{project.goal}</div><div className="field-map">{branches.map((b,i) => { const direction=project.researchState?.directions.find(d=>d.origin?.resultId===result.id && d.origin?.blockId===b.id); return <article key={b.id}><span className="map-index">{String(i+1).padStart(2,'0')}</span><h3>{statementTitle(b)}</h3><p>{citedSources(project,result,b).length} 份关联材料 · {b.informationStatus === 'unknown' ? '尚未确认' : '查看研究发现'}</p><div className="map-actions"><button onClick={() => onJump(b.id)}>查看发现与依据</button>{direction && <button disabled={disabled} onClick={()=>onDeepen(direction)}>沿此分支探索 →</button>}</div></article>; })}</div>{!branches.length && <p>当前保存内容尚未分出研究分支。</p>}</>}
-      {view === 'timeline' && <><p className="visual-note">沿研究问题与方法阅读历史线索。下方年份是所引文献的发表时间，不自动视为学科转折点。</p><ol className="field-timeline">{history.map(b => { const sources=citedSources(project,result,b), years=sources.map(s=>String(s.year??'')).filter(y=>/^\d{4}$/.test(y)).sort(); return <li key={b.id}><div className="timeline-years">{years.length ? `${years[0]}${years.at(-1)!==years[0]?`—${years.at(-1)}`:''}` : '时间待核查'}<small>依据文献年份</small></div><div><h3>{statementTitle(b)}</h3><button onClick={() => onJump(b.id)}>阅读这条历史线索</button><div className="visual-citations">{sources.map(s=><button key={s.accessId} onClick={()=>onSource(s.accessId)}>[{numbers[s.id]}] {s.year||'未知年份'}</button>)}</div></div></li>; })}</ol>{!history.length && <p>当前报告尚无可定位的历史线索。</p>}</>}
-      {view === 'evidence' && <><p className="visual-note">按本次报告的关联文献展示材料分布；数量不代表结论强度或全领域热度。</p><div className="evidence-matrix" role="table" aria-label="七个维度的实际材料覆盖">{sections.map(s => { const ids=new Set(s.items.flatMap(b=>citedSources(project,result,b).map(v=>v.id))); return <div role="row" key={s.id}><button role="cell" onClick={()=>onJump(`research-${s.id}-heading`)}>{s.label}</button><span role="cell" className="coverage-track"><span style={{width:`${Math.round(ids.size/Math.max(1,(result.accessIds??[]).length)*100)}%`}}/></span><span role="cell">{ids.size} 篇</span><small role="cell">{COVERAGE_LABELS[s.heading?.dimensionCoverage]??'尚未标注'}</small></div>; })}</div></>}
-    </div>
-    <div className="reading-next"><div><strong>{comparisons.length ? '已有选题与研究决定' : '研究问题形成与比较'}</strong><p>{comparisons.length ? '已保存的比较与取舍可直接打开。' : '从缺口依据出发，比较题目与研究设计。'}</p></div>{comparisons.length ? <div className="saved-comparisons">{comparisons.map((a,i)=><button key={a.id} className="primary" disabled={disabled} onClick={()=>onOpen(a.id)}>打开已有选题比较{comparisons.length>1?` · ${i+1}`:''} →</button>)}</div> : <button className="primary" disabled={disabled} onClick={onCompare}>生成论文选题并比较 →</button>}</div>
-
-  </section>;
-}
+export { DomainBrief as ResearchVisuals } from './DomainBrief.jsx';
 
 export function ScientificReading({ blocks, renderBlocks }) {
   const groups=[];

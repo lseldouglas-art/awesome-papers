@@ -12,6 +12,9 @@ import { progressCommand, upgradeProject, exportProgress } from './progress.mjs'
 import { ResearchApplication as ResearchService } from './research-application.mjs';
 import { ensureKernel, researchState, registerResearchResult, kernelCommands, kernelCommand, markProjectContextChange, resolveResearchIntent } from './kernel.mjs';
 import { randomUUID } from 'node:crypto';
+import {createResearchFiles,RESEARCH_FILE_LIMIT} from './research-files.mjs';
+import {exportContinuity,provenanceManifest} from './continuity.mjs';
+import {itemVersion,resolveResearchRef} from '../../shared/research-continuity.mjs';
 
 const allowedCommands = new Set(['update-project', 'add-annotation', 'resolve-annotation', 'append-message']);
 const progressCommands = new Set(['save-notes', 'checkpoint', 'capture-current', 'restore-progress', 'attach-material', 'attach-existing-materials', 'annotate-current', 'record-message', 'adopt-result']);
@@ -27,6 +30,7 @@ async function jsonBody(req,limit=1024*1024) {
 export async function startServer({ directory = fileURLToPath(new URL('../.local', import.meta.url)), port = 4318, frontend, researchOptions, zotero = createZotero(), fulltextOptions } = {}) {
   const store = await new LocalStore(directory).initialize();
   const fulltexts=createFulltextService(directory,fulltextOptions);
+  const researchFiles=createResearchFiles(directory);
   let research;
   try {
     await store.update(s => {
@@ -67,6 +71,26 @@ export async function startServer({ directory = fileURLToPath(new URL('../.local
       } else if (parts[1] === 'projects' && parts[2]) {
         const projectId = parts[2];
         if (parts.length === 3 && req.method === 'GET') data = await store.read(s => { const p = getProject(s, projectId); return { ...p, researchState: researchState(p) }; });
+        else if(parts[3]==='provenance'&&parts.length===4&&req.method==='POST') {
+          const body=await jsonBody(req);
+          data=await store.read(s=>{const p=getProject(s,projectId);requireThat(Array.isArray(body.refs)&&body.refs.every(ref=>ref?.revisionId&&resolveResearchRef(p,ref)),'invalid_reference','请使用当前显示内容对应的已保存版本。');return {format:'research-workbench-export-v1',projectId,items:body.refs.map(ref=>provenanceManifest(p,{ref,accessIds:resolveResearchRef(p,ref).value.sourceAccessIds??[]}))};});
+          for(const manifest of data.items)for(const entry of manifest.entries.filter(e=>e.kind==='attachment'))try{await researchFiles.read(entry.content.payload);entry.fileAvailable=true;}catch{entry.fileAvailable=false;}
+        }
+        else if(parts[3]==='research-files'&&parts.length===4&&req.method==='POST') {
+          const body=await jsonBody(req,Math.ceil(RESEARCH_FILE_LIMIT*4/3)+4096);
+          await store.read(s=>{const p=getProject(s,projectId);requireThat(p.artifacts[body.artifactId],'research_state_conflict','页面已有更新，请保留文件并重新查看。',409);});
+          const file=await researchFiles.save(body);
+          data=await store.transact(requestId,{operation:'research-file',projectId,artifactId:body.artifactId,sha256:file.sha256,name:file.name,mime:file.mime,baseStateVersion:body.baseStateVersion},s=>kernelCommand(s,projectId,'register-research-attachment',{artifactId:body.artifactId,baseStateVersion:body.baseStateVersion,kind:'attachment',title:file.name,payload:file},requestId));
+        }
+        else if(parts[3]==='research-files'&&parts.length===6&&req.method==='GET') {
+          const meta=await store.read(s=>{const p=getProject(s,projectId),v=itemVersion(p,{id:parts[4],revisionId:parts[5]});requireThat(v?.item.kind==='attachment','not_found','本课题没有这份附件。',404);return v.revision.payload;});
+          const bytes=await researchFiles.read(meta),preview=url.searchParams.get('preview')==='1';
+          res.writeHead(200,{'Content-Type':meta.mime,'Content-Length':bytes.length,'X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; sandbox",'Cache-Control':'private, no-store','Content-Disposition':`${preview?'inline':'attachment'}; filename*=UTF-8''${encodeURIComponent(meta.name)}`});res.end(bytes);return;
+        }
+        else if(parts[3]==='continuity'&&parts.length===7&&parts[6]==='export'&&req.method==='GET') {
+          data=await store.read(s=>exportContinuity(getProject(s,projectId),parts[4],parts[5]));
+          for(const entry of data.manifest.entries.filter(e=>e.kind==='attachment'))try{await researchFiles.read(entry.content.payload);entry.fileAvailable=true;}catch{entry.fileAvailable=false;}
+        }
         else if(parts[3]==='templates'&&parts.length===6&&['fulltext','pdf'].includes(parts[5])) {
           const paper=await store.read(s=>{const p=getProject(s,projectId);const paper=p.templateLibrary?.papers?.[parts[4]];requireThat(paper,'not_found','没有这篇模板。',404);return structuredClone(paper);});
           if(parts[5]==='pdf'&&req.method==='GET'){
@@ -105,7 +129,7 @@ export async function startServer({ directory = fileURLToPath(new URL('../.local
         else if (parts[3] === 'research-tasks' && parts.length === 6 && parts[5] === 'revalidate' && req.method === 'POST') data = await research.revalidateSavedOutput(projectId, parts[4], requestId, await jsonBody(req));
         else if (parts.length === 5 && parts[3] === 'commands' && req.method === 'POST') {
           const name = parts[4];
-          requireThat(!['save-artifact', 'restore-artifact', 'attach-source'].includes(name), 'client_upgrade_required', '保存方式已升级，旧页面未提交的草稿仍应保留；请刷新后对照迁入。', 409);
+          requireThat(!['save-artifact', 'restore-artifact', 'attach-source','register-research-attachment'].includes(name), 'client_upgrade_required', '请通过当前页面提供的保存或附件入口操作。', 409);
           requireThat(allowedCommands.has(name) || progressCommands.has(name) || kernelCommands.has(name) || name === 'research-intent', 'not_implemented', '当前尚未提供此操作。', 404);
           const body = await jsonBody(req);
           data = await store.transact(requestId, { operation: name, projectId, body }, s => {

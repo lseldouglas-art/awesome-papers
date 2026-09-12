@@ -1,3 +1,5 @@
+import {taskInputsChanged,continuitySnapshot,continuityChanged,selectedRecordText,nestedRef} from '../../shared/research-continuity.mjs';
+import {recordOutputDependencies} from './kernel.mjs';
 import {hasFulltext} from '../../shared/research-templates.mjs';
 import {validateSourceChecks,splitEditedSentences} from './writing-fact-audit.mjs';
 import {researchInstruction} from '../../shared/research-language.mjs';
@@ -26,13 +28,16 @@ export function writingInput(p,a,body) {
   const section=writingSections(outline).find(s=>s.id===o.sectionId);requireThat(section,'invalid_scope','请选择这版大纲中的一个小节。');
   const ids=sectionAccessIds(section),selected=body.accessIds??[];
   requireThat(selected.length===ids.length&&new Set(selected).size===ids.length&&selected.every(id=>ids.includes(id)),'invalid_scope','写作只使用当前小节关联的材料。');
-  const language=o.language??'zh',recordText=o.recordText??'';
+  const continuity=continuitySnapshot(p,a.id);
+  const language=o.language??'zh',recordText=o.recordText??selectedRecordText(p,continuity);
   requireThat(['zh','en'].includes(language)&&typeof recordText==='string'&&recordText.length<=30000,'invalid_input','请检查写作语言与本节研究记录。');
-  const mode=writingMode(section,outline);
+  const studyMode=continuity.protocol?.payload.outputMode;
+  const mode=o.outputMode??(studyMode==='proposal'?'proposal':studyMode==='literature'?'literature':writingMode(section,outline));
+  requireThat(['literature','proposal','results'].includes(mode),'invalid_input','请选择本节的文献论述、拟议方案或真实结果。');
   requireThat(o.auditOnly===undefined||typeof o.auditOnly==='boolean','invalid_input','请选择生成或核对本节。');
   const current=currentSectionVersion(w.writingWorkspaces?.[outline.id]?.sections?.[section.id]);
   const auditDocuments={};if(o.auditOnly)for(const id of ids){const source=p.sources[p.accesses[id]?.sourceId],paper=Object.values(p.templateLibrary?.papers??{}).find(t=>hasFulltext(t)&&(source?.doi&&t.doi?.toLowerCase()===source.doi.toLowerCase()||source?.pmid&&String(t.pmid)===String(source.pmid)));if(paper)auditDocuments[id]=clone(paper.document);}
-  return {auditDocuments,...(o.auditOnly?{auditOnly:true}:{}),previousDraft:current?{versionId:current.id,paragraphs:current.paragraphs.map(p=>p.text)}:null,version:WRITING_VERSION,outline:clone(outline),section:clone(section),language:o.auditOnly?(current?.language??language):language,recordText:o.auditOnly?(current?.recordText??recordText):recordText,mode,request:body.text??''};
+  return {continuity:o.auditOnly?(current?.continuity??null):continuity,modeSource:o.outputMode?'explicit_section':studyMode?'adopted_protocol':'legacy_outline_compatibility',studyMode,auditDocuments,...(o.auditOnly?{auditOnly:true}:{}),previousDraft:current?{versionId:current.id,paragraphs:current.paragraphs.map(p=>p.text)}:null,version:WRITING_VERSION,outline:clone(outline),section:clone(section),language:o.auditOnly?(current?.language??language):language,recordText:o.auditOnly?(current?.recordText??recordText):recordText,mode:o.auditOnly?(current?.mode??mode):mode,request:body.text??''};
 }
 export function editWriting(p,a,body,operationId) {
   const workspace=openWriting(a,body.outlineId),outline=a.topicWorkspace.outlines.find(o=>o.id===body.outlineId),sections=writingSections(outline);
@@ -60,7 +65,7 @@ export function editWriting(p,a,body,operationId) {
       if(detail){
         requireThat(nonempty(detail.topic)&&detail.topic.length<=300,'invalid_input','请给出与正文相符的段落命题。');
         requireThat(detail.argument===undefined||detail.argument&&['claim','relationship','boundary','transition'].every(k=>typeof detail.argument[k]==='string'&&detail.argument[k].length<=1500&&(['transition'].includes(k)||nonempty(detail.argument[k])))&&Object.keys(detail.argument).every(k=>['claim','relationship','boundary','transition'].includes(k)),'invalid_input','论证修订须保留主张、证据关系和适用边界。');
-        updated=validateParagraph(JSON.stringify({sentences:detail.sentences}),materials,{...version.blueprint.paragraphs[i],topic:detail.topic},{language:version.language,recordText:version.recordText??'',mode:writingMode(section,outline)});
+        updated=validateParagraph(JSON.stringify({sentences:detail.sentences}),materials,{...version.blueprint.paragraphs[i],topic:detail.topic},{language:version.language,recordText:version.recordText??'',mode:version.mode??writingMode(section,outline)});
         requireThat(updated.text===body.paragraphs[i],'invalid_input','逐句依据与本次正文不一致，修改尚未保存。');
         const citations=[...new Map(updated.sentences.flatMap(s=>s.citations).map(c=>[`${c.ref}:${c.passage}`,c])).values()];
         Object.assign(blueprint.paragraphs[i],{topic:detail.topic,citations},detail.argument??{});
@@ -70,6 +75,7 @@ export function editWriting(p,a,body,operationId) {
     const next={...clone(version),id:uid('writing_revision'),at:now(),actor:body.editor==='assistant'?'local_assistant':'local_user',operationId,editedFrom:version.id,revisionReason:body.revisionReason,paragraphs,blueprint,...(body.editor==='assistant'?{writingStandard:ACADEMIC_WRITING_STANDARD_VERSION}:{})};
     if(body.paragraphDetails)next.blueprintProvenance={actor:next.actor,operationId,editedFrom:version.id,modelCalled:false};
     saved.versions.push(next);saved.activeVersionId=next.id;
+    next.dependencies=recordOutputDependencies(p,nestedRef('writing',a,outline.id,section.id,next.id),{...version.continuity,extraRefs:[nestedRef('writing',a,outline.id,section.id,version.id),...sectionAccessIds(section).map(id=>({type:'access',id,revisionId:id}))]});
   }else if(body.action==='writing-complete'){
     saved.completedVersionId=version.id;saved.completions??=[];saved.completions.push({versionId:version.id,at:now(),actor:'local_user',operationId});
     workspace.activeSectionId=sections[sections.findIndex(s=>s.id===section.id)+1]?.id??section.id;
@@ -129,10 +135,11 @@ export async function executeWriting(service,task,config,signal,options={}) {
   const update=patch=>options.onProgress?options.onProgress(patch):service.updateTask(task,patch);
   await update({status:'running',progress:`正在准备 ${context.section.number} 的写作材料`});
   const fingerprint=hash({context:{...context,previousDraft:undefined,auditOnly:undefined},materials});
-  const write=fn=>store.update(s=>{signal.throwIfAborted();const p=s.projects[task.projectId],a=p.artifacts[task.artifactId],t=p.researchTasks[task.id];requireThat(['queued','running'].includes(t.status),'cancelled','本步已停止。',409);const workspace=openWriting(a,context.outline.id);a.topicWorkspace.version++;return fn(a,workspace,t);});
-  let version=await write((a,w,t)=>{const s=w.sections[context.section.id]??={versions:[]};const active=currentSectionVersion(s);let v=options.reuseVersionId&&active?.id===options.reuseVersionId?active:context.auditOnly?active:active?.inputFingerprint===fingerprint?active:s.versions.findLast(v=>v.inputFingerprint===fingerprint&&['model','local_recovery'].includes(v.actor));requireThat(!context.auditOnly||v?.paragraphs.length,'draft_required','请先生成本节草稿，再核对依据。');if(!v){v={id:uid('writing_revision'),at:now(),actor:'model',writingStandard:ACADEMIC_WRITING_STANDARD_VERSION,taskId:task.id,status:'generating',inputFingerprint:fingerprint,language:context.language,recordText:context.recordText,request:context.request,paragraphs:[]};s.versions.push(v);}s.activeVersionId=v.id;if(!options.batch){w.activeSectionId=context.section.id;t.writingVersionId=v.id;}else{t.writingVersionIds??={};t.writingVersionIds[context.section.id]=v.id;}return clone(v);});
+  const write=fn=>store.update(s=>{signal.throwIfAborted();const p=s.projects[task.projectId],a=p.artifacts[task.artifactId],t=p.researchTasks[task.id];requireThat(['queued','running'].includes(t.status),'cancelled','本步已停止。',409);const activeOutline=a.topicWorkspace.activeWritingOutlineId;const workspace=openWriting(a,context.outline.id);if(taskInputsChanged(p,a.id,task.input))a.topicWorkspace.activeWritingOutlineId=activeOutline;a.topicWorkspace.version++;return fn(a,workspace,t,p);});
+  let previousActiveVersionId=null;
+  let version=await write((a,w,t,p)=>{const s=w.sections[context.section.id]??={versions:[]};const active=currentSectionVersion(s);previousActiveVersionId=active?.id??null;let v=options.reuseVersionId&&active?.id===options.reuseVersionId?active:context.auditOnly?active:active?.inputFingerprint===fingerprint?active:s.versions.findLast(v=>v.inputFingerprint===fingerprint&&['model','local_recovery'].includes(v.actor));requireThat(!context.auditOnly||v?.paragraphs.length,'draft_required','请先生成本节草稿，再核对依据。');if(!v){v={id:uid('writing_revision'),at:now(),actor:'model',writingStandard:ACADEMIC_WRITING_STANDARD_VERSION,taskId:task.id,status:'generating',inputFingerprint:fingerprint,language:context.language,recordText:context.recordText,mode:context.mode,continuity:clone(context.continuity),request:context.request,paragraphs:[]};s.versions.push(v);v.dependencies=recordOutputDependencies(p,nestedRef('writing',a,context.outline.id,context.section.id,v.id),{...context.continuity,extraRefs:[nestedRef('outline',a,null,null,context.outline.id),...materials.map(m=>({type:'access',id:m.accessId,revisionId:m.accessId}))]});}if(!taskInputsChanged(p,a.id,task.input))s.activeVersionId=v.id;if(!options.batch){w.activeSectionId=context.section.id;t.writingVersionId=v.id;}else{t.writingVersionIds??={};t.writingVersionIds[context.section.id]=v.id;}return clone(v);});
   if(version.status==='completed'&&!context.auditOnly){await update({status:'completed',finishedAt:now(),progress:'已打开本节已保存的正文。',reusedWritingVersionId:version.id,cost:{status:'not_applicable',amount:0}});return;}
-  const save=patch=>write((a,w)=>{const v=w.sections[context.section.id].versions.find(v=>v.id===version.id);Object.assign(v,clone(patch));version=clone(v);});
+  const save=patch=>write((a,w,t,p)=>{const section=w.sections[context.section.id],v=section.versions.find(v=>v.id===version.id);Object.assign(v,clone(patch));if(taskInputsChanged(p,a.id,task.input)){v.staleInput=true;t.staleInput=true;if(section.activeVersionId===v.id)section.activeVersionId=previousActiveVersionId;}version=clone(v);});
   const model=async(name,instruction)=>{
     assertMaterialContextFits([],{...materialContextLimits(config),instruction:researchInstruction(instruction)});
     const promptHash=hash({instruction,materials:[]});
@@ -141,7 +148,7 @@ export async function executeWriting(service,task,config,signal,options={}) {
   };
   const validated=async(output,validate)=>{try{return validate(output.text);}catch(error){const callId=output.provenance?.sourceCallId??output.provenance?.requestId;await store.update(s=>{const c=s.modelCalls.find(c=>c.id===callId);if(c)c.writingValidation='rejected';});throw error;}};
   const sourceData=materials.map(m=>({...m,passages:sourcePassages(m.text),savedFinding:screeningSummary(context.outline.papers.find(p=>p.accessId===m.accessId),m)}));
-  const base=`${writingRules}\n${manuscriptProseRules}\n当前小节：${JSON.stringify({section:context.section,route:context.outline.route,positioning:context.outline.positioning,language:context.language,recordText:context.recordText,request:context.request,mode:context.mode,previousDraft:context.previousDraft})}\n完整章节路径：${JSON.stringify(writingSections(context.outline).map(({number,heading})=>({number,heading})))}\n本节材料及定位：${JSON.stringify(sourceData)}`;
+  const base=`${writingRules}\n${manuscriptProseRules}\n当前小节：${JSON.stringify({continuity:context.continuity,section:context.section,route:context.outline.route,positioning:context.outline.positioning,language:context.language,recordText:context.recordText,request:context.request,mode:context.mode,previousDraft:context.previousDraft})}\n完整章节路径：${JSON.stringify(writingSections(context.outline).map(({number,heading})=>({number,heading})))}\n本节材料及定位：${JSON.stringify(sourceData)}`;
   await update({status:'running',progress:`正在组织 ${context.section.number} 的段落与证据`});
   if(!version.blueprint&&options.reuseVersionId&&version.taskId){
     const previous=await store.read(s=>{const t=s.projects[task.projectId].researchTasks[version.taskId];return t?.input?.writing?.section.id===context.section.id&&t.input.writing.outline.id===context.outline.id&&t.input.materials.every(m=>materials.some(n=>m.accessId===n.accessId&&m.text===n.text))?[...s.modelCalls].reverse().find(c=>c.taskId===t.id&&c.purpose==='model.writing-blueprint'&&c.status==='completed'&&!c.discardedAfterCancellation):null;});

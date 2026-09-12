@@ -1,3 +1,5 @@
+import {continuitySnapshot,nestedRef} from '../../shared/research-continuity.mjs';
+import {recordOutputDependencies} from './kernel.mjs';
 import {readFile} from 'node:fs/promises';
 import {randomUUID,createHash} from 'node:crypto';
 import {requireThat} from './errors.mjs';
@@ -20,7 +22,8 @@ export function saveIllustration(p,a,body,operationId){
  requireThat((latest?.id??null)===(body.baseFigureId??null),'figure_conflict','该图稿已有新版本，草稿已保留；请先打开最新版本再保存。',409);
  if(body.proposalId)requireThat(w.figureProposals?.some(v=>v.id===body.proposalId),'invalid_scope','没有这份排版候选。');
  const figure={type:'illustration',id:`figure-${randomUUID()}`,title:scene.title,scene,catalogVersion:scientificCatalog.version,assetSnapshots:scientificCatalog.assets.filter(v=>scene.nodes.some(n=>n.assetId===v.id)),at:new Date().toISOString(),actor:'local_user',operationId,parentId:latest?.id??null,proposalId:body.proposalId??null,status:'draft'};
- w.figures.push(figure);w.version++;return figure;
+ figure.continuity=body.linkCurrentResearch===true?continuitySnapshot(p,a.id):structuredClone(latest?.continuity??null);
+ w.figures.push(figure);figure.dependencies=recordOutputDependencies(p,nestedRef('figure',a,null,null,figure.id),figure.continuity);w.version++;return figure;
 }
 export function compositionInput(p,a,body){
  requireThat(a.topicWorkspace,'invalid_scope','请先打开专题文献库。');

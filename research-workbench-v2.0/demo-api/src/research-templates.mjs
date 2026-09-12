@@ -1,3 +1,5 @@
+import {continuitySnapshot,nestedRef} from '../../shared/research-continuity.mjs';
+import {recordOutputDependencies} from './kernel.mjs';
 import {saveIllustration} from './figure-workspace.mjs';
 import {figureFromInput} from '../../shared/scientific-figures.mjs';
 import {refinementInput,executeRefinement} from './manuscript-refinement.mjs';
@@ -50,7 +52,7 @@ export function editTemplates(p,a,body,operationId,trusted={}) {
   }else if(body.action==='save-figure') {
     requireThat(a.topicWorkspace,'invalid_scope','请在正文工作区保存科研图。');
     let figure;try{figure=figureFromInput(body.figure);}catch(error){requireThat(false,'invalid_figure',error.message);}
-    a.topicWorkspace.figures??=[];a.topicWorkspace.figures.push({...figure,id:uid('figure'),input:clone(body.figure),at:now(),actor:'local_user',operationId});a.topicWorkspace.version++;
+    const saved={...figure,id:uid('figure'),input:clone(body.figure),at:now(),actor:'local_user',operationId,continuity:body.linkCurrentResearch===true?continuitySnapshot(p,a.id):null};a.topicWorkspace.figures??=[];a.topicWorkspace.figures.push(saved);saved.dependencies=recordOutputDependencies(p,nestedRef('figure',a,null,null,saved.id),saved.continuity);a.topicWorkspace.version++;
   }else if(body.action==='apply-abstract') {
     const proposal=library.refinements?.find(r=>r.id===body.refinementId&&r.artifactId===a.id),selection=templateSelection(p,a);
     requireThat(proposal&&templateReady(p,selection.paper,a)&&proposal.studyId===completeTemplateStudy(p,selection.paper,a)?.id,'template_conflict','请使用当前模板全文分析形成的摘要候选。',409);
