@@ -15,7 +15,7 @@ local data directory remain unchanged for compatibility.
 
 ## Current implementation — second-generation local Demo
 
-**2026-09-13: [Demo v0.29.0 source](research-workbench-v2.0/) completes the three P0 engineering batches for continuous research before a personal, same-topic comparison with GPT.**
+**2026-09-13: [Demo v0.29.1 source](research-workbench-v2.0/) completes the three P0 engineering batches for continuous research before a personal, same-topic comparison with GPT.**
 
 Adopted protocols now remain separate from editable drafts. External execution records and interpretations retain their actual inputs, actor and versions. Research tasks, writing and figures can carry exact dependencies, identify affected outputs after a change, and export the selected historical content with a separate provenance manifest. A small practice log records meaningful interruptions and work brought back from GPT.
 
@@ -29,7 +29,9 @@ The release also includes the v0.26–v0.27 source-grounded domain reading impro
 
 The latest domain reader presents all nine chapters as visual explanations, with chapter-scoped original text and citations. On the same saved report, visible reading characters fell from 3,493 to 1,722 (**50.7%**), including diagram labels. The original report remains intact; this is a measured reading-view result, not a claim for every report. See the [v0.29 delivery and measurement](research-workbench-v2.0/领域全章图解与文字减量-v0.29.md). No new runtime dependencies or model calls were needed.
 
-The historical **v0.2** below names the direction proposed on 2026-09-04. **research-workbench-v2.0** names the second product generation; **0.29.0** is its current Demo package version. The root-level application remains the legacy implementation. Use the subdirectory instructions for the current Demo.
+Patch v0.29.1 lets long evidence figures grow with their content, preventing overlap with findings and limitations. Desktop and mobile geometry checks preserve all original card text; no new model call is required.
+
+The historical **v0.2** below names the direction proposed on 2026-09-04. **research-workbench-v2.0** names the second product generation; **0.29.1** is its current Demo package version. The root-level application remains the legacy implementation. Use the subdirectory instructions for the current Demo.
 
 ---
 
