@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildResearchContext, validateComparisonOutput, resolveMaterialCitation, materialContextLimits, planMaterialBatches,
+import { buildResearchContext, validateComparisonOutput, resolveMaterialCitation, materialContextLimits, planMaterialBatches, planPaperExtractionBatches, paperExtractionContext, PAPER_EXTRACTION_POLICY,
   materialRequestSize, assertMaterialContextFits, perPaperBatchInstructions, validatePaperBatchOutput, combinePaperCoverage,
   landscapeAggregationInstructions, completeLandscapeAggregation, createTaskAttempt, createToolRun, transitionRun, runMaterialBatches, workflowRegistry } from '../src/workflows.mjs';
 import { LANDSCAPE_FRAMEWORK, PAPER_FIELDS } from '../../shared/domain-landscape.mjs';
@@ -14,7 +14,7 @@ const comparison = () => ({ explanation: '比较依据和未知。', next: '你�
   supporting: [{ text: '材料报告关联。', status: 'reported', citations: [{ ref: 'R1', passage: 'P1' }] }], conflicting: [], unknowns: ['因果关系未知'], feasibility: { known: [], unknown: ['资料可得性未知'] } }] });
 
 test('capabilities do not encode a global scientific stage or automatic adoption', () => {
-  assert.deepEqual(Object.keys(workflowRegistry), ['clarify', 'retrieve', 'landscape', 'ask', 'revise', 'compare', 'topic-plan', 'topic-preview', 'topic-collect', 'topic-screen', 'topic-outline', 'topic-review', 'deepen', 'brief']);
+  assert.deepEqual(Object.keys(workflowRegistry), ['clarify', 'retrieve', 'landscape', 'ask', 'revise', 'compare', 'question-investigation', 'topic-plan', 'topic-preview', 'topic-collect', 'topic-screen', 'topic-outline', 'topic-review', 'deepen', 'brief']);
   assert.ok(Object.values(workflowRegistry).every(w => w.adoptsDecision === false));
 });
 
@@ -85,6 +85,33 @@ test('only explicit provider allowance triggers lossless batching and oversized-
   assert.equal(materialContextLimits({ contextWindowTokens: 1000, maxOutputTokens: 200 }).maxInputTokens, 800);
   assert.throws(() => materialContextLimits({ contextWindowTokens: 1000, maxOutputTokens: 1200 }), e => e.code === 'invalid_context_configuration');
   assert.throws(() => planMaterialBatches(selected, { maxInputTokens: 5 }), e => e.code === 'context_capacity');
+});
+
+test('extraction work units bound output work even with unknown or very large provider capacity, without excluding papers', () => {
+  const selected = Array.from({ length: 256 }, (_, i) => material(i + 1));
+  const plan = planPaperExtractionBatches(selected);
+  assert.equal(plan.limits.maxInputTokens, null); assert.equal(plan.limits.basis, 'provider_limit_unknown');
+  assert.equal(plan.processingPolicy.version, 'paper-extraction-v3');
+  assert.deepEqual(plan.batches.map(b=>b.materials.length),[50,50,50,50,50,6]);
+  assert.ok(plan.batches.length > 1); assert.ok(plan.batches.every(b => b.materials.length <= PAPER_EXTRACTION_POLICY.maxMaterials));
+  assert.deepEqual(plan.batches.flatMap(b => b.materials), selected);
+  assert.equal(plan.coverage.selectedCount, 256); assert.deepEqual(plan.coverage.excludedAccessIds, []);
+  assert.deepEqual(planPaperExtractionBatches(selected).batches.map(b => b.fingerprint), plan.batches.map(b => b.fingerprint));
+  assert.equal(planPaperExtractionBatches(selected, { maxInputTokens: 10000000 }).batches.length, plan.batches.length);
+  const long = [material(1, '完整观察😀。'.repeat(12000))], segmented = planPaperExtractionBatches(long);
+  assert.equal(segmented.batches.length, 1); // No unverified byte ceiling.
+  assert.equal(segmented.batches.flatMap(b => b.materials).map(m => m.text).join(''), long[0].text);
+  assert.ok(segmented.batches.every(b => Buffer.byteLength(b.materials[0].text, 'utf8') <= PAPER_EXTRACTION_POLICY.maxTextBytes));
+  const smallProvider = planPaperExtractionBatches(selected, { maxInputTokens: 900, countTokens: s => s.length });
+  assert.ok(smallProvider.batches.every(b => b.estimatedInputTokens <= 900));
+});
+
+test('per-paper context preserves research intent and omits prior reports and the global source list', () => {
+  const context = { goal: '研究意图', conditions: '已知条件', currentQuestion: { text: '已采用问题', revisionId: 'q1' },
+    selectedArtifact: { blocks: [{ text: '旧模型结论' }] }, selectedMaterialRefs: [{ ref: 'R999' }] };
+  const extracted = paperExtractionContext(context);
+  assert.deepEqual(extracted, { goal: context.goal, conditions: context.conditions, currentQuestion: context.currentQuestion });
+  extracted.currentQuestion.text = 'changed'; assert.equal(context.currentQuestion.text, '已采用问题');
 });
 
 test('per-paper validation and combination preserve all segment observations and original offsets', () => {

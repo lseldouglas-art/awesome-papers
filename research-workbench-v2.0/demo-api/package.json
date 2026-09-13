@@ -2,7 +2,7 @@
   "name": "research-workbench-demo-api",
   "private": true,
   "type": "module",
-  "version": "0.30.0",
+  "version": "0.34.0",
   "engines": {
     "node": ">=22.23.1"
   },

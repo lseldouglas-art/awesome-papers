@@ -204,7 +204,7 @@ export function createModelAdapter(config = {}, { fetchImpl = globalThis.fetch }
   // Initial exploration needs a bounded response, not unrestricted deliberation.
   // https://huggingface.co/zai-org/GLM-5.3-Flash-BF16#note
   const generationOptions = settings.provider === 'open.bigmodel.cn' && /^glm-5\.3-flash$/i.test(settings.model ?? '')
-    ? { reasoning_effort: 'low', max_tokens: 32768, stream: true } : {};
+    ? { reasoning_effort: ['low', 'high', 'max'].includes(config.reasoningEffort) ? config.reasoningEffort : 'low', max_tokens: 32768, stream: true } : {};
   // The official model page documents 128K output. Reserve 32K for complete
   // extraction + seven dimensions; keep smaller tasks free to finish early.
   // https://docs.bigmodel.cn/cn/guide/models/vlm/glm-5.3-flash

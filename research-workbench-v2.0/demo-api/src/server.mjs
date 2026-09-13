@@ -16,7 +16,7 @@ import {createResearchFiles,RESEARCH_FILE_LIMIT} from './research-files.mjs';
 import {exportContinuity,provenanceManifest} from './continuity.mjs';
 import {itemVersion,resolveResearchRef} from '../../shared/research-continuity.mjs';
 
-const allowedCommands = new Set(['update-project', 'add-annotation', 'resolve-annotation', 'append-message']);
+const allowedCommands = new Set(['save-researcher-intake', 'update-project', 'add-annotation', 'resolve-annotation', 'append-message']);
 const progressCommands = new Set(['save-notes', 'checkpoint', 'capture-current', 'restore-progress', 'attach-material', 'attach-existing-materials', 'annotate-current', 'record-message', 'adopt-result']);
 async function jsonBody(req,limit=1024*1024) {
   requireThat(req.headers['content-type']?.split(';')[0] === 'application/json', 'content_type', '请使用 JSON 请求。', 415);
@@ -139,9 +139,9 @@ export async function startServer({ directory = fileURLToPath(new URL('../.local
               return parsed ? { handled: true, ...kernelCommand(s, projectId, parsed.command, parsed.body, requestId) } : { handled: false };
             }
             if (kernelCommands.has(name)) return kernelCommand(s, projectId, name, body, requestId);
-            const previous = { goal: p.goal, conditions: p.conditions, metadataVersion: p.metadataVersion };
+            const previous = { goal: p.goal, conditions: p.conditions, metadataVersion: p.metadataVersion, researcherProfileVersion:p.researcherProfile?.version };
             const output = progressCommands.has(name) ? progressCommand(s, projectId, name, body, requestId) : executeCommand(s, projectId, name, body, requestId);
-            if (['update-project', 'restore-progress'].includes(name)) markProjectContextChange(p, previous, requestId);
+            if ((['update-project', 'restore-progress'].includes(name) || (name === 'save-researcher-intake' && body.confirm))) markProjectContextChange(p, previous, requestId);
             s.events.push({ id: `event_${randomUUID()}`, type: name, actor: 'local_user', projectId, target: { artifactId: body.artifactId ?? null }, inputVersion: body.baseVersion ?? null, operationId: requestId, at: new Date().toISOString(), change: structuredClone(output) });
             return output;
           });

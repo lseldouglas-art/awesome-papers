@@ -314,3 +314,11 @@ test('provider long-response deadline includes a stalled stream body', async t =
   const promise = adapter.generate(request), checked = assert.rejects(promise, rejectCode('model_timeout', 504));
   await Promise.resolve(); await Promise.resolve(); t.mock.timers.tick(720000); await checked;
 });
+
+test('GLM thinking setting is passed exactly to each physical request',async()=>{
+ for(const effort of ['low','high','max']){
+  let sent;
+  const adapter=createModelAdapter({...config,model:'GLM-5.3-Flash',baseUrl:'https://open.bigmodel.cn/api/paas/v4',reasoningEffort:effort},{fetchImpl:async(url,options)=>{sent=JSON.parse(options.body);return jsonResponse();}});
+  await adapter.generate(request);assert.equal(sent.reasoning_effort,effort);
+ }
+});
