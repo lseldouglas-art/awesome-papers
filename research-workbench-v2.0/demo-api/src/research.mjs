@@ -77,7 +77,9 @@ export function validateResearchOutput(text, mode, materials, { requirePaperNote
   }
   const paperNotes = [];
   if (requirePaperNotes && mode !== 'ask') {
-    requireThat(Array.isArray(data.papers) && data.papers.length === materials.length, 'incomplete_paper_coverage', '逐篇整理尚未覆盖全部所选材料；材料与当前简报已保留，可重新整理。', 502);
+    requireThat(Array.isArray(data.papers) && data.papers.length === materials.length, 'incomplete_paper_coverage',
+      `本次选择 ${materials.length} 篇，模型返回 ${Array.isArray(data.papers) ? data.papers.length : 0} 份逐篇记录，尚未覆盖全部材料。材料与当前简报已保留，可重新整理。`, 502,
+      { expectedPaperCount: materials.length, returnedPaperCount: Array.isArray(data.papers) ? data.papers.length : 0 });
     const seen = new Set();
     for (const item of data.papers) {
       const source = resolve(item);

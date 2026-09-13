@@ -11,6 +11,9 @@ test('reading references become natural language while scientific names and orig
  assert.equal(readingText('R2受体与R1表达均未报告。',refs),'R2受体与R1表达均未报告。');
  assert.equal(displayText('指标（R2受体）未报告。'),'指标（R2受体）未报告。');
  assert.equal(readingText('R999仍待核对。',refs),'R999仍待核对。');
+ assert.equal(readingText('验证不足（R17-P3、P4），但生物利用度有改善（R35-P2–P4）。',refs),'验证不足，但生物利用度有改善。');
+ assert.equal(readingText('R17-P3指出样本有限；针对gaps中列出的空缺查看papers记录。',refs),'相关研究指出样本有限；针对证据空缺中列出的空缺查看逐篇整理记录。');
+ assert.equal(readingText('R2-P2受体表达与R999-P3未知。',refs),'R2-P2受体表达与R999-P3未知。');
  const r={id:'result',blocks:[{id:'b',text:'R1指出结论有限（R1 P2）。',visual:{nodes:[{label:'验证',text:'R1未报告外部验证。'}]}}],citations:[{blockId:'b',sourceId:'s',accessId:'a',ref:'R1',quote:'R1'}],paperNotes:[{sourceId:'s',fields:{findings:{text:'R1未报告方法。',quotes:['R1 original']}}}]};
  const before=structuredClone(r),view=readingResult(r);
  assert.deepEqual(r,before);assert.deepEqual(view.citations,r.citations);assert.equal(view.blocks[0].id,'b');

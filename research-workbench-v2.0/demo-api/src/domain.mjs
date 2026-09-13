@@ -1,3 +1,4 @@
+import { intakeQuestions, initialIntake, researcherPlan } from '../../shared/researcher-intake.mjs';
 import { randomUUID } from 'node:crypto';
 import { requireThat } from './errors.mjs';
 
@@ -26,6 +27,7 @@ export function createProject(state, body) {
     originalGoal: text(body.goal ?? '', '原始意图', 10000, true), conditions: '', metadataVersion: 1, metadataHistory: [],
     createdAt: now(), updatedAt: now(), artifacts: {}, sources: {}, accesses: {}, scopes: {}, evidence: {}, annotations: {},
     conversations: {}, messages: {}, decisions: {}, currentDecisions: {}, tasks: {}, steps: {} };
+  if (body.intake === true) project.researcherIntake = initialIntake(project.goal);
   state.projects[project.id] = project;
   return project;
 }
@@ -99,7 +101,7 @@ function userMessage(project, messageId) {
   return message;
 }
 
-export const commandNames = ['attach-source', 'update-project', 'create-artifact', 'save-artifact', 'restore-artifact', 'import-source', 'record-access', 'record-scope',
+export const commandNames = ['save-researcher-intake', 'attach-source', 'update-project', 'create-artifact', 'save-artifact', 'restore-artifact', 'import-source', 'record-access', 'record-scope',
   'add-evidence', 'add-annotation', 'resolve-annotation', 'create-conversation', 'append-message', 'make-decision', 'create-task', 'stop-task', 'record-step'];
 
 export function executeCommand(state, projectId, name, body, operationId) {
@@ -115,6 +117,32 @@ export function executeCommand(state, projectId, name, body, operationId) {
       const previous = artifact.revisions.at(-1);
       const revision = appendRevision(p, artifact, { blocks: previous.blocks, sourceAccessIds: [...previous.sourceAccessIds, access.id] }, operationId);
       result = { source, access, revision }; break;
+    }
+    case 'save-researcher-intake': {
+      const prior = p.researcherIntake ?? {version:0,status:'draft',answers:{},history:[]};
+      requireThat(body.baseVersion === prior.version, 'metadata_conflict', '研究现状已有更新，请保留回答并重新打开。', 409);
+      requireThat(body.answers && typeof body.answers === 'object' && !Array.isArray(body.answers), 'invalid_input', '请提供本轮回答。');
+      requireThat(Object.keys(body.answers).every(key => intakeQuestions.some(q => q.id === key)), 'invalid_input', '回答包含未知问题。');
+      for (const answer of Object.values(body.answers)) {
+        requireThat(answer && typeof answer === 'object' && !Array.isArray(answer), 'invalid_input', '每项回答需要保留明确的信息来源。');
+        requireThat(Object.keys(answer).every(k => ['choice','note','values','privacy'].includes(k)), 'invalid_input', '回答包含未知字段。');
+        for (const key of ['choice','note','privacy']) if (answer[key] !== undefined) text(answer[key], '回答', 4000, true);
+        if (answer.values !== undefined) {
+          requireThat(answer.values && typeof answer.values === 'object' && !Array.isArray(answer.values) && Object.keys(answer.values).length <= 10, 'invalid_input', '条件列表不合法。');
+          for (const [key,value] of Object.entries(answer.values)) { text(key,'条件名',100); text(value,'条件',4000,true); }
+        }
+      }
+      requireThat(body.confirm === undefined || typeof body.confirm === 'boolean', 'invalid_input', '确认状态需要明确。');
+      if (body.confirm) requireThat(intakeQuestions.every(q => Object.hasOwn(body.answers,q.id)), 'invalid_input', '请核对尚未回答的项目，未知也可以保留。');
+      const at = now();
+      const next = {version:prior.version+1, status:body.confirm?'confirmed':'draft', answers:structuredClone(body.answers), confirmedAt:body.confirm?at:null,
+        history:[...prior.history, {version:prior.version,status:prior.status,answers:structuredClone(prior.answers),at,operationId}]};
+      // Draft edits do not replace the profile used by an already confirmed plan.
+      if (body.confirm) {
+        p.researcherProfile = {version:next.version,answers:structuredClone(next.answers),plan:researcherPlan(next.answers),confirmedAt:at};
+        p.metadataVersion++;
+      }
+      p.researcherIntake = next; result = next; break;
     }
     case 'update-project': {
       requireThat(body.baseVersion === p.metadataVersion, 'metadata_conflict', '课题信息已有更新，请保留修改并重新打开。', 409);

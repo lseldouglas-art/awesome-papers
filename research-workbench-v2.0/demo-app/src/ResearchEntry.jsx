@@ -1,3 +1,4 @@
+import { Icon } from './icons.jsx';
 import {readableBatches} from '../../shared/research-continuity.mjs';
 import { useEffect, useState, useRef } from 'react';
 import { searchTotals } from '../../shared/topic-search.mjs';
@@ -49,7 +50,7 @@ export function TargetedMaterialSearch({ query, onQuery, proposal, search, searc
   </details>;
 }
 
-export function ResearchEntry({ query, onQuery, proposal, search, task, busy, currentResult, configured, configurationPending, recipient, failure, onPrepare, onSearch, onResume, onModel, materialReview, selectedCount, embedded = false, prepareLabel, prepareDisabled = false, retrievalOptions, onRetrievalOptions }) {
+export function ResearchEntry({ analysisSettings, onContinue, query, onQuery, proposal, search, task, busy, currentResult, configured, configurationPending, recipient, failure, onPrepare, onSearch, onResume, onModel, materialReview, selectedCount, embedded = false, prepareLabel, prepareDisabled = false, retrievalOptions, onRetrievalOptions }) {
   const ready = Boolean(query.trim());
   const queryRef = useRef(), wasTyping = useRef(false);
   const [manualOpen, setManualOpen] = useState(false);
@@ -70,7 +71,7 @@ export function ResearchEntry({ query, onQuery, proposal, search, task, busy, cu
       <p>{exactProposal ? proposal.scope : '按下方检索式开展初步扫描，年份、文献类型和语言条件以检索式为准。'}</p>
       {exactProposal && <details className="scope-reason"><summary>检索依据与未决问题</summary><p>{proposal.explanation}</p>{proposal.questions.length > 0 && <><ul>{proposal.questions.map(q => <li key={q}>{q}</li>)}</ul><p className="muted">可以现在交流，也可以先了解整体，无需逐项填写。</p></>}</details>}
       <RetrievalScope query={query} options={retrievalOptions} onChange={onRetrievalOptions} onSearch={onSearch} search={search} disabled={disabled}/>
-      {reusable && <>{materialReview}<div className="start-actions"><button className="primary" disabled={disabled || !selectedCount} onClick={onResume}>{task ? '本步正在进行…' : currentResult ? `用已选 ${selectedCount} 篇更新领域认识` : `用已选 ${selectedCount} 篇生成领域认识`}</button></div></>}
+      {reusable && <>{materialReview}<div className="analysis-options"><p>每批 {analysisSettings?.paperBatchSize??50} 篇 · 思考：{analysisSettings?.reasoning?.options.find(o=>o.value===analysisSettings.reasoningEffort)?.label??'模型默认'} · 预计 {Math.ceil(selectedCount/(analysisSettings?.paperBatchSize??50))} 批</p><button className="text-button" disabled={configurationPending} onClick={onModel}>调整分析设置</button></div>{onContinue&&<div className="start-actions"><button className="primary" disabled={disabled} onClick={onContinue}>继续上次未完成的整理<Icon name="arrow"/></button><p className="muted">复用上次已完成的材料，按上次输入继续。</p></div>}<div className="start-actions"><button className="primary" disabled={disabled || !selectedCount} onClick={onResume}>{task ? '本步正在进行…' : currentResult ? `用已选 ${selectedCount} 篇更新领域认识` : `用已选 ${selectedCount} 篇生成领域认识`}</button></div></>}
       <details className="scope-details" open={!exactProposal && !reusable ? true : undefined}><summary>编辑检索式或讨论研究范围</summary>{queryEditor}<button className="text-button" disabled={disabled} onClick={prepare}>根据当前想法重构检索式</button></details>
     </div>}
     {failure && <p className="entry-feedback" role="status">上次尝试：{failure.error || failure.progress}</p>}

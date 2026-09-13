@@ -1,11 +1,14 @@
 import {requireThat} from './errors.mjs';
+import { protocolIntent } from '../../shared/partner-intent.mjs';
+import { qualityCases, qualityDimensions, qualityCauses } from '../../shared/question-investigation.mjs';
+import { taskInputsChanged } from '../../shared/research-continuity.mjs';
 import {continuityKinds,protocolFields,recordFields,researchScope,itemVersion,itemRef,resolveResearchRef,continuityMarkdown,continuitySnapshot,sameRef,nestedRef} from '../../shared/research-continuity.mjs';
 
 const clone=structuredClone;
 const editableKinds=continuityKinds.filter(k=>k!=='attachment');
 const commonFields=['outputMode','inputRefs','executionStatus','originKind','verification','recordedAfterResults'];
 const object=v=>v&&typeof v==='object'&&!Array.isArray(v);
-export const continuityCommands=new Set(['save-continuity','restore-continuity','decide-continuity','register-research-attachment','record-comparison-event']);
+export const continuityCommands=new Set(['save-continuity','restore-continuity','decide-continuity','register-research-attachment','record-comparison-event','apply-research-proposal','research-partner-action','create-quality-comparison','record-quality-review']);
 function payloadOf(p,a,kind,value,{attachment=false}={}) {
   requireThat(object(value),'invalid_input','研究记录需要完整内容。');
   if(attachment){requireThat(kind==='attachment'&&/^[a-f0-9]{64}$/.test(value.sha256),'invalid_input','附件缺少内容校验。');return clone(value);}
@@ -44,14 +47,60 @@ function payloadOf(p,a,kind,value,{attachment=false}={}) {
   return payload;
 }
 const meaningful=p=>Object.fromEntries(Object.entries(p??{}).filter(([k])=>!['next'].includes(k)));
-export function applyContinuityCommand(p,name,body,operationId,ops) {
+export function applyContinuityCommand(p,name,body,operationId,ops,authorship=null) {
   const {checkState,find,addItem,link,markAffected,emit,changed,userIntent,uid,now}=ops;
   checkState(p,body.baseStateVersion);
   const a=find(p.artifacts,body.artifactId,'研究页面'),scope=researchScope(p,a.id),k=p.researchKernel;
+  if (name==='create-quality-comparison') {
+    requireThat(qualityCases.some(c=>c.id===body.caseId)&&Array.isArray(body.taskIds)&&body.taskIds.length===2&&body.taskIds[0]!==body.taskIds[1], 'invalid_input','请选择一个质量用例及两份不同的已完成输出。');
+    const tasks=body.taskIds.map(id=>p.researchTasks[id]);
+    requireThat(tasks.every(t=>t?.status==='completed'&&t.resultId&&p.researchResults[t.resultId]),'invalid_reference','比较只能引用本课题实际保存的输出。');
+    const ordered=Number.parseInt(uid('blind').slice(-1),16)%2 ? [...tasks].reverse() : tasks;
+    const pair=emit(p,'quality_comparison','local_user',operationId,{artifactId:a.id,scopeId:scope.id},{caseId:body.caseId,
+      versions:ordered.map((t,i)=>({label:i?'B':'A',taskId:t.id,resultId:t.resultId,inputFingerprint:t.inputFingerprint,model:t.model,provider:t.provider,
+        settings:t.actualConfiguration??null,question:t.input.text,accessIds:t.input.materials.map(m=>m.accessId),createdAt:t.createdAt})),
+      boundary:'版本名在评价前隐藏；不同任务、材料或模型仍需单独检查，不自动视为控制实验。'});
+    changed(p);return clone(pair);
+  }
+  if (name==='record-quality-review') {
+    const pair=p.researchEvents.find(e=>e.id===body.comparisonId&&e.type==='quality_comparison');
+    requireThat(pair&&['A','B','equal','neither'].includes(body.preference)&&typeof body.reason==='string'&&body.reason.trim(), 'invalid_input','请选择比较结果并写出具体理由。');
+    requireThat(object(body.dimensions)&&Object.keys(qualityDimensions).every(key=>{
+      const d=body.dimensions[key];return d&&['missing','generic','specific','not_checked'].includes(d.rating)&&typeof d.location==='string'&&(d.rating==='not_checked'||d.location.trim());
+    }), 'invalid_input','每项评价请注明原文位置，未核对的维度可以保留未核对。');
+    requireThat(body.cause===undefined||Object.hasOwn(qualityCauses,body.cause),'invalid_input','请选择实际问题原因或尚未确定。');
+    const review=emit(p,'quality_review','local_user',operationId,{artifactId:a.id,scopeId:scope.id},{comparisonId:pair.id,preference:body.preference,reason:body.reason,dimensions:clone(body.dimensions),cause:body.cause??'other',scientificValidation:false});
+    changed(p);return clone(review);
+  }
+  if (name==='apply-research-proposal') {
+    const t=p.researchTasks[body.taskId],proposal=t?.investigation?.phases?.find(v=>v.key==='revised')?.value.protocol;
+    requireThat(t?.status==='completed'&&t.artifactId===a.id&&proposal&&['save','adopt'].includes(body.action),'invalid_reference','请选择本页已经完成核查的方案草案。');
+    const target=t.input.itemTarget;
+    requireThat(!t.staleInput&&!taskInputsChanged(p,a.id,t.input)&&p.researchItems[target.itemId]?.headRevisionId===target.revisionId,'research_state_conflict','依据或题目已改变，请先接续核查这份旧方案。',409);
+    const payload={...clone(proposal),outputMode:'proposal',inputRefs:[{type:'research_item',id:target.itemId,revisionId:target.revisionId},
+      ...p.researchResults[t.resultId].accessIds.map(id=>({type:'access',id,revisionId:id}))]};
+    const saved=applyContinuityCommand(p,'save-continuity',{artifactId:a.id,baseStateVersion:k.version,kind:'protocol',title:proposal.question||target.text,
+      payload,userText:body.userText},operationId,ops,{actor:'model',sourceTaskId:t.id,sourceResultId:t.resultId});
+    if(body.action==='adopt')return applyContinuityCommand(p,'decide-continuity',{artifactId:a.id,baseStateVersion:k.version,itemId:saved.itemId,revisionId:saved.revisionId,choice:'adopt',userText:body.userText},operationId,ops);
+    return saved;
+  }
+  if (name==='research-partner-action') {
+    const intent=protocolIntent(body.userText);
+    if(!intent)return {handled:false};
+    const v=itemVersion(p,{id:body.itemId,revisionId:body.revisionId});
+    requireThat(v?.item.kind==='protocol'&&v.item.scopeId===scope.id,'invalid_target','请先选择要修改或采用的具体方案。');
+    requireThat(v.item.headRevisionId===v.revision.id,'revision_conflict','这份方案已有新版，请重新查看后继续。',409);
+    let saved={itemId:v.item.id,revisionId:v.revision.id};
+    if(intent.type==='patch') saved=applyContinuityCommand(p,'save-continuity',{artifactId:a.id,baseStateVersion:k.version,itemId:v.item.id,baseRevisionId:v.revision.id,
+      title:v.revision.title,payload:{...clone(v.revision.payload),[intent.field]:intent.value},userText:body.userText},operationId,ops);
+    if(intent.type==='adopt'||intent.adopt)saved=applyContinuityCommand(p,'decide-continuity',{artifactId:a.id,baseStateVersion:k.version,...saved,choice:'adopt',userText:body.userText},operationId,ops);
+    return {...saved,handled:true,applied:intent};
+  }
   if(name==='record-comparison-event') {
-    requireThat(['workbench','gpt'].includes(body.path)&&typeof body.text==='string'&&body.text.trim()&&body.text.length<=10000,'invalid_input','请记录发生的具体断点或补救。');
+    requireThat(['workbench','gpt','zcode','external'].includes(body.path)&&typeof body.text==='string'&&body.text.trim()&&body.text.length<=10000,'invalid_input','请记录发生的具体断点或补救。');
+    requireThat(body.path!=='external'||typeof body.pathName==='string'&&body.pathName.trim()&&body.pathName.length<=100,'invalid_input','请给外部工作方式命名。');
     requireThat(body.activeMinutes===undefined||body.activeMinutes===null||Number.isFinite(body.activeMinutes)&&body.activeMinutes>=0,'invalid_input','主动用时需要非负分钟数或未知。');
-    const event=emit(p,'comparison_observation','local_user',operationId,{artifactId:a.id,scopeId:scope.id},{path:body.path,text:body.text,activeMinutes:body.activeMinutes??null,artifactRevisionId:a.headRevisionId,context:continuitySnapshot(p,a.id)});
+    const event=emit(p,'comparison_observation','local_user',operationId,{artifactId:a.id,scopeId:scope.id},{path:body.path,pathName:body.pathName??({workbench:'科研工作台',gpt:'GPT 网页版',zcode:'Z Code'})[body.path],text:body.text,activeMinutes:body.activeMinutes??null,configuration:typeof body.configuration==='string'?body.configuration:'未记录',artifactRevisionId:a.headRevisionId,context:continuitySnapshot(p,a.id)});
     changed(p);return clone(event);
   }
   const existing=body.itemId?find(p.researchItems,body.itemId,'研究记录'):null;
@@ -93,7 +142,7 @@ export function applyContinuityCommand(p,name,body,operationId,ops) {
   const intent=userIntent(p,body,name,{artifactId:a.id,itemId:existing?.id??null},operationId);
   let item,revision;
   if(!existing) {
-    ({item,revision}=addItem(p,kind,{title,text:payload.text??payload.question??title,payload,unknowns:payload.limitations?[payload.limitations]:[],informationStatus:'user_provided'}, {actor:'local_user',operationId,origin:{artifactId:a.id,intent,source:body.prefilled?'existing_proposal':'user_record'}}));
+    ({item,revision}=addItem(p,kind,{title,text:payload.text??payload.question??title,payload,unknowns:payload.limitations?[payload.limitations]:[],informationStatus:authorship?'suggestion':'user_provided'}, {actor:authorship?.actor??'local_user',operationId,origin:{artifactId:a.id,intent,source:authorship?'model_proposal':body.prefilled?'existing_proposal':'user_record',...(authorship??{})}}));
     item.scopeId=scope.id;
   } else {
     item=existing;revision={...clone(previous),id:uid('item_revision'),number:previous.number+1,previousRevisionId:previous.id,createdAt:now(),actor:'local_user',operationId,title,text:payload.text??payload.question??title,payload,unknowns:payload.limitations?[payload.limitations]:[],intent,...(restored?{restoredFrom:restored.revision.id}:{})};
@@ -102,7 +151,7 @@ export function applyContinuityCommand(p,name,body,operationId,ops) {
   const refs=[scope.questionRef,...(payload.inputRefs??[])].filter(Boolean);
   for(const ref of refs)link(p,itemRef(item,revision.id),ref);
   revision.dependencies=clone(Object.values(p.dependencies).filter(d=>sameRef(d.from,itemRef(item,revision.id))));
-  emit(p,restored?'continuity_restored':'continuity_saved','local_user',operationId,itemRef(item,revision.id),{kind,intent,previousRevisionId:previous?.id??null,adoptionUnchanged:true});changed(p);
+  emit(p,restored?'continuity_restored':'continuity_saved',authorship?.actor??'local_user',operationId,itemRef(item,revision.id),{kind,intent,previousRevisionId:previous?.id??null,adoptionUnchanged:true});changed(p);
   return {itemId:item.id,revisionId:revision.id,adoptionUnchanged:true};
 }
 

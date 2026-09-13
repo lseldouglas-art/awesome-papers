@@ -28,3 +28,10 @@ export function isTopicReviewRequest(text) {
   if (/不要|不需要|别|如何|怎么|是否|吗[？?]?$/.test(value)) return false;
   return /(?:分析|整理|综合)(?:一下)?(?:现有|当前|这些|本次|所选|全部)?(?:的)?(?:专题)?(?:文献|材料)(?:库)?/.test(value);
 }
+
+// A successful re-fetch must not hide the latest unfinished domain analysis.
+export function pendingDomainAnalysis(tasks, artifactId) {
+  const latest = tasks.filter(t=>t.artifactId===artifactId && ['landscape','revise'].includes(t.mode))
+    .sort((a,b)=>a.createdAt.localeCompare(b.createdAt)).at(-1);
+  return latest && ['failed','interrupted','cancelled'].includes(latest.status) ? latest : null;
+}

@@ -318,7 +318,7 @@ function markAffected(p, cause, operationId, explanation) {
 }
 export function markProjectContextChange(project, previous, operationId) {
   const p = ensureKernel(project);
-  if (previous.goal === p.goal && previous.conditions === p.conditions) return [];
+  if (previous.goal === p.goal && previous.conditions === p.conditions && (!Object.hasOwn(previous, 'researcherProfileVersion') || previous.researcherProfileVersion === p.researcherProfile?.version)) return [];
   const beforeIds = new Set(Object.keys(p.researchImpacts));
   const equivalentVersions = [previous.metadataVersion, ...list(p.metadataHistory).filter(h => h.goal === previous.goal && h.conditions === previous.conditions).map(h => h.version)];
   for (const version of new Set(equivalentVersions)) markAffected(p, node('project_context', p.id, String(version)), operationId, '当前目标或现实条件已修改，请重看引用旧条件的成果。');
