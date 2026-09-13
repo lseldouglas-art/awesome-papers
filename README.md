@@ -15,7 +15,7 @@ local data directory remain unchanged for compatibility.
 
 ## Current implementation — second-generation local Demo
 
-**2026-09-13: [Demo v0.28.0 source](research-workbench-v2.0/) completes the three P0 engineering batches for continuous research before a personal, same-topic comparison with GPT.**
+**2026-09-13: [Demo v0.29.0 source](research-workbench-v2.0/) completes the three P0 engineering batches for continuous research before a personal, same-topic comparison with GPT.**
 
 Adopted protocols now remain separate from editable drafts. External execution records and interpretations retain their actual inputs, actor and versions. Research tasks, writing and figures can carry exact dependencies, identify affected outputs after a change, and export the selected historical content with a separate provenance manifest. A small practice log records meaningful interruptions and work brought back from GPT.
 
@@ -25,9 +25,11 @@ The release also includes the v0.26–v0.27 source-grounded domain reading impro
 - [Outcome-first design principles](docs/research-workbench-results-first-design-2026-09-12.md)
 - [Install and run the second-generation Demo](research-workbench-v2.0/README.md)
 
-**314 engineering checks and a production build passed**, together with desktop and narrow-screen interaction checks. Two public-material rehearsals used two real model calls; provider cost was unavailable. These checks do not establish scientific correctness, publication readiness, or superiority over GPT. The researcher's continuous trial and same-topic comparison are still to come. Credentials, local workspace databases, backups and private research screenshots are excluded from the public source.
+**319 engineering checks and a production build passed**, together with desktop and narrow-screen interaction checks. Two public-material rehearsals used two real model calls; provider cost was unavailable. These checks do not establish scientific correctness, publication readiness, or superiority over GPT. The researcher's continuous trial and same-topic comparison are still to come. Credentials, local workspace databases, backups and private research screenshots are excluded from the public source.
 
-The historical **v0.2** below names the direction proposed on 2026-09-04. **research-workbench-v2.0** names the second product generation; **0.28.0** is its current Demo package version. The root-level application remains the legacy implementation. Use the subdirectory instructions for the current Demo.
+The latest domain reader presents all nine chapters as visual explanations, with chapter-scoped original text and citations. On the same saved report, visible reading characters fell from 3,493 to 1,722 (**50.7%**), including diagram labels. The original report remains intact; this is a measured reading-view result, not a claim for every report. See the [v0.29 delivery and measurement](research-workbench-v2.0/领域全章图解与文字减量-v0.29.md). No new runtime dependencies or model calls were needed.
+
+The historical **v0.2** below names the direction proposed on 2026-09-04. **research-workbench-v2.0** names the second product generation; **0.29.0** is its current Demo package version. The root-level application remains the legacy implementation. Use the subdirectory instructions for the current Demo.
 
 ---
 
