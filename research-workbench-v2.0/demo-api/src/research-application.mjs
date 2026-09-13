@@ -7,6 +7,8 @@ import {templateModes} from '../../shared/research-templates.mjs';
 import {writingInput, executeWriting, recoverWritingOutputs} from './topic-writing.mjs';
 import { topicTaskModes, topicPlanningFeedback } from '../../shared/topic-library-workflow.mjs';
 import { validateTopicOptions, executeTopicWorkflow } from './topic-library-workflow.mjs';
+import { executeRangeRetrieval } from './range-retrieval.mjs';
+import { retrievalScopeError, retrievalOptions, matchesRetrievalScope } from '../../shared/retrieval-scope.mjs';
 import { randomUUID, createHash } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { ResearchService, validateResearchOutput } from './research.mjs';
@@ -105,8 +107,18 @@ export class ResearchApplication extends ResearchService {
       requireThat(!Object.values(p.researchTasks).some(t => !isTerminalRun(t.status)), 'task_running', '本课题已有一步正在进行，可等待或停止后继续。', 409);
       requireThat(body.text === undefined || nonempty(body.text), 'invalid_input', '请填写本次问题。');
       requireThat(body.baseStateVersion === undefined || body.baseStateVersion === p.researchKernel.version, 'research_state_conflict', '研究选择已有变化，请重新查看后继续。', 409);
-      if (['retrieve', 'landscape'].includes(body.mode)) requireThat(nonempty(body.query) && body.query.length <= 2000, 'invalid_query', '先填写或生成本次检索式。');
+      if (['retrieve', 'landscape'].includes(body.mode)) requireThat(nonempty(body.query) && body.query.length <= (body.mode==='landscape' && p.searches[body.reuseSearchId]?.query===body.query ? 3000 : 2000), 'invalid_query', '先填写或生成本次检索式。');
       requireThat(body.retrievalOffset === undefined || body.mode === 'retrieve' && Number.isSafeInteger(body.retrievalOffset) && body.retrievalOffset >= 0 && body.retrievalOffset < 10000, 'invalid_query', '继续获取的位置不合法；超过 PubMed 单次排序范围时，请按具体问题或年代细化检索。');
+      if (body.retrievalOptions !== undefined) {
+        requireThat(body.mode === 'retrieve', 'invalid_scope', '获取范围仅用于文献检索。');
+        const error = retrievalScopeError(body.retrievalOptions);
+        requireThat(!error, 'invalid_scope', error);
+      }
+      if (body.resumeSearchId !== undefined) {
+        const previous = p.searches[body.resumeSearchId];
+        requireThat(body.mode === 'retrieve' && previous?.artifactId === a.id && previous.status !== 'completed'
+          && body.retrievalOptions && matchesRetrievalScope(previous, body.query, body.retrievalOptions), 'invalid_scope', '继续获取须沿用原检索式、日期、类型、数量与排序。');
+      }
       let reuseSearch = null;
       if (body.reuseSearchId !== undefined) {
         reuseSearch = p.searches[body.reuseSearchId];
@@ -141,6 +153,7 @@ export class ResearchApplication extends ResearchService {
       const input = { continuity:continuitySnapshot(p,a.id), notes: clone(a.draft.notes), name: p.name, originalGoal: p.originalGoal, goal: p.goal, conditions: p.conditions, metadataVersion: p.metadataVersion,
         baseVersion: a.draft.version, baseStateVersion: state.version, revisionId: revision.id, resultId: a.draft.resultId,
         target, itemTarget, retrievalOffset: body.retrievalOffset ?? 0, query: body.query ?? '', text: body.text ?? '', materials, reuseSearchId: reuseSearch?.id ?? null,
+        ...(body.retrievalOptions ? { retrievalOptions: retrievalOptions(body.retrievalOptions), resumeSearchId: body.resumeSearchId ?? null } : {}),
         currentBrief: a.draft.resultId ? clone(p.researchResults[a.draft.resultId]?.blocks ?? []) : [], recentExchanges: [],
         searchScope: Object.values(p.searches).filter(search => search.accessIds.some(id => selectedIds.includes(id))).map(({ query, searchedAt, coverage, searches, missingIds, warnings }) => ({ query, searchedAt, coverage, searches, missingIds, warnings })),
         adoptionContext: { version: state.version, currentQuestion: state.currentQuestion, exploration: state.exploration,
@@ -553,7 +566,8 @@ export class ResearchApplication extends ResearchService {
         if (!isTerminalRun(t.status)) Object.assign(attempt, transitionRun(attempt, 'running'));
       });
       signal.throwIfAborted();
-      if(task.mode==='figure-compose') await executeComposition(this,task,config,signal);
+      if(task.mode==='retrieve' && task.input.retrievalOptions) await executeRangeRetrieval(this,task,signal);
+      else if(task.mode==='figure-compose') await executeComposition(this,task,config,signal);
       else if(templateModes.includes(task.mode)) await executeTemplateTask(this,task,config,signal);
       else if(task.mode==='topic-writing') await executeWriting(this,task,config,signal);
       else if(task.mode==='manuscript-writing') await executeManuscript(this,task,config,signal);

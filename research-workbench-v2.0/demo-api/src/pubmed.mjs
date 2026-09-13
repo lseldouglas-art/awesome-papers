@@ -40,7 +40,7 @@ export function createPubmed({ fetchImpl = globalThis.fetch, intervalMs = 350 } 
       const response = await fetchImpl(url, { signal: requestSignal, redirect: 'error' });
       if (!response.ok) { await response.body?.cancel(); throw new DomainError('retrieval_http', 502, `PubMed 请求未完成（HTTP ${response.status}），可稍后手动重试。`); }
       const reader = response.body.getReader(); const chunks = []; let size = 0;
-      try { while (true) { const { done, value } = await reader.read(); if (done) break; size += value.length; if (size > 4_000_000) { await reader.cancel(); throw new DomainError('retrieval_invalid', 502, 'PubMed 返回超过本轮大小限制。'); } chunks.push(value); } }
+      try { while (true) { const { done, value } = await reader.read(); if (done) break; size += value.length; if (size > 4_000_000) { await reader.cancel(); throw new DomainError('retrieval_response_too_large', 502, 'PubMed 返回超过单批读取大小，需拆分获取。'); } chunks.push(value); } }
       finally { reader.releaseLock(); }
       return Buffer.concat(chunks).toString('utf8');
     } catch (e) { if (e instanceof DomainError) throw e; throw new DomainError(signal?.aborted ? 'cancelled' : 'retrieval_network', 502, signal?.aborted ? '检索已停止。' : '无法完成 PubMed 请求；这不代表没有相关文献。'); }
@@ -93,9 +93,17 @@ export function createPubmed({ fetchImpl = globalThis.fetch, intervalMs = 350 } 
     async metadata(pmids, { signal } = {}) {
       requireThat(Array.isArray(pmids) && pmids.every(id => /^\d+$/.test(id)), 'invalid_scope', '文献标识不合法。');
       const records = [], ids = [...new Set(pmids)];
+      const fetchBatch = async batch => {
+        try { return parsePubmed(await fetchText('efetch.fcgi', { id: batch.join(','), retmode: 'xml' }, signal)).filter(r => batch.includes(r.pmid)); }
+        catch (error) {
+          if (signal?.aborted || error.code !== 'retrieval_response_too_large' || batch.length === 1) throw error;
+          const middle = Math.ceil(batch.length / 2);
+          return [...await fetchBatch(batch.slice(0, middle)), ...await fetchBatch(batch.slice(middle))];
+        }
+      };
       for (let offset = 0; offset < ids.length; offset += 100) {
         const batch = ids.slice(offset, offset + 100);
-        records.push(...parsePubmed(await fetchText('efetch.fcgi', { id: batch.join(','), retmode: 'xml' }, signal)).filter(r => batch.includes(r.pmid)));
+        records.push(...await fetchBatch(batch));
       }
       return records;
     },

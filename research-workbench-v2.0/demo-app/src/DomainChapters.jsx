@@ -1,11 +1,11 @@
 import {useMemo,useState} from 'react';
-import {ArrowRight,BookOpen,MagnifyingGlass,Microscope,TreeStructure,Question,Flask,ArrowSquareOut} from '@phosphor-icons/react';
-import {chapterView,overviewNodes,methodRows,evidenceRows,directions,pairedClauses,conceptTitle,comparisonConditions,focusDiagram,gapLabel,evidenceExcerpt,excerpt,clauses,topic,prose} from '../../shared/domain-chapters.mjs';
+import {ArrowRight,BookOpen,MagnifyingGlass,Microscope,TreeStructure,Question,ArrowSquareOut} from '@phosphor-icons/react';
+import {chapterView,overviewNodes,methodRows,maturityFindings,directions,pairedClauses,conceptTitle,comparisonConditions,focusDiagram,excerpt,clauses,prose} from '../../shared/domain-chapters.mjs';
 import './domain-chapters.css';
 
 function References({blockId,result,numbers,onSource,onEvidence}) {
   const refs=(result.citations??[]).filter(c=>c.blockId===blockId).filter((c,i,a)=>a.findIndex(x=>x.accessId===c.accessId)===i);
-  return <span className="atlas-references">{refs.slice(0,3).map(c=><button key={c.accessId} aria-label={`查看文献 ${numbers[c.sourceId]} 的依据`} onClick={()=>onSource(c.accessId,c)}>[{numbers[c.sourceId]}]</button>)}{refs.length>3&&<button onClick={()=>onEvidence(blockId)}>+{refs.length-3}</button>}</span>;
+  return refs.length ? <span className="atlas-references"><button onClick={()=>onEvidence(blockId)}><BookOpen size={14}/>来源 · {refs.length} 篇</button></span> : null;
 }
 function Overview({section,sections,goal,onEvidence}) {
   const nodes=overviewNodes(section,sections),isGastric=/胃/.test(goal);
@@ -42,19 +42,28 @@ function Gaps({section,onEvidence,onSupplement}) {
   return <div className="atlas-gap-rows">{section.findings.map((b,i)=>{
     const text=prose(b.text),question=text.match(/(?:可检验问题|候选问题)：([^？。]+[？]?)/)?.[1];
     const check=text.match(/核查路径：([^。]+)/)?.[1]??clauses(text).find(t=>/验证缺口|需|未报告|未覆盖|不能/.test(t))??clauses(text)[0];
-    return <article key={b.id}><div className="atlas-gap-index">0{i+1}</div><div><button className="atlas-gap-title" onClick={()=>onEvidence(b.id)}>{gapLabel(b)}</button><span>{excerpt(check,44)}</span></div><div className="atlas-gap-bridge" aria-hidden="true"><span/><Question size={22}/><span/></div><button onClick={()=>onSupplement({focus:question??b.headline??b.text,context:b.text,blockId:b.id})}><MagnifyingGlass size={18}/>补材料</button></article>;
+    return <article key={b.id}><div className="atlas-gap-index">0{i+1}</div><div><button className="atlas-gap-title" onClick={()=>onEvidence(b.id)}>{prose(b.headline || b.text)}</button><span>{check}</span></div><div className="atlas-gap-bridge" aria-hidden="true"><span/><Question size={22}/><span/></div><button onClick={()=>onSupplement({focus:question??b.headline??b.text,context:b.text,blockId:b.id})}><MagnifyingGlass size={18}/>补材料</button></article>;
   })}</div>;
 }
 function Maturity({section,onEvidence}) {
-  return <div className="atlas-evidence-lanes">{evidenceRows(section).map((r,i)=><button key={i} onClick={()=>onEvidence(r.blockId)}><span className="atlas-evidence-symbol"><Flask size={29} weight="duotone"/></span><strong>{excerpt(r.label,28)}</strong><span>{evidenceExcerpt(r.finding)}</span></button>)}<p>仅反映本次材料。</p></div>;
+  const summary=section.items.find(b=>b.analysisRole==='comparison');
+  return <div className="atlas-maturity-results">
+    {summary?.headline&&<div className="atlas-maturity-summary"><span>本轮综合判断</span><p>{prose(summary.headline)}</p><button className="atlas-text-link" onClick={()=>onEvidence(summary.id)}>查看判断依据 <ArrowSquareOut size={14}/></button></div>}
+    {maturityFindings(section).map((r,i)=><article key={r.blockId}>
+      <header><span className="atlas-maturity-index">{String(i+1).padStart(2,'0')}</span><h3>{r.finding}</h3></header>
+      <div className={`atlas-maturity-evidence ${r.evidence.every(e=>e.label)?'has-labels':''}`}>{r.evidence.map((e,j)=><div key={j}>{e.label&&<h4>{e.label}</h4>}<p>{e.text}</p></div>)}</div>
+      <footer>{r.boundary&&<p><strong>判断边界：</strong>{r.boundary}</p>}<button className="atlas-text-link" onClick={()=>onEvidence(r.blockId)}>查看完整依据 <ArrowRight size={15}/></button></footer>
+    </article>)}
+    <p className="atlas-maturity-boundary">{prose(section.heading.dimensionLimitation || '仅反映本轮实际访问材料；未报告的验证情况仍待核对。')}</p>
+  </div>;
 }
 function Next({section,onSupplement}) {
-  return <div className="atlas-directions"><div className="atlas-direction-origin"><TreeStructure size={25}/><span>从你关心的问题继续</span></div><div>{directions(section).map((r,i)=><button key={i} onClick={()=>onSupplement({focus:r.finding,blockId:r.blockId})}><strong>{excerpt(r.label,25)}</strong><span>{excerpt(r.finding.replace(/^可(?:补检|深入|补查|检索)/,''),38)}</span><ArrowRight size={18}/></button>)}</div></div>;
+  return <div className="atlas-direction-list">{directions(section).map((r,i)=><article key={i}><h3>{r.label}</h3><p>{r.finding}</p><button onClick={()=>onSupplement({focus:r.label,context:r.finding,blockId:r.blockId})}>围绕这个方向补充材料 <ArrowRight size={18}/></button></article>)}</div>;
 }
-export function DomainChapters({project,result,numbers,onSource,onEvidence,onSupplement,renderBranches}) {
+export function DomainChapters({project,result,numbers,onSource,onEvidence,onSupplement,renderBranches,renderNextAction}) {
   const sections=useMemo(()=>chapterView(result),[result]);
   return <div className="domain-chapter-atlas" aria-label="完整领域图解">{sections.map((s,i)=><section className={`atlas-chapter atlas-${s.kind}`} key={s.id} id={`domain-chapter-${s.id}`} data-chapter-id={s.id}>
     <header><div><span className="atlas-chapter-number">{String(i+1).padStart(2,'0')}</span><h2>{s.name}</h2></div><button onClick={()=>onEvidence(s.heading.id)}><BookOpen size={15}/>原文与依据</button></header>
-    {s.kind==='map'?<Overview section={s} sections={sections} goal={project.goal} onEvidence={onEvidence}/>:s.kind==='studies'?renderBranches(s):s.kind==='coverage'?<History section={s} onSupplement={onSupplement}/>:s.kind==='methods'?<Methods section={s} onEvidence={onEvidence}/>:s.kind==='comparison'?<Comparisons section={s} {...{result,numbers,onSource,onEvidence}}/>:s.kind==='gaps'?<Gaps section={s} {...{onEvidence,onSupplement}}/>:s.kind==='evidence'?<Maturity section={s} onEvidence={onEvidence}/>:s.kind==='directions'?<Next section={s} onSupplement={onSupplement}/>:<Focus section={s} {...{result,numbers,onSource,onEvidence}}/>}
+    {s.kind==='map'?<Overview section={s} sections={sections} goal={project.goal} onEvidence={onEvidence}/>:s.kind==='studies'?renderBranches(s):s.kind==='coverage'?<History section={s} onSupplement={onSupplement}/>:s.kind==='methods'?<Methods section={s} onEvidence={onEvidence}/>:s.kind==='comparison'?<Comparisons section={s} {...{result,numbers,onSource,onEvidence}}/>:s.kind==='gaps'?<Gaps section={s} {...{onEvidence,onSupplement}}/>:s.kind==='evidence'?<Maturity section={s} onEvidence={onEvidence}/>:s.kind==='directions'?<>{renderNextAction?.()}<Next section={s} onSupplement={onSupplement}/></>:<Focus section={s} {...{result,numbers,onSource,onEvidence}}/>}
   </section>)}</div>;
 }

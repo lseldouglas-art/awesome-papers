@@ -57,12 +57,22 @@ export function evidenceRows(section) {
   const rows=clauses(section.summary?.text).map(text=>{const m=text.match(/^([^：]{2,20})：(.+)$/);return m?{label:m[1],finding:m[2],blockId:section.summary.id}:null;}).filter(Boolean);
   return rows.length>=2?rows:section.findings.map(b=>({label:topic(b),finding:b.headline??clauses(b.text)[0],blockId:b.id}));
 }
+export function maturityFindings(section) {
+  return section.findings.map(b => {
+    const nodes = b.visual?.nodes?.filter(n => n.text);
+    const evidence = nodes?.length ? nodes.map(n => ({label:prose(n.label),text:prose(n.text)})) : prose(b.text).split(/[；。]\s*/).filter(Boolean).map(text => {
+      const match = text.match(/^([^：]{2,16}(?:层面|层))：(.+)$/);
+      return match ? {label:match[1],text:match[2]} : {text};
+    });
+    return {blockId:b.id, finding:prose(b.headline || b.visual?.takeaway || b.text), evidence, boundary:prose(b.visual?.boundary || '')};
+  });
+}
 export function directions(section) {
   return section.items.flatMap(b=>{
     const items=prose(b.text).split(/（\d+）|\(\d+\)/).filter(t=>/若关注|若需|若希望/.test(t));
     return (items.length?items:[prose(b.text)]).map(text=>{
       const m=text.match(/若(?:关注|需|希望)([^，：；。]+)[，：](.+)/);
-      return {label:m?m[1]:topic(b),finding:clauses(m?m[2]:text)[0]??'',blockId:b.id};
+      return {label:m?m[1]:prose(b.headline || '继续了解这个问题').replace(/^下一步可选择[：:]\s*/,''),finding:prose(m?m[2]:text),blockId:b.id};
     });
   });
 }

@@ -13,7 +13,7 @@ export function domainVisual(value, status) {
 }
 // Remove only inline R/P reference notation; keep all scientific qualifiers.
 export function displayText(text = '') {
-  return text.replace(/[（(](?:R\d+[^()（）]*[）)])/g, '').trim();
+  return text.replace(/[（(]R\d+(?:\s+P\d+(?:[–—-]\d+)?)?(?:\s*[、,，;；]\s*R\d+(?:\s+P\d+(?:[–—-]\d+)?)?)*[）)]/g, '').trim();
 }
 export function resultTitle(block) {
   return displayText(block?.headline || block?.text?.split(/[。！？\n]/)[0] || '尚待补充的研究认识');

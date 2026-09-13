@@ -1,3 +1,4 @@
+import {setRetrievalRange} from '../../shared/retrieval-scope.mjs';
 import { useState } from 'react';
 import { BookOpen, FileText, ChartBar, MagnifyingGlass } from '@phosphor-icons/react';
 import { Modal } from './ui.jsx';
@@ -17,7 +18,7 @@ export function DomainSupplement({ request, goal, onClose, inline=false, ...entr
     <div className="domain-object-preserved"><h3>保留研究对象</h3><span>{goal}</span></div>
     <label className="domain-expansion-choice"><input type="checkbox" checked={expanded} disabled={disabled} onChange={e=>{setManual(false);setExpanded(e.target.checked);}}/>扩大相邻范围，保留当前研究对象</label>
     <div className="domain-plan-search"><MagnifyingGlass size={18}/><span>PubMed · 按内容缺口补充综述与代表性研究</span></div>
-    <ResearchEntry {...entry} onResume={()=>entry.onResume(focus)} embedded currentResult={{kind:'brief'}} query={ready?entry.query:''} search={ready?entry.search:null} proposal={fresh?entry.proposal:null} onQuery={value=>{setManual(true);entry.onQuery(value);}} prepareLabel="生成补充检索式" onPrepare={()=>{setPreparedKey(planKey);entry.onPrepare(domainSupplementPrompt({goal,focus,kinds,expanded}));}} prepareDisabled={!focus.trim()||!kinds.length}/>
+    <ResearchEntry {...entry} onResume={()=>entry.onResume(focus)} embedded currentResult={{kind:'brief'}} query={ready?entry.query:''} search={ready?entry.search:null} proposal={fresh?entry.proposal:null} onQuery={value=>{setManual(true);entry.onQuery(value);}} prepareLabel="生成补充检索式" onPrepare={()=>{entry.onRetrievalOptions(setRetrievalRange({...entry.retrievalOptions,type:kinds.some(k=>k!=='历年综述')?'any':'reviews'},'all'));setPreparedKey(planKey);entry.onPrepare(domainSupplementPrompt({goal,focus,kinds,expanded}));}} prepareDisabled={!focus.trim()||!kinds.length}/>
   </div>;
   return inline?content:<Modal title="补充综述与代表性研究" onClose={onClose}>{content}</Modal>;
 }

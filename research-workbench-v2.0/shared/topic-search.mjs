@@ -13,7 +13,8 @@ export function topicQueryState(project, artifact) {
   const task = proposals.at(-1), search = searchesForArtifact(project, artifact).at(-1);
   const proposal = task ? { ...task.proposal, taskId: task.id } : null;
   const searchedLast = search && (!task || search.searchedAt > (task.finishedAt ?? task.createdAt));
-  return { proposal, query: (searchedLast ? search.query : proposal?.query ?? search?.query) ?? '',
+  const searchQuery = search?.baseQuery ?? search?.query;
+  return { proposal, query: (searchedLast ? searchQuery : proposal?.query ?? searchQuery) ?? '',
     scopeMode: (searchedLast ? search.scopeMode : task?.input?.searchScopeMode ?? search?.scopeMode) ?? 'focused' };
 }
 
