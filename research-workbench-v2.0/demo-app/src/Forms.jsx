@@ -16,13 +16,13 @@ export function ModelForm({ capabilities, onClose, onSaved, onTest, busy }) {
     <label>API 密钥<input aria-label="API 密钥" type="password" autoComplete="new-password" value={key} onChange={e => { setKey(e.target.value); setSaved(false); }} placeholder={capabilities?.models.hasKey ? '留空保留同一服务的现有密钥' : '仅在本机填写'}/></label>
     <label>思考模式<select aria-label="思考模式" value={selectedEffort} onChange={e=>{setEffort(e.target.value);setSaved(false);}}>{reasoning.options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select></label>
     <p className="muted">{reasoning.note} {reasoning.source&&<a href={reasoning.source} target="_blank" rel="noreferrer">官方说明 ↗</a>}</p>
-    <label>每批整理篇数<input aria-label="每批整理篇数" type="number" min="50" step="1" required value={batchSize} onChange={e=>{setBatchSize(e.target.value);setSaved(false);}}/></label>
-    <p className="muted">默认 50 篇。最后一批可以不足；只有真实输入额度不足时才进一步拆分，不限制总篇数。设置对下一次开始或接续的任务生效。</p>
+    <label>每批整理篇数<input aria-label="每批整理篇数" type="number" min="1" step="1" required value={batchSize} onChange={e=>{setBatchSize(e.target.value);setSaved(false);}}/></label>
+    <p className="muted">默认 50 篇，可按模型能力调小。输入额度或实际输出容量不足时会拆分，保留已完成整理，完整处理所选材料。设置对下一次开始或接续的任务生效。</p>
     <details><summary>服务商的材料处理能力（可选）</summary><p className="muted">仅在服务商明确给出输入额度时填写。超出单次额度会完整分批整理并保留覆盖记录；不填时不设置材料数量限制。</p><label>单次实际可用输入额度（tokens）<input aria-label="模型输入额度" type="number" min="1" step="1" value={inputLimit} onChange={e => setInputLimit(e.target.value)} placeholder="按服务商的真实限制填写"/></label></details>
     <label className="check-label"><input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)}/>启用这项模型服务</label>
-    <p className="muted">Demo 不设固定调用次数上限，累计请求 {capabilities?.budget.used ?? 0} 次。连接测试、失败与取消的调用均保留记录；仅文献批次格式或覆盖错误会自动补救一次；网络与服务错误不会自动重发。费用按实际返回记录，未知时显示未知。</p>
+    <p className="muted">Demo 不设固定调用次数上限，累计请求 {capabilities?.budget.used ?? 0} 次。连接测试、失败与取消的调用均保留记录；文献格式或覆盖错误最多补救一次；输出容量不足时拆分剩余材料，网络与服务错误不会自动重发。费用按实际返回记录，未知时显示未知。</p>
     {error && <p role="alert" className="error-text">{error}</p>}{saved && <p role="status">配置已保存，可以开始测试或返回课题。</p>}
-    <div className="modal-actions"><button type="button" disabled={!saved || !enabled || busy} onClick={onTest}>测试连接（1 次）</button><button className="primary" disabled={saving}>{saving ? '正在保存…' : '保存配置'}</button></div>
+    <div className="modal-actions"><button type="button" disabled={!onTest || !saved || !enabled || busy} onClick={onTest}>测试连接（1 次）</button><button className="primary" disabled={saving}>{saving ? '正在保存…' : '保存配置'}</button></div>
   </form></Modal>;
 }
 export function SourceForm({ busy, onClose, onSubmit, error }) {

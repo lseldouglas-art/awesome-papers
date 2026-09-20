@@ -116,7 +116,16 @@ async function readJson(response) {
 
 // A long synthesis must not wait for the entire JSON before the connection carries
 // data. Collect SSE transport privately; only a complete, validated result is saved.
-async function readEvents(response, configuredModel) {
+function responseSnapshot(text, model, usage, finishReason = null) {
+  const counts = {};
+  for (const key of ['prompt_tokens', 'completion_tokens', 'total_tokens'])
+    counts[key] = Number.isSafeInteger(usage?.[key]) && usage[key] >= 0 ? usage[key] : null;
+  return { text, model: typeof model === 'string' && MODEL_PATTERN.test(model) ? model : null,
+    usage: Object.values(counts).some(v => v !== null) ? counts : null, finishReason,
+    outputStatus: 'incomplete_unvalidated_output' };
+}
+
+async function readEvents(response, configuredModel, onSnapshot) {
   if (!response.body?.getReader) throw invalidResponse();
   const reader = response.body.getReader(), decoder = new TextDecoder('utf-8', { fatal: true });
   let buffer = '', content = '', model = configuredModel, usage, finish = null, done = false, bytes = 0;
@@ -137,6 +146,7 @@ async function readEvents(response, configuredModel) {
       if (content.length > 200_000) throw invalidResponse();
       if (choice.finish_reason != null) finish = choice.finish_reason;
     }
+    onSnapshot(responseSnapshot(content, model, usage, finish));
   };
   try {
     while (!done) {
@@ -226,9 +236,10 @@ export function createModelAdapter(config = {}, { fetchImpl = globalThis.fetch }
       // https://docs.bigmodel.cn/cn/guide/capabilities/struct-output
       // Enable provider-supported JSON transport for structured research calls.
       // Semantic, coverage and citation validation still run after generation.
-      const requestOptions = { ...generationOptions, ...(generationOptions.stream && /JSON/i.test(instruction) ? { response_format: { type: 'json_object' } } : {}) };
+      const requestOptions = { ...generationOptions, ...(generationOptions.stream && (input.outputSchema || /JSON/i.test(instruction)) ? { response_format: { type: 'json_object' } } : {}) };
       if (signal?.aborted) throw failure('model_cancelled', 499, '模型请求已取消。');
       const startedAt = new Date().toISOString();
+      let received = null;
       const controller = new AbortController();
       let rejectAbort;
       let stopped = false;
@@ -267,10 +278,13 @@ export function createModelAdapter(config = {}, { fetchImpl = globalThis.fetch }
             throw failure('model_http_error', 502, `模型服务未接受本次请求（HTTP ${status}）。请核对接口地址和模型名。`);
           }
           let body;
-          try { body = response.headers?.get?.('content-type')?.includes('text/event-stream') ? await readEvents(response, settings.model) : await readJson(response); } catch (error) {
+          try { body = response.headers?.get?.('content-type')?.includes('text/event-stream') ? await readEvents(response, settings.model, value => { received = value; }) : await readJson(response); } catch (error) {
             if (error instanceof AdapterError) throw error;
             throw invalidResponse();
           }
+          const message = body?.choices?.[0]?.message;
+          if (typeof message?.content === 'string' && message.content.length <= 200_000 && !message.refusal)
+            received = responseSnapshot(message.content, body.model ?? settings.model, body.usage, body.choices[0].finish_reason ?? null);
           return parseResult(body, settings.model);
         })();
         const result = await Promise.race([operation, aborted]);
@@ -280,8 +294,12 @@ export function createModelAdapter(config = {}, { fetchImpl = globalThis.fetch }
             startedAt, completedAt: new Date().toISOString() },
           usage: result.usage, cost: { status: 'unknown', amount: null } };
       } catch (error) {
-        if (error instanceof AdapterError) throw error;
-        throw failure('model_network_error', 502, '与模型服务的连接中断。已有材料保留；请检查网络后继续，本次不会自动重发。');
+        const errorToThrow = error instanceof AdapterError ? error
+          : failure('model_network_error', 502, '与模型服务的连接中断。已有材料保留；请检查网络后继续，本次不会自动重发。');
+        // Only assistant answer bytes and validated usage, never HTTP error bodies,
+        // credentials or private reasoning. A partial answer is not a result.
+        if (received) errorToThrow.responseSnapshot = received;
+        throw errorToThrow;
       } finally {
         controller.abort();
         clearTimeout(timer);

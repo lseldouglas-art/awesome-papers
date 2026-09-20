@@ -173,7 +173,7 @@ test('partial metadata failure resumes only missing papers; prior initial and lo
   assert.deepEqual(second.investigation.phases[0], first.investigation.phases[0]); assert.equal(second.investigation.coverage.acquired.length, 4);
 });
 
-test('valid per-paper outputs inside a malformed batch are retained and reused on retry', async t => {
+test('valid per-paper outputs are retained while only omitted papers receive one bounded repair', async t => {
   let once = true, processed = [];
   const f = await fixture(t, { model: async input => {
     if (input.instruction.includes('逐篇完整整理')) {
@@ -181,9 +181,8 @@ test('valid per-paper outputs inside a malformed batch are retained and reused o
       if (once) { once = false; papers.pop(); } return envelope({ framework: LANDSCAPE_FRAMEWORK, papers });
     } return generate(input);
   } });
-  const first = await done(f, await start(f)); assert.equal(first.status, 'failed');
-  const second = await done(f, await start(f, { retryTaskId: first.id }));
-  assert.equal(second.status, 'completed', second.error); assert.deepEqual(processed, [['R1', 'R2'], ['R2']]);
+  const first = await done(f, await start(f));
+  assert.equal(first.status, 'completed', first.error); assert.deepEqual(processed, [['R1', 'R2'], ['R2']]);
 });
 
 test('earlier complete material extraction is reused but its relevance is reconsidered for the new question', async t => {

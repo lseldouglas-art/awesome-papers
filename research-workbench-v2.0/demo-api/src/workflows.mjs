@@ -101,12 +101,19 @@ export function resolveMaterialCitation(citation, materials) {
   requireThat(source && (!citation.accessId || citation.accessId === source.accessId) && (!citation.sourceId || citation.sourceId === source.sourceId),
     'invalid_citation', '引用不属于本次实际选中的访问快照。', 502);
   const passage = citation.passage ? sourcePassages(source.text).find(p => p.id === citation.passage) : null;
-  const start = passage?.start ?? (nonempty(citation.quote) ? source.text.indexOf(citation.quote) : -1);
-  const quote = passage?.text ?? citation.quote;
+  // Older prompts asked for quotes; some providers put that exact quote in
+  // passage. Accept only a unique verbatim excerpt, never an unknown P locator.
+  const legacyQuote = !passage && nonempty(citation.passage) && !/^P\d+\b/.test(citation.passage)
+    && !citation.quote && source.text.indexOf(citation.passage) >= 0
+    && source.text.indexOf(citation.passage) === source.text.lastIndexOf(citation.passage) ? citation.passage : null;
+  requireThat(!citation.passage || passage || legacyQuote, 'invalid_citation', '引用段落编号或摘录无法精确定位。', 502);
+  const quote = passage?.text ?? legacyQuote ?? citation.quote;
+  const start = passage?.start ?? (nonempty(quote) ? source.text.indexOf(quote) : -1);
   requireThat(start >= 0 && nonempty(quote) && source.text.slice(start, start + quote.length) === quote && (!citation.quote || citation.quote === quote),
     'invalid_citation', '引用片段无法在实际访问文本中精确定位。', 502);
   return { ref: source.ref, sourceId: source.sourceId, accessId: source.accessId, level: source.level ?? 'unknown',
-    passage: passage?.id ?? null, quote, start, end: start + quote.length, verification: 'exact_excerpt_only' };
+    passage: passage?.id ?? null, quote, start, end: start + quote.length, verification: 'exact_excerpt_only',
+    ...(legacyQuote ? { locatorAudit: { input: citation.passage, resolvedBy: 'unique_exact_legacy_excerpt', contentRewritten: false } } : {}) };
 }
 
 // Models sometimes write the explicitly enumerated locator "P2、P3". Expand
@@ -511,10 +518,33 @@ export function recoverPaperBatch(text, batch) {
     const prefix = text.match(/^\s*`*(?:json)?\s*\{\s*"framework"\s*:\s*"domain-landscape-v1"\s*,\s*"papers"\s*:\s*\[/i);
     if (prefix) {
       const remainder=text.slice(prefix[0].length);
+      // Recover a valid compact prefix without guessing the truncated tail.
+      let offset = prefix[0].length;
+      while (offset < text.length) {
+        offset += text.slice(offset).match(/^\s*/)[0].length;
+        if (text[offset] !== '{') break;
+        const start = offset, stack = []; let quoted = false, escaped = false, end = null;
+        for (; offset < text.length; offset++) {
+          const ch = text[offset];
+          if (quoted) { if (escaped) escaped = false; else if (ch === '\\') escaped = true; else if (ch === '"') quoted = false; continue; }
+          if (ch === '"') quoted = true;
+          else if (ch === '{' || ch === '[') stack.push(ch);
+          else if (ch === '}' || ch === ']') {
+            if (stack.pop() !== (ch === '}' ? '{' : '[')) break;
+            if (!stack.length) { end = offset + 1; break; }
+          }
+        }
+        if (end === null) break;
+        try { candidates.push({ value: JSON.parse(text.slice(start, end)), rawStart: start }); } catch { break; }
+        offset = end + text.slice(end).match(/^\s*/)[0].length;
+        if (text[offset] !== ',') break;
+        offset++;
+      }
       const starts=[...remainder.matchAll(/(?:^|\n)[ \t]*(\{\s*"ref"\s*:\s*"R\d+"\s*,\s*"fields"\s*:)/g)]
         .map(match=>prefix[0].length+match.index+match[0].indexOf('{'));
       for (let i=0;i<starts.length;i++) {
         const start=starts[i],end=starts[i+1]??text.length;
+        if (candidates.some(c => c.rawStart === start)) continue;
         try { const value=extractLeadingJsonObject(text.slice(start,end)).value; candidates.push({value,rawStart:start}); }
         catch { /* Keep this record unresolved; never guess missing values. */ }
       }

@@ -19,6 +19,19 @@ const rejectCode = (code, status) => (error) => {
   return true;
 };
 
+test('length-limited and interrupted streams expose only received answer bytes and valid usage for recovery', async () => {
+  for (const finish of ['length', null]) {
+    const packet = { model: config.model, choices: [{ index: 0, delta: { content: '{"papers":[', reasoning_content: 'private reasoning' }, finish_reason: finish }],
+      usage: { prompt_tokens: 7, completion_tokens: 8, total_tokens: 15 } };
+    const adapter = createModelAdapter(config, { fetchImpl: async () => new Response(`data: ${JSON.stringify(packet)}\n\n${finish ? 'data: [DONE]\n\n' : ''}`, { headers: { 'content-type': 'text/event-stream' } }) });
+    await assert.rejects(adapter.generate(request), e => {
+      assert.equal(e.code, 'model_incomplete_response'); assert.equal(e.responseSnapshot.text, '{"papers":[');
+      assert.equal(e.responseSnapshot.finishReason, finish); assert.equal(e.responseSnapshot.usage.total_tokens, 15);
+      assert.ok(!JSON.stringify(e).includes('private reasoning')); return true;
+    });
+  }
+});
+
 test('supported GLM structured requests enable JSON mode without changing other providers or connection tests', async () => {
   for (const [settings, instruction, expected] of [
     [{ ...config, baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'GLM-5.3-Flash' }, '只返回 JSON 对象。', { type: 'json_object' }],

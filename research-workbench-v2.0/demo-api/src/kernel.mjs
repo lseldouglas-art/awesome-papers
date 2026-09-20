@@ -281,6 +281,7 @@ export function createQuestionComparison(project, inputValidated, context = {}) 
   // inputArtifactId, to prevent changing its type or replacing its contents.
   const { artifact, revision, result } = createArtifact(p, 'questions', '候选问题比较', blocks, accessIds, context,
     { citations, inputContext: context.inputArtifactId ? { artifactId: context.inputArtifactId, revisionId: context.inputRevisionId, basis: 'recorded_task_input' } : null,
+      candidateRequest: clone(context.candidateRequest ?? null),
       questionRefs: questions.map(q => ({ itemId: q.item.id, revisionId: q.revision.id })), explanation: inputValidated.explanation ?? '', next: inputValidated.next ?? '' });
   for (const q of questions) {
     q.item.origin = { ...q.item.origin, artifactId: artifact.id, revisionId: revision.id, resultId: result.id, blockId: q.item.id };

@@ -24,7 +24,7 @@ export class ModelSettings {
       config.reasoningEffort = body.reasoningEffort ?? (sameService ? this.config.reasoningEffort : null) ?? profile.defaultValue;
       requireThat(profile.options.some(option => option.value === config.reasoningEffort), 'invalid_configuration', '所选思考档位不受当前模型支持，请重新选择。');
       config.paperBatchSize = body.paperBatchSize ?? (sameService ? this.config.paperBatchSize : null) ?? DEFAULT_PAPER_BATCH_SIZE;
-      requireThat(Number.isSafeInteger(config.paperBatchSize) && config.paperBatchSize >= 50, 'invalid_configuration', '每批文献数应为至少 50 的整数（最后一批可以不足）。');
+      requireThat(Number.isSafeInteger(config.paperBatchSize) && config.paperBatchSize >= 1, 'invalid_configuration', '每批文献数应为正整数；只影响单次整理，不限制总篇数。');
       if (body.contextLimits !== undefined && body.contextLimits !== null) {
         const limits = materialContextLimits({ contextLimits: body.contextLimits });
         config.contextLimits = { maxInputTokens: limits.maxInputTokens, maxOutputTokens: limits.maxOutputTokens, contextWindowTokens: limits.contextWindowTokens };

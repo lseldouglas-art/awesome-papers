@@ -152,18 +152,7 @@ export async function executeInvestigation(service, task, config, signal) {
         const covered = reusablePaperExtractions(list, materials).accessIds.size;
         t.progress = `初判可读 · 正在核查所选材料 ${covered} / ${materials.length} 份`;
       }),
-      run: async ({ batch }) => {
-        const output = await service.invokeModel(task, config, batch.materials, instruction, signal, 'model.investigation-extraction', batch.segments);
-        try { return { ...validatePaperBatchOutput(output.text, batch), provenance: output.provenance, usage: output.usage, cost: output.cost }; }
-        catch (error) {
-          const retained = recoverPaperBatch(output.text, batch);
-          if (retained.papers.length) await write((p, t) => t.investigation.extractionRecords.push({
-            batchId: `${batch.id}:retained:${output.provenance.requestId}`, fingerprint: batch.fingerprint, status: 'completed',
-            segments: retained.papers.map(p => p.segment), attempts: [], toolRuns: [], result: retained,
-            recovery: { sourceCallId: output.provenance.requestId, contentRewritten: false } }));
-          throw error;
-        }
-      } });
+      run: ({ batch }) => service.extractPaperUnit(task, config, batch, instruction, signal, true) });
     return combinePaperCoverage([...reusable.results, ...batches.results], materials);
   };
   const local = await extract(task.input.materials);
@@ -177,8 +166,8 @@ export async function executeInvestigation(service, task, config, signal) {
       accessId: p.accessId, excerpts: [...passages].map(([passage, quote]) => ({ passage, quote })), relevance: '按本轮问题重新判断，不沿用旧任务相关性结论' };
   });
   const challenge = await phase('challenge', [], `审阅下面初判及全部已选材料整理，找到一个最可能改变推荐的具体薄弱点。先判断已存材料能否回答；仅仍需外部证据时 needsSearch=true，并给一个针对性的 PubMed 检索式。不得把主观资源未知变成文献能证明的事实。
-返回 JSON {point,why,wouldChange,needsSearch,query,findings:[{text,status,citations:[{ref,quote}]}],fulltext:null或{accessId,reason}}。只有决定性方法、数值或强主张需要核查时，才指定一篇当前实际访问材料作为关键全文；大范围筛选不要求全文。
-初判：${JSON.stringify(initial)}\n逐篇整理（引用只能用其中真实quote；不是新原始证据）：${JSON.stringify(digest(local, task.input.materials))}`,
+返回 JSON {point,why,wouldChange,needsSearch,query,findings:[{text,status,citations:[{ref,passage:"P编号"}]}],fulltext:null或{accessId,reason}}。只有决定性方法、数值或强主张需要核查时，才指定一篇当前实际访问材料作为关键全文；大范围筛选不要求全文。
+初判：${JSON.stringify(initial)}\n逐篇整理（引用只用其中真实ref与P编号；不是新原始证据）：${JSON.stringify(digest(local, task.input.materials))}`,
     { materials: task.input.materials });
   let materials = task.input.materials;
   if (challenge.needsSearch && input.options.search === 'pubmed') {
@@ -252,7 +241,7 @@ export async function executeInvestigation(service, task, config, signal) {
   const revised = await phase('revised', [], `${judgmentSchema}，另可提供 protocol:{${Object.keys(protocolFields).join(',')}}，均为拟议文本，资料不足的字段写具体未知；不适用留空。用户无方案意图时可为null。
 claims 必须分别覆盖以下key：${JSON.stringify(investigationSections)}。各段解释实际研究之间的差异；没有合理备选不强凑路线。changed 要明确哪些依据增强、削弱或推翻初判及设计含义，无法解决则说明原因。
 初判：${JSON.stringify(initial)}\n最强质疑：${JSON.stringify(challenge)}\n关键全文核对：${JSON.stringify((await read()).fulltext ?? { performed: false, allowed: input.options.allowFulltext, unresolvedMethodsRemainUnknown: true })}\n专项检索的实际边界：${JSON.stringify(search.length ? search.map(({ plan, accessByPmid, ...rest }) => rest) : { performed: false, reason: input.options.search === 'saved' ? '本轮只获准使用所选材料' : '关键问题已在材料中核查', cannotInferAbsence: true })}
-全部材料整理（引用用真实quote）：${JSON.stringify(digest(all, materials))}`, { materials });
+全部材料整理（引用只用真实ref与P编号）：${JSON.stringify(digest(all, materials))}`, { materials });
   await write((p, t, s) => {
     const a = p.artifacts[task.artifactId], id = uid('result');
     const blocks = revised.claims.map((c, i) => ({ id: `investigation-${i}`, type: 'paragraph', headline: c.headline || investigationSections[c.key], text: c.text, informationStatus: c.status }));

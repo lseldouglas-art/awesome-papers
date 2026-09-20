@@ -51,7 +51,8 @@ test('model settings advertise only supported effort values and persist effort a
  await settings.save({...body,apiKey:''});assert.equal(settings.config.reasoningEffort,'high');assert.equal(settings.config.paperBatchSize,100);
  assert.doesNotMatch(JSON.stringify(view),/private-test-key/);
  await assert.rejects(settings.save({...body,reasoningEffort:'medium'}),e=>e.code==='invalid_configuration');
- await assert.rejects(settings.save({...body,paperBatchSize:12}),e=>e.code==='invalid_configuration');
+ assert.equal((await settings.save({...body,paperBatchSize:12})).paperBatchSize,12);
+ for(const invalid of [0,-1,1.5])await assert.rejects(settings.save({...body,paperBatchSize:invalid}),e=>e.code==='invalid_configuration');
  assert.deepEqual(reasoningProfile('other','https://other.test').options.map(o=>o.value),['default']);
 });
 

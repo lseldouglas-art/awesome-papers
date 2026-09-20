@@ -1,3 +1,5 @@
+import { ReasoningControl } from './ReasoningControl.jsx';
+import { questionRequest } from '../../shared/question-request.mjs';
 import { useState } from 'react';
 import { investigationTasks, investigationSections, recommendationLabels, investigationPhaseLabels } from '../../shared/question-investigation.mjs';
 import { protocolFields } from '../../shared/research-continuity.mjs';
@@ -28,7 +30,7 @@ function Judgment({ phase, project, onSource }) {
     {v.next && <p><b>接下来：</b>{v.next}</p>}
   </div>;
 }
-export function ResearchPartner({ project, artifact, target, accessIds, disabled, activeTask, onRun, onStop, onCommand, onSource, onTarget, model }) {
+export function ResearchPartner({ project, artifact, target, accessIds, disabled, activeTask, onRun, onStop, onCommand, onSource, onTarget, model, reasoning, onConfigure }) {
   const key = `rw2:partner:v1:${project.id}:${target.id}:${target.revisionId}`;
   const [message, setMessage] = useState(() => { try { return localStorage.getItem(key) ?? ''; } catch { return ''; } });
   const [search, setSearch] = useState('saved'), [allowFulltext, setAllowFulltext] = useState(false), [options, setOptions] = useState(() => setRetrievalRange({ type: 'any' }, 'all'));
@@ -49,6 +51,7 @@ export function ResearchPartner({ project, artifact, target, accessIds, disabled
     if (started) update('');
   });
   const revised = phases.find(v => v.key === 'revised'), latestPhase = revised ?? phases.at(-1);
+  const candidateRequest = questionRequest(message, artifact.kind, project.researchResults[artifact.draft.resultId]?.candidateRequest);
   const blocked = disabled || working || Boolean(activeTask);
   return <section className="research-partner" aria-label="围绕当前题目与方案研判">
     <header className="partner-target"><small>正在讨论 · {target.kind === 'protocol' ? '研究方案' : '候选题目'} · 第 {revision?.number ?? 1} 版</small><h3>{target.title || target.text}</h3>
@@ -66,9 +69,10 @@ export function ResearchPartner({ project, artifact, target, accessIds, disabled
           {search === 'pubmed' && <><label>年份<select value={options.range} disabled={blocked} onChange={e => setOptions(setRetrievalRange(options, e.target.value))}><option value="all">全部年份</option><option value="recent5">最近五年</option></select></label>
             <label>文献类型<select value={options.type} disabled={blocked} onChange={e => setOptions({ ...options, type: e.target.value })}><option value="any">所有研究类型</option><option value="reviews">综述</option><option value="systematic">系统综述或荟萃分析</option></select></label>
             <label>获取数量<input aria-label="补查获取数量" disabled={blocked} value={options.limit === 'all' ? '全部' : options.limit} onChange={e => setOptions({ ...options, limit: e.target.value === '全部' ? 'all' : Number(e.target.value) })}/></label><small>填“全部”或具体数量；按发表时间排序。只核查一个最可能改变建议的问题，不额外限制论文数。</small></>}
-          <p>当前科研模型：{model?.model ?? '读取配置中'}。任务按已配置档位运行，费用以实际记录为准。</p>
+          <p>当前科研模型：{model?.model ?? '读取配置中'}。可在发送前选择思考档位，费用以实际记录为准。</p>
         </details>
-        <button className="primary" disabled={blocked || !message.trim() || search === 'pubmed' && Boolean(retrievalScopeError(options))}>给出初判并核查</button>
+        {candidateRequest && <p className="composer-request-hint">将重新生成{candidateRequest.purpose==='review'?'综述':'研究'}候选 · 原候选保留</p>}
+        <div className="partner-submit-row"><ReasoningControl model={model} {...reasoning} disabled={blocked} onConfigure={onConfigure}/><button className="primary" disabled={blocked || !message.trim() || !candidateRequest && search === 'pubmed' && Boolean(retrievalScopeError(options))}>{candidateRequest ? '重新推荐候选' : '给出初判并核查'}</button></div>
       </form>
       {error && <p role="alert">{error}</p>}
       {activeTask?.mode === 'question-investigation' && activeTask.input.itemTarget?.itemId === target.id && <div className="partner-progress" role="status"><p>{activeTask.progress}</p><button onClick={() => execute(() => onStop(activeTask))}>停止本轮，保留已完成内容</button></div>}
