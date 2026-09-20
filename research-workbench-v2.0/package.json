@@ -1,6 +1,6 @@
 {
   "name": "research-workbench-v2",
-  "version": "0.34.2",
+  "version": "0.34.3",
   "private": true,
   "type": "module",
   "engines": {
@@ -15,6 +15,7 @@
     "start": "node --env-file-if-exists=.env --use-env-proxy demo-app/server.mjs --production",
     "build": "npm run build --workspace demo-app",
     "test": "node --test --test-reporter=spec demo-api/test/*.test.mjs",
-    "check": "npm test && npm run build"
+    "check": "npm test && npm run build",
+    "test:agent-smoke": "node scripts/agent-runtime-smoke.mjs"
   }
 }

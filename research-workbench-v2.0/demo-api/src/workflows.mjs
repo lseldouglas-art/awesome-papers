@@ -495,7 +495,14 @@ export function reusablePaperExtractions(records, materials) {
     const candidates = records.filter(r => r.status === 'completed' && r.result?.papers?.some(p => p.accessId === material.accessId));
     const groups = [...candidates.slice().reverse().map(r => [r]), candidates];
     for (const group of groups) {
-      const papers = group.flatMap(r => r.result.papers.filter(p => p.accessId === material.accessId));
+      const bySegment = new Map();
+      for (const record of group) for (const paper of record.result.papers.filter(p => p.accessId === material.accessId)) {
+        // A checkpoint may contain both the independent recovered unit and its
+        // completed parent batch. They cover the same immutable segment once.
+        const key = JSON.stringify([paper.sourceId, paper.accessId, paper.segment?.start, paper.segment?.end, paper.segment?.totalLength]);
+        bySegment.set(key, paper);
+      }
+      const papers = [...bySegment.values()];
       try { combinePaperCoverage([{papers}], [material]); }
       catch (error) { if (error instanceof DomainError) continue; throw error; }
       results.push({papers}); ids.add(material.accessId); group.forEach(r => used.add(r.batchId)); break;

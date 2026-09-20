@@ -11,6 +11,8 @@ export function ModelForm({ capabilities, onClose, onSaved, onTest, busy }) {
   const [error, setError] = useState(''), [saving, setSaving] = useState(false), [saved, setSaved] = useState(false);
   const submit = async e => { e.preventDefault(); setError(''); setSaving(true); try { await api.request('/api/model-settings', { method: 'POST', body: { baseUrl: url, model, apiKey: key, enabled, reasoningEffort:selectedEffort, paperBatchSize:Number(batchSize), contextLimits: inputLimit === '' ? null : { maxInputTokens: Number(inputLimit) } } }); setKey(''); setSaved(true); await onSaved(); } catch (e) { setError(e.message); } finally { setSaving(false); } };
   return <Modal title="本机模型配置" onClose={onClose}><p>使用你的兼容 API。密钥只保存在本机服务的私有配置中，不写入项目、浏览器缓存或导出文件。</p><form onSubmit={submit}>
+    {capabilities?.agentPilot?.enabled && <p role="status">选题与方案研判正在使用独立试点：{capabilities.agentPilot.model} · {capabilities.agentPilot.effort}。以下配置用于常规任务和逐篇整理，试点以本机单独配置为准。</p>}
+    {capabilities?.agentPilot?.invalid && <p role="alert" className="error-text">科研 Agent 试点配置无效，请修正或关闭本机试点配置后继续选题研判。</p>}
     <label>服务地址<input aria-label="模型服务地址" required type="url" placeholder="https://你的服务地址/v1" value={url} onChange={e => { setUrl(e.target.value); setSaved(false); }}/></label>
     <label>模型名<input aria-label="模型名" required value={model} onChange={e => { setModel(e.target.value); setSaved(false); }}/></label>
     <label>API 密钥<input aria-label="API 密钥" type="password" autoComplete="new-password" value={key} onChange={e => { setKey(e.target.value); setSaved(false); }} placeholder={capabilities?.models.hasKey ? '留空保留同一服务的现有密钥' : '仅在本机填写'}/></label>

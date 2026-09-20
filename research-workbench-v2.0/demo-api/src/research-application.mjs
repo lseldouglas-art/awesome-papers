@@ -1,5 +1,6 @@
 import { extractPaperBatch, learnedPaperCallSize } from './paper-extraction.mjs';
 import { outputContractFor, validateModelContract } from './model-contracts.mjs';
+import { loadAgentPilot, usesAgentPilot, createAgentPilot, agentPilotIdentity } from './agent-pilot.mjs';
 import { questionRequest, candidateInstructions } from '../../shared/question-request.mjs';
 import { reasoningProfile } from '../../shared/model-analysis.mjs';
 import {continuitySnapshot,continuitySignature,hasContinuity,continuityChanged} from '../../shared/research-continuity.mjs';
@@ -58,6 +59,7 @@ export class ResearchApplication extends ResearchService {
   applyScreeningPolicy(p,a,operationId) { return applyTopicScreeningPolicy(p,a,operationId); }
   constructor(...args) {
     super(...args);
+    this.agentRuntimeFactory = args[1]?.agentRuntimeFactory ?? createAgentPilot;
     this.taskContext = new AsyncLocalStorage();
     const pubmed = this.pubmed;
     this.pubmed = Object.create(pubmed);
@@ -70,6 +72,7 @@ export class ResearchApplication extends ResearchService {
 
   async initialize() {
     await super.initialize();
+    this.agentPilot = await loadAgentPilot(this.store.directory);
     await this.store.update(s => {
       recoverWritingOutputs(s);
       for (const p of Object.values(s.projects)) {
@@ -88,6 +91,8 @@ export class ResearchApplication extends ResearchService {
 
   async capabilities() {
     return { ...await super.capabilities(), storage: this.store.filename?.endsWith('.sqlite') ? 'sqlite' : 'local_file',
+      agentPilot: { enabled: this.agentPilot?.enabled === true, invalid: this.agentPilot?.invalid === true,
+        runtime: 'claude-agent-sdk', model: this.agentPilot?.model ?? null, provider: this.agentPilot?.provider ?? null, effort: this.agentPilot?.effort ?? null },
       workflows: Object.values(workflowRegistry), contextLimits: materialContextLimits(this.settings.config) };
   }
 
@@ -251,7 +256,9 @@ export class ResearchApplication extends ResearchService {
       const task = { id: uid('task'), requestId, projectId, artifactId: a.id, mode: body.mode, status: 'queued', createdAt: now(), progress: '准备本步工作',
         input, inputFingerprint: fingerprint(input), promptVersion: `${promptVersionFor(body.mode)}:${body.mode}`, provider, model: ['retrieve', 'brief', 'topic-collect'].includes(body.mode) ? null : config.model,
         analysisSettings: { reasoningEffort: config.reasoningEffort }, requestedMode: submittedBody.mode,
+        agentRuntime: ['compare', 'question-investigation'].includes(body.mode) ? agentPilotIdentity(this.agentPilot) : null,
         calls: [], attempts: [], toolRuns: [], paperBatchRecords: clone(previous?.paperBatchRecords ?? []), maxPaperCallMaterials: previous?.maxPaperCallMaterials ?? null, retryOfTaskId: previous?.id ?? null, cost: { status: 'unknown', amount: null } };
+      if (previous) requireThat(JSON.stringify(previous.agentRuntime ?? null) === JSON.stringify(task.agentRuntime), 'invalid_retry', '科研 Agent 设置已变更，请新建一轮保留准确对照。', 409);
       task.attempts.push(createTaskAttempt(task.id, { previousAttemptId: previous?.attempts?.at(-1)?.id ?? null, inputFingerprint: task.inputFingerprint, provider, model: task.model }));
       if (body.mode === 'question-investigation' && previous?.investigation) task.investigation = clone(previous.investigation);
       p.researchTasks[task.id] = task;
@@ -607,22 +614,33 @@ export class ResearchApplication extends ResearchService {
     let tool, receivedOutput;
     const contract = outputContractFor(name);
     const contractRef = contract ? { name: contract.name, version: contract.version, fingerprint: contract.fingerprint } : null;
+    const pilot = usesAgentPilot(this.agentPilot, task.mode, name);
+    requireThat(!this.agentPilot?.invalid || !usesAgentPilot({ enabled: true }, task.mode, name), 'invalid_configuration', '科研 Agent 试点配置不合法，请修正或关闭后继续。', 503);
+    // Tool-readable sources come from the task's exact access references, never
+    // arbitrary model-supplied paths or a global project search.
+    const runtimeMaterials = pilot && !materials.length ? await this.store.read(s => materialPacket(s.projects[task.projectId], [...new Set(inputRefs.map(r => r.accessId).filter(Boolean))])) : materials;
+    const runtimeConfig = pilot ? this.agentPilot : config;
     const callId = uid('call'), promptVersion = `${promptVersionFor(task.mode)}:${task.mode}:${name}${task.mode==='connection'?'':`:${RESEARCH_LANGUAGE_VERSION}`}`;
     const promptFingerprint = fingerprint({ instruction, materials });
     await this.store.update(s => {
       const p = ensureKernel(s.projects[task.projectId]), t = p.researchTasks[task.id]; requireThat(!isTerminalRun(t.status), 'cancelled', '本步已停止。', 409);
       tool = transitionRun(createToolRun(t.attempts.at(-1), { name, inputRefs }), 'running', { promptVersion, promptFingerprint, callId }); t.toolRuns.push(tool);
-      s.modelCalls.push({ id: callId, taskId: task.id, projectId: task.projectId, provider: task.provider, model: task.model, purpose: name,
+      s.modelCalls.push({ id: callId, taskId: task.id, projectId: task.projectId, provider: pilot ? runtimeConfig.provider : task.provider, model: runtimeConfig.model, purpose: name,
+        runtime: pilot ? 'claude-agent-sdk' : 'direct_model_api', runtimeReadReceipts: [],
         promptVersion, promptFingerprint, languageStandard:task.mode==='connection'?null:RESEARCH_LANGUAGE_VERSION, inputRefs: clone(inputRefs), materialRefs: materials.map(({ sourceId, accessId }) => ({ sourceId, accessId })),
         outputContract: contractRef,
-        configuredOptions: { model: config.model, reasoningEffort: config.reasoningEffort ?? null, paperBatchSize: config.paperBatchSize ?? 50, contextLimits: clone(config.contextLimits ?? null) },
+        configuredOptions: { model: runtimeConfig.model, reasoningEffort: pilot ? runtimeConfig.effort : config.reasoningEffort ?? null, paperBatchSize: config.paperBatchSize ?? 50, contextLimits: clone(config.contextLimits ?? null) },
         ...(name==='model.topic-screen'?{screeningInput:{instruction,materials:clone(materials)}}:{}),
         inputCharacters: instruction.length + JSON.stringify(materials).length, status: 'running', startedAt: now(), usage: null, cost: { status: 'unknown', amount: null } });
       t.calls.push(callId);
       event(p, t, 'model_call_started', { callId, toolRunId: tool.id, purpose: name, promptVersion, promptFingerprint });
     });
     try {
-      const generated = await this.modelFactory(config, { fetchImpl: this.fetchImpl }).generate({ requestId: callId, instruction, materials, signal, outputSchema: contract?.schema });
+      const runtime = pilot ? this.agentRuntimeFactory(runtimeConfig, { directory: this.store.directory,
+        onRead: receipt => this.store.update(s => { signal.throwIfAborted();
+          const call = s.modelCalls.find(c => c.id === callId); call.runtimeReadReceipts.push({ ...receipt, readAt: now() }); }) })
+        : this.modelFactory(config, { fetchImpl: this.fetchImpl });
+      const generated = await runtime.generate({ requestId: callId, instruction, materials: runtimeMaterials, signal, outputSchema: contract?.schema });
       receivedOutput = generated;
       let normalized = null;
       if (task.mode !== 'connection') normalized = normalizeModelOutput(generated.text);
@@ -631,7 +649,7 @@ export class ResearchApplication extends ResearchService {
         const p = s.projects[task.projectId], t = p.researchTasks[task.id], saved = t.toolRuns.find(r => r.id === tool.id);
         const discardedAfterCancellation = signal.aborted || t.status === 'cancelled';
         Object.assign(s.modelCalls.find(c => c.id === callId), { status: 'completed', finishedAt: now(), usage: output.usage, cost: output.cost,
-          provenance: output.provenance, discardedAfterCancellation, outputText: generated.text, ...(normalized ? { formatNormalization: output.provenance.formatNormalization } : {}), outputStatus: 'unvalidated_model_output' });
+          provenance: output.provenance, runtimeMetrics: output.runtimeMetrics ?? null, discardedAfterCancellation, outputText: generated.text, ...(normalized ? { formatNormalization: output.provenance.formatNormalization } : {}), outputStatus: 'unvalidated_model_output' });
         if (!isTerminalRun(saved.status)) Object.assign(saved, transitionRun(saved, discardedAfterCancellation ? 'cancelled' : 'completed',
           { usage: output.usage, cost: output.cost, provenance: output.provenance }));
         event(p, t, 'model_call_completed', { callId, toolRunId: tool.id, discardedAfterCancellation });
@@ -649,6 +667,7 @@ export class ResearchApplication extends ResearchService {
         // physical call record completed while the task/tool remain cancelled.
         if (call.status === 'running') {
           Object.assign(call, { status, finishedAt: now(), errorCode });
+          if (error.runtimeReceipt) Object.assign(call, clone(error.runtimeReceipt));
           if (error.responseSnapshot) {
             const snapshot = error.responseSnapshot;
             Object.assign(call, { outputText: snapshot.text, outputStatus: 'incomplete_unvalidated_output',

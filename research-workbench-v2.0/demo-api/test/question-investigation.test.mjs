@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -28,9 +28,10 @@ const generate = async input => {
   if (input.instruction.includes('审阅下面初判')) return envelope({ point: '关联是否可由混杂解释', why: '这会改变设计', wouldChange: '对照结果反向时缩小问题', needsSearch: true, query: 'association confounding', findings: [] });
   return envelope(judgment());
 };
-async function fixture(t, { model = generate, count = 2, pubmed } = {}) {
+async function fixture(t, { model = generate, count = 2, pubmed, agentRuntimeFactory, pilot } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'rw-investigation-test-')), store = await new LocalStore(directory).initialize();
-  const service = await new ResearchApplication(store, { modelFactory: () => ({ generate: model }), pubmed: pubmed ?? { search: async () => { throw Error('not allowed'); } } }).initialize();
+  if (pilot) await writeFile(join(directory, 'agent-runtime-private.json'), JSON.stringify(pilot));
+  const service = await new ResearchApplication(store, { agentRuntimeFactory, modelFactory: () => ({ generate: model }), pubmed: pubmed ?? { search: async () => { throw Error('not allowed'); } } }).initialize();
   await service.settings.save({ baseUrl: 'https://test.invalid/v1', model: 'fixture', apiKey: 'isolated-test-key', enabled: true });
   t.after(async () => { await service.close(); await store.close(); });
   const p = await store.update(s => {
@@ -50,6 +51,29 @@ async function start(f, extra = {}) {
     itemId: f.q.id, itemRevisionId: f.q.headRevisionId, accessIds: f.a.draft.sourceAccessIds, text: '结合我的条件，这个题是否值得做？', ...extra }, randomUUID());
 }
 async function done(f, started) { await f.service.running.get(started.taskId)?.promise; return f.store.read(s => s.projects[f.p.id].researchTasks[started.taskId]); }
+
+test('explicit SDK pilot reuses the loop and extraction, records actual runtime and cannot adopt state', async t => {
+  let sdkCalls = 0, directCalls = 0;
+  const f = await fixture(t, {
+    pilot: { enabled: true, baseUrl: 'https://agent.invalid', model: 'agent-fixture', apiKey: 'test-agent-key', effort: 'high' },
+    model: async input => { directCalls++; return generate(input); },
+    agentRuntimeFactory: (config, { onRead }) => ({ generate: async input => {
+      sdkCalls++; assert.equal(config.model, 'agent-fixture');
+      assert.equal(input.materials.length, 2);
+      await onRead({ name: 'read_material', ref: input.materials[0].ref, sourceId: input.materials[0].sourceId, accessId: input.materials[0].accessId, passages: ['P1'], characters: 10 });
+      return { ...await generate(input), runtimeMetrics: { sdkQueries: 1, sdkTurns: 2, physicalCallCount: null },
+        provenance: { runtime: 'claude-agent-sdk', model: config.model, provider: config.provider } };
+    } }),
+  });
+  const task = await done(f, await start(f)); assert.equal(task.status, 'completed', task.error);
+  assert.equal(sdkCalls, 3); assert.equal(directCalls, 1);
+  const calls = await f.store.read(s => s.modelCalls.filter(c => c.taskId === task.id));
+  assert.equal(calls.filter(c => c.model === 'agent-fixture').length, 3);
+  assert.equal(calls.filter(c => c.runtimeReadReceipts.length).length, 3);
+  assert.equal(task.agentRuntime.model, 'agent-fixture');
+  assert.equal(await f.store.read(s => Object.keys(s.projects[f.p.id].decisions).length), 0);
+  assert.ok(!JSON.stringify(task).includes('test-agent-key'));
+});
 
 test('bounded local loop saves initial, challenge, revised and model-authored protocol without adopting it', async t => {
   const f = await fixture(t), task = await done(f, await start(f));

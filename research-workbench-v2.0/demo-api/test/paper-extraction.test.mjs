@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { extractPaperBatch, learnedPaperCallSize } from '../src/paper-extraction.mjs';
-import { planMaterialBatches, recoverPaperBatch, combinePaperCoverage, reusablePaperExtractions, resolveMaterialCitation } from '../src/workflows.mjs';
+import { planMaterialBatches, recoverPaperBatch, combinePaperCoverage, reusablePaperExtractions, resolveMaterialCitation, validatePaperBatchOutput } from '../src/workflows.mjs';
 import { dimensionFixture } from './landscape-fixture.mjs';
 const materials = Array.from({ length: 4 }, (_, i) => ({ ref: `R${i + 1}`, accessId: `a${i}`, sourceId: `s${i}`, level: 'abstract', text: 'Observed association. A second finding.' }));
 const batch = planMaterialBatches(materials).batches[0];
@@ -63,4 +63,16 @@ test('legacy passage quote requires exact unique text and cannot rescue unknown 
   for (const citation of [{ ref: 'R1', passage: 'P999', quote: 'Observed association.' }, { ref: 'R1', passage: 'Observed...finding.' },
     { ref: 'R5', passage: 'Observed association.' }]) assert.throws(() => resolveMaterialCitation(citation, materials), e => e.code === 'invalid_citation');
   assert.throws(() => resolveMaterialCitation({ ref: 'R1', passage: 'Observed association.' }, [{ ...materials[0], text: 'Observed association. Observed association.' }]), e => e.code === 'invalid_citation');
+});
+
+test('long-paper segment reuse ignores duplicate parent and recovered checkpoints without hiding gaps', () => {
+  const material = { ...materials[0], text: 'First reported finding. Second reported finding.' }, split = 24;
+  const records = [[0, split], [split, material.text.length]].flatMap(([start, end], i) => {
+    const unit = { ...batch, id: `segment-${i}`, materials: [{ ...material, text: material.text.slice(start, end) }],
+      segments: [{ accessId: material.accessId, sourceId: material.sourceId, start, end, totalLength: material.text.length }] };
+    const result = validatePaperBatchOutput(output(unit.materials).text, unit);
+    return ['child', 'parent'].map(name => ({ batchId: `${name}-${i}`, status: 'completed', result }));
+  });
+  assert.equal(reusablePaperExtractions(records, [material]).accessIds.size, 1);
+  assert.equal(reusablePaperExtractions(records.slice(0, 2), [material]).accessIds.size, 0);
 });
