@@ -9,3 +9,12 @@ export function reasoningProfile(model, baseUrl = '') {
     note: '尚未核对该模型的思考档位，使用服务默认设置。' };
 }
 export const DEFAULT_PAPER_BATCH_SIZE = 50;
+export const DEFAULT_EXTRACTION_CONCURRENCY = 2;
+export function extractionSettings(config = {}) {
+  const profile = reasoningProfile(config.model, config.baseUrl);
+  const selected = config.extractionReasoningEffort ?? 'inherit';
+  return {
+    reasoningEffort: selected === 'inherit' ? config.reasoningEffort ?? profile.defaultValue : selected,
+    concurrency: config.extractionConcurrency ?? DEFAULT_EXTRACTION_CONCURRENCY,
+  };
+}

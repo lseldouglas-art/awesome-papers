@@ -2,7 +2,7 @@ import { extractPaperBatch, learnedPaperCallSize } from './paper-extraction.mjs'
 import { outputContractFor, validateModelContract } from './model-contracts.mjs';
 import { loadAgentPilot, usesAgentPilot, createAgentPilot, agentPilotIdentity } from './agent-pilot.mjs';
 import { questionRequest, candidateInstructions } from '../../shared/question-request.mjs';
-import { reasoningProfile } from '../../shared/model-analysis.mjs';
+import { reasoningProfile, extractionSettings } from '../../shared/model-analysis.mjs';
 import {continuitySnapshot,continuitySignature,hasContinuity,continuityChanged} from '../../shared/research-continuity.mjs';
 import { investigationInput, executeInvestigation } from './question-investigation.mjs';
 import {compositionInput,executeComposition} from './figure-workspace.mjs';
@@ -52,6 +52,17 @@ headline 和 text 必须具有相同的证据边界，标题不得将“摘要�
 const event = (p, task, type, detail = {}) => p.researchEvents.push({ id: uid('event'), projectId: p.id, type, actor: 'local_program',
   operationId: task.requestId ?? task.id, target: { taskId: task.id, artifactId: task.artifactId }, detail: clone(detail), at: now() });
 const safeError = error => error instanceof DomainError || error.name === 'ModelAdapterError' ? error.message : '本步处理失败，已有材料与记录保留；可以手动继续。';
+function updateExtractionProgress(task, materials) {
+  const completed = reusablePaperExtractions(task.paperBatchRecords ?? [], materials).accessIds.size;
+  task.extractionProgress = { completed, total: materials.length };
+  refreshExtractionMessage(task);
+}
+function refreshExtractionMessage(task) {
+  const { completed, total } = task.extractionProgress;
+  const active = task.toolRuns.filter(r => r.status === 'running' && /^model\.paper-extraction/.test(r.name)).length;
+  Object.assign(task.extractionProgress, { activeCalls: active, updatedAt: now() });
+  task.progress = `正在逐篇整理：已保存 ${completed} / ${total} 篇完整材料${active ? ` · ${active} 批正在处理` : ' · 正在接续'}；完成后综合领域认识`;
+}
 
 /** Application service around the existing retrieval/landscape vertical slice.
  * Model generation never performs a research adoption decision. */
@@ -255,7 +266,7 @@ export class ResearchApplication extends ResearchService {
       const provider = body.mode === 'brief' ? 'local_program' : (['retrieve','topic-collect'].includes(body.mode)||body.mode==='topic-preview'&&!this.settings.public().configured) ? 'PubMed' : new URL(config.baseUrl).hostname;
       const task = { id: uid('task'), requestId, projectId, artifactId: a.id, mode: body.mode, status: 'queued', createdAt: now(), progress: '准备本步工作',
         input, inputFingerprint: fingerprint(input), promptVersion: `${promptVersionFor(body.mode)}:${body.mode}`, provider, model: ['retrieve', 'brief', 'topic-collect'].includes(body.mode) ? null : config.model,
-        analysisSettings: { reasoningEffort: config.reasoningEffort }, requestedMode: submittedBody.mode,
+        analysisSettings: { reasoningEffort: config.reasoningEffort, extraction: extractionSettings(config) }, requestedMode: submittedBody.mode,
         agentRuntime: ['compare', 'question-investigation'].includes(body.mode) ? agentPilotIdentity(this.agentPilot) : null,
         calls: [], attempts: [], toolRuns: [], paperBatchRecords: clone(previous?.paperBatchRecords ?? []), maxPaperCallMaterials: previous?.maxPaperCallMaterials ?? null, retryOfTaskId: previous?.id ?? null, cost: { status: 'unknown', amount: null } };
       if (previous) requireThat(JSON.stringify(previous.agentRuntime ?? null) === JSON.stringify(task.agentRuntime), 'invalid_retry', '科研 Agent 设置已变更，请新建一轮保留准确对照。', 409);
@@ -448,25 +459,20 @@ export class ResearchApplication extends ResearchService {
       return this.invokeModel(task, config, materials, scoped, signal, 'model.generate');
     }
     await this.updateTask(task, { paperBatchPlan: { processingPolicy: extractionPlan.processingPolicy, providerLimits: extractionPlan.limits,
-      batchCount: extractionPlan.batches.length, coverage: extractionPlan.coverage }, progress: `正在分批整理全部 ${materials.length} 篇材料` });
+      batchCount: extractionPlan.batches.length, coverage: extractionPlan.coverage, concurrency: extractionSettings(config).concurrency }, progress: `正在分批整理全部 ${materials.length} 篇材料` });
     const batches = await runMaterialBatches({ plan: extractionPlan, taskId: task.id, provider: task.provider, model: task.model, previous: saved,
-      manualRetry: Boolean(task.retryOfTaskId), signal,
+      manualRetry: Boolean(task.retryOfTaskId), signal, concurrency: extractionSettings(config).concurrency,
       checkpoint: record => this.store.update(s => {
         const p = s.projects[task.projectId], t = p.researchTasks[task.id];
         t.paperBatchRecords ??= [];
         const index = t.paperBatchRecords.findIndex(r => r.batchId === record.batchId);
         if (index < 0) t.paperBatchRecords.push(record); else t.paperBatchRecords[index] = record;
         if (!isTerminalRun(t.status)) {
-          const ids = new Set(extractionPlan.batches.map(b => b.id));
-          const completed = t.paperBatchRecords.filter(r => ids.has(r.batchId) && r.status === 'completed');
-          const covered = new Map(materials.filter(m => reused.accessIds.has(m.accessId)).map(m => [m.accessId, m.text.length]));
-          for (const segment of completed.flatMap(r => r.segments)) covered.set(segment.accessId, (covered.get(segment.accessId) ?? 0) + segment.end - segment.start);
-          const completePapers = materials.filter(m => covered.get(m.accessId) === m.text.length).length;
-          t.progress = `正在逐篇整理：已完成 ${completed.length} / ${extractionPlan.batches.length} 批，${completePapers} / ${materials.length} 篇完整材料`;
+          updateExtractionProgress(t, materials);
         }
         event(p, t, 'material_batch_checkpoint', { batchId: record.batchId, status: record.status, segments: record.segments });
       }),
-      run: ({ batch }) => this.extractPaperUnit(task, config, batch, extractionInstruction, signal) });
+      run: ({ batch, admit }) => this.extractPaperUnit(task, config, batch, extractionInstruction, signal, false, { materials, admit }) });
     const combined = combinePaperCoverage([...reused.results, ...batches.results], materials);
     return this.synthesizeExtraction(task, config, materials, context, { ...batches, combined,
       records: [...reused.records, ...batches.records], recoveredCallIds: reused.records.map(r=>r.recovery?.sourceCallId).filter(Boolean), reusedBatchIds: [...reused.reusedBatchIds, ...batches.reusedBatchIds] }, signal);
@@ -583,13 +589,14 @@ export class ResearchApplication extends ResearchService {
       recoveredExtractionCallIds: batches.recoveredCallIds ?? [], coverage: combined.coverage } };
   }
 
-  async extractPaperUnit(task, config, batch, instruction, signal, investigation = false) {
+  async extractPaperUnit(task, config, batch, instruction, signal, investigation = false, { materials, admit } = {}) {
     const saved = await this.store.read(s => s.projects[task.projectId].researchTasks[task.id]);
     const records = investigation ? saved.investigation.extractionRecords : saved.paperBatchRecords;
     const maxCallMaterials = Math.min(saved.maxPaperCallMaterials ?? config.paperBatchSize ?? 50,
       learnedPaperCallSize(config.paperBatchSize ?? 50, records));
-    return extractPaperBatch({ batch, signal, maxCallMaterials,
-      invoke: unit => this.invokeModel(task, config, unit.materials,
+    const extractionConfig = { ...config, reasoningEffort: extractionSettings(config).reasoningEffort };
+    return extractPaperBatch({ batch, signal, maxCallMaterials, admit,
+      invoke: unit => this.invokeModel(task, extractionConfig, unit.materials,
         `${instruction}${unit.repair ? '\n上次部分条目未通过检查。只整理本次所列材料，准确返回编号与全部必填字段，不补造缺失事实。' : ''}`,
         signal, investigation ? 'model.investigation-extraction' : unit.repair ? 'model.paper-extraction-repair' : 'model.paper-extraction', unit.segments),
       retain: record => this.store.update(s => {
@@ -597,12 +604,13 @@ export class ResearchApplication extends ResearchService {
         signal.throwIfAborted(); requireThat(!isTerminalRun(t.status), 'cancelled', '本步已停止。', 409);
         const list = investigation ? t.investigation.extractionRecords : t.paperBatchRecords;
         if (!list.some(r => r.batchId === record.batchId)) list.push(record);
+        if (!investigation && materials) updateExtractionProgress(t, materials);
         event(p, t, 'paper_unit_retained', { sourceCallId: record.recovery.sourceCallId, count: record.result.papers.length, recovery: record.recovery });
       }),
       onLimit: (limit, cause) => this.store.update(s => {
         const p = s.projects[task.projectId], t = p.researchTasks[task.id];
         signal.throwIfAborted(); requireThat(!isTerminalRun(t.status), 'cancelled', '本步已停止。', 409);
-        t.maxPaperCallMaterials = limit;
+        t.maxPaperCallMaterials = Math.min(t.maxPaperCallMaterials ?? Infinity, limit);
         t.progress = `已保留有效整理；剩余材料改为每次最多 ${limit} 篇接续，所选范围不变`;
         event(p, t, 'paper_output_capacity_adjusted', { maxCallMaterials: limit, cause, materialScopeUnchanged: true });
       }) });
@@ -633,6 +641,7 @@ export class ResearchApplication extends ResearchService {
         ...(name==='model.topic-screen'?{screeningInput:{instruction,materials:clone(materials)}}:{}),
         inputCharacters: instruction.length + JSON.stringify(materials).length, status: 'running', startedAt: now(), usage: null, cost: { status: 'unknown', amount: null } });
       t.calls.push(callId);
+      if (/^model\.paper-extraction/.test(name) && t.extractionProgress) refreshExtractionMessage(t);
       event(p, t, 'model_call_started', { callId, toolRunId: tool.id, purpose: name, promptVersion, promptFingerprint });
     });
     try {

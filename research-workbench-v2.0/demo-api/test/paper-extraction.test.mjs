@@ -76,3 +76,19 @@ test('long-paper segment reuse ignores duplicate parent and recovered checkpoint
   assert.equal(reusablePaperExtractions(records, [material]).accessIds.size, 1);
   assert.equal(reusablePaperExtractions(records.slice(0, 2), [material]).accessIds.size, 0);
 });
+
+test('a sibling failure prevents another child call but keeps the already returned unit',async()=>{
+  let calls=0, failed=false;const retained=[];
+  await assert.rejects(extractPaperBatch({batch,maxCallMaterials:2,admit:()=>{if(failed)throw new Error('sibling failed');},
+    invoke:async unit=>{calls++;failed=true;return output(unit.materials);},retain:async r=>retained.push(r)}),/sibling failed/);
+  assert.equal(calls,1);assert.equal(reusablePaperExtractions(retained,materials).accessIds.size,2);
+});
+
+test('readable checkpoints deduplicate child and parent records without dropping different segments',async()=>{
+  const {readableBatches}=await import('../../shared/research-continuity.mjs');
+  const result=validatePaperBatchOutput(output(materials).text,batch);
+  const records=[{batchId:'child',status:'completed',result:{papers:result.papers.slice(0,2)}},{batchId:'parent',status:'completed',result}];
+  const view=readableBatches({paperBatchRecords:records});
+  assert.equal(view.flatMap(b=>b.content).length,4);
+  assert.deepEqual(view.flatMap(b=>b.content).map(p=>p.ref),materials.map(m=>m.ref));
+});

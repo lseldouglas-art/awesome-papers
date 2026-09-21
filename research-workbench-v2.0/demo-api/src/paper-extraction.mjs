@@ -10,7 +10,7 @@ export function learnedPaperCallSize(requested, records = []) {
 }
 
 export async function extractPaperBatch({ batch, invoke, retain, signal, maxCallMaterials = batch.materials.length,
-  onLimit = async () => {} }) {
+  onLimit = async () => {}, admit = () => {} }) {
   const papers = [], queue = [];
   let syntaxSplits = 0;
   const subset = (unit, indices, repair = false) => {
@@ -30,6 +30,7 @@ export async function extractPaperBatch({ batch, invoke, retain, signal, maxCall
     const unit = queue.shift();
     if (unit.materials.length > maxCallMaterials) { enqueue(unit, maxCallMaterials, unit.repair); continue; }
     let output, error, result;
+    admit();
     try {
       output = await invoke(unit);
       signal?.throwIfAborted();

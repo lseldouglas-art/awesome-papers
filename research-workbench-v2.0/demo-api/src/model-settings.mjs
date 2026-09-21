@@ -1,4 +1,4 @@
-import { reasoningProfile, DEFAULT_PAPER_BATCH_SIZE } from '../../shared/model-analysis.mjs';
+import { reasoningProfile, DEFAULT_PAPER_BATCH_SIZE, DEFAULT_EXTRACTION_CONCURRENCY } from '../../shared/model-analysis.mjs';
 import { readFile, open, rename } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -14,7 +14,9 @@ export class ModelSettings {
     catch (e) { if (e.code !== 'ENOENT') { this.config = {}; this.invalid = true; } }
     return this;
   }
-  public() { const reasoning = reasoningProfile(this.config.model, this.config.baseUrl); return { reasoning, reasoningEffort: this.config.reasoningEffort ?? reasoning.defaultValue, paperBatchSize: this.config.paperBatchSize ?? DEFAULT_PAPER_BATCH_SIZE, ...createModelAdapter(this.config).capabilities(), baseUrl: this.config.baseUrl ?? '', hasKey: Boolean(this.config.apiKey), invalid: Boolean(this.invalid), contextLimits: this.config.contextLimits ?? null }; }
+  public() { const reasoning = reasoningProfile(this.config.model, this.config.baseUrl); return { reasoning, reasoningEffort: this.config.reasoningEffort ?? reasoning.defaultValue, paperBatchSize: this.config.paperBatchSize ?? DEFAULT_PAPER_BATCH_SIZE,
+    extractionReasoningEffort: this.config.extractionReasoningEffort ?? 'inherit', extractionConcurrency: this.config.extractionConcurrency ?? DEFAULT_EXTRACTION_CONCURRENCY,
+    ...createModelAdapter(this.config).capabilities(), baseUrl: this.config.baseUrl ?? '', hasKey: Boolean(this.config.apiKey), invalid: Boolean(this.invalid), contextLimits: this.config.contextLimits ?? null }; }
   save(body) {
     const operation = this.#queue.then(async () => {
       requireThat(body && typeof body.baseUrl === 'string' && typeof body.model === 'string' && typeof body.apiKey === 'string' && typeof body.enabled === 'boolean', 'invalid_configuration', '请填写服务地址、模型与密钥。');
@@ -25,6 +27,10 @@ export class ModelSettings {
       requireThat(profile.options.some(option => option.value === config.reasoningEffort), 'invalid_configuration', '所选思考档位不受当前模型支持，请重新选择。');
       config.paperBatchSize = body.paperBatchSize ?? (sameService ? this.config.paperBatchSize : null) ?? DEFAULT_PAPER_BATCH_SIZE;
       requireThat(Number.isSafeInteger(config.paperBatchSize) && config.paperBatchSize >= 1, 'invalid_configuration', '每批文献数应为正整数；只影响单次整理，不限制总篇数。');
+      config.extractionReasoningEffort = body.extractionReasoningEffort ?? (sameService ? this.config.extractionReasoningEffort : null) ?? 'inherit';
+      requireThat(config.extractionReasoningEffort === 'inherit' || profile.options.some(o => o.value === config.extractionReasoningEffort), 'invalid_configuration', '逐篇整理档位不受当前模型支持。');
+      config.extractionConcurrency = body.extractionConcurrency ?? (sameService ? this.config.extractionConcurrency : null) ?? DEFAULT_EXTRACTION_CONCURRENCY;
+      requireThat(Number.isSafeInteger(config.extractionConcurrency) && config.extractionConcurrency >= 1 && config.extractionConcurrency <= 4, 'invalid_configuration', '同时整理批数应为 1 至 4；需符合服务商的并发额度。');
       if (body.contextLimits !== undefined && body.contextLimits !== null) {
         const limits = materialContextLimits({ contextLimits: body.contextLimits });
         config.contextLimits = { maxInputTokens: limits.maxInputTokens, maxOutputTokens: limits.maxOutputTokens, contextWindowTokens: limits.contextWindowTokens };

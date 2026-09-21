@@ -127,7 +127,15 @@ export function consistencyFindings(p,artifactId) {
   return findings;
 }
 export function readableBatches(task) {
-  return list(task?.paperBatchRecords).filter(r=>r.status==='completed'&&r.result).map(r=>({id:r.batchId,segments:r.segments,content:r.result.papers??r.result.records??r.result,complete:true}));
+  const seen = new Set();
+  return list(task?.paperBatchRecords).filter(r=>r.status==='completed'&&r.result).map(r=>{
+    const content = r.result.papers?.filter(p=>{
+      const key=JSON.stringify([p.sourceId,p.accessId,p.segment?.start,p.segment?.end,p.segment?.totalLength]);
+      if(seen.has(key))return false; seen.add(key); return true;
+    }) ?? r.result.records ?? r.result;
+    return {id:r.batchId,segments:r.segments,content,complete:true};
+  }).filter(r=>!Array.isArray(r.content)||r.content.length);
+
 }
 export function continuityMarkdown(entry) {
   const payload=entry.payload??entry.content?.payload??{};

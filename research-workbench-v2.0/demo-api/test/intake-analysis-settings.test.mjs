@@ -64,3 +64,15 @@ test('a successful re-fetch retains the previous failed analysis continuation, a
  assert.equal(pendingDomainAnalysis([failed,fetched],'b'),null);
  for(const status of ['running','completed'])assert.equal(pendingDomainAnalysis([failed,fetched,{...failed,id:'new',createdAt:'2026-09-13T03:00:00Z',status}],'a'),null);
 });
+
+test('extraction settings are separate from judgment effort and preserve explicit choices',async()=>{
+ const settings=await new ModelSettings(await mkdtemp(join(tmpdir(),'rw-extraction-settings-'))).initialize();
+ const body={baseUrl:'https://open.bigmodel.cn/api/paas/v4',model:'GLM-5.3-Flash',apiKey:'test-only',enabled:true,reasoningEffort:'max'};
+ let view=await settings.save(body);assert.equal(view.extractionReasoningEffort,'inherit');assert.equal(view.extractionConcurrency,2);
+ view=await settings.save({...body,extractionReasoningEffort:'low',extractionConcurrency:3});assert.equal(view.reasoningEffort,'max');
+ await settings.save({...body,apiKey:''});assert.equal(settings.config.extractionReasoningEffort,'low');assert.equal(settings.config.extractionConcurrency,3);
+ for(const value of [0,5,1.5,'2'])await assert.rejects(settings.save({...body,extractionConcurrency:value}),e=>e.code==='invalid_configuration');
+ await assert.rejects(settings.save({...body,extractionReasoningEffort:'none'}),e=>e.code==='invalid_configuration');
+ const changed=await settings.save({...body,baseUrl:'https://other.invalid/v1',model:'other',reasoningEffort:'default'});
+ assert.equal(changed.extractionReasoningEffort,'inherit');assert.equal(changed.extractionConcurrency,2);
+});

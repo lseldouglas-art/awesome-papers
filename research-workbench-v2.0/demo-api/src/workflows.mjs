@@ -448,17 +448,24 @@ export function createToolRun(attempt, { name, inputRefs = [], at = timestamp() 
   return { id: `tool_${randomUUID()}`, taskId: attempt.taskId, attemptId: attempt.id, name, inputRefs: clone(inputRefs), status: 'queued', createdAt: at };
 }
 
-/** Sequential, checkpointed calls. Failed/unknown attempts require manualRetry;
- * successful batches with identical content and prompt are reused verbatim. */
+/** Bounded, checkpointed calls. Stop admitting work on failure, drain in-flight
+ * work before returning, and preserve plan order regardless of completion order. */
 export async function runMaterialBatches({ plan, run, checkpoint = async () => {}, previous = [], signal, manualRetry = false,
-  taskId = `batch-task_${randomUUID()}`, provider = null, model = null }) {
+  taskId = `batch-task_${randomUUID()}`, provider = null, model = null, concurrency = 1 }) {
   requireThat(Array.isArray(plan?.batches) && typeof run === 'function' && Array.isArray(previous), 'invalid_input', '材料批次执行缺少计划或回调。');
-  const records = [];
+  requireThat(Number.isSafeInteger(concurrency) && concurrency >= 1 && concurrency <= 4, 'invalid_input', '同时整理批数应为 1 至 4。');
+  const records = new Array(plan.batches.length);
+  let next = 0, firstError;
+  const admit = () => { signal?.throwIfAborted(); if (firstError) throw firstError; };
+  // Check retry authority before starting any new external calls.
   for (const batch of plan.batches) {
+    const prior = previous.find(r => r.batchId === batch.id && r.fingerprint === batch.fingerprint);
+    requireThat(!prior || prior.status === 'completed' || manualRetry, 'manual_retry_required', '上次调用失败或结果未知，已完成批次保留；请明确手动重试未完成部分。', 409, { batchId: batch.id, status: prior?.status });
+  }
+  const runOne = async (batch, index) => {
     signal?.throwIfAborted();
     const prior = previous.find(record => record.batchId === batch.id && record.fingerprint === batch.fingerprint);
-    if (prior?.status === 'completed') { records.push(clone(prior)); continue; }
-    requireThat(!prior || manualRetry, 'manual_retry_required', '上次调用失败或结果未知，已完成批次保留；请明确手动重试未完成部分。', 409, { batchId: batch.id, status: prior?.status });
+    if (prior?.status === 'completed') { records[index] = clone(prior); return; }
     let attempt = createTaskAttempt(taskId, { previousAttemptId: prior?.attempts?.at(-1)?.id ?? null, inputFingerprint: batch.fingerprint, provider, model });
     let toolRun = createToolRun(attempt, { name: 'model.paper-extraction', inputRefs: batch.segments });
     attempt = transitionRun(attempt, 'running'); toolRun = transitionRun(toolRun, 'running');
@@ -466,13 +473,15 @@ export async function runMaterialBatches({ plan, run, checkpoint = async () => {
       attempts: [...clone(prior?.attempts ?? []), attempt], toolRuns: [...clone(prior?.toolRuns ?? []), toolRun], result: null };
     await checkpoint(clone(record)); // Durable intent precedes any external call.
     try {
-      const result = await run({ batch: clone(batch), attempt: clone(attempt), toolRun: clone(toolRun), signal });
+      admit();
+      const result = await run({ batch: clone(batch), attempt: clone(attempt), toolRun: clone(toolRun), signal, admit });
       signal?.throwIfAborted(); // A late output cannot complete a cancelled attempt.
       attempt = transitionRun(attempt, 'completed', { usage: result?.usage ?? null, cost: result?.cost ?? { status: 'unknown', amount: null },
         ...(result?.provenance ? { provenance: clone(result.provenance) } : {}) }); toolRun = transitionRun(toolRun, 'completed');
       record = { ...record, status: 'completed', attempts: [...record.attempts.slice(0, -1), attempt], toolRuns: [...record.toolRuns.slice(0, -1), toolRun], result: clone(result) };
-      await checkpoint(clone(record)); records.push(record);
+      await checkpoint(clone(record)); records[index] = record;
     } catch (error) {
+      firstError ??= error;
       const status = signal?.aborted ? 'cancelled' : 'failed';
       const errorCode = error.code ?? (signal?.aborted ? 'cancelled' : 'batch_failed');
       // If persisting completion failed, do not relabel the already completed
@@ -484,7 +493,17 @@ export async function runMaterialBatches({ plan, run, checkpoint = async () => {
       try { await checkpoint(clone(record)); } catch { /* Original failure remains the cause; never resend. */ }
       throw error;
     }
-  }
+  };
+  const worker = async () => {
+    while (!firstError && next < plan.batches.length) {
+      const index = next++;
+      try { admit(); await runOne(plan.batches[index], index); }
+      catch (error) { firstError ??= error; }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, plan.batches.length) }, worker));
+  if (firstError) throw firstError;
+  signal?.throwIfAborted();
   return { records, results: records.map(record => clone(record.result)), reusedBatchIds: records.filter(record => previous.some(p => p.batchId === record.batchId && p.fingerprint === record.fingerprint && p.status === 'completed')).map(record => record.batchId),
     coverage: clone(plan.coverage) };
 }

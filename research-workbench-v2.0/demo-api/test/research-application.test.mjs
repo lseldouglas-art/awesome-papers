@@ -22,11 +22,11 @@ const defaultGenerate = async input => envelope(input.instruction.includes('ques
   : input.instruction.includes('JSON {items:') || input.instruction.includes('格式 {items:') ? JSON.stringify({ items: [{ text: '当前资料支持进一步了解，不代表采用。', status: 'inference', citations: [{ ref: input.materials[0].ref, passage: 'P1' }] }] })
     : JSON.stringify(dimensionFixture(input.materials)));
 
-async function fixture(t, { generate = defaultGenerate, texts = ['This test record reports an association.'], contextLimits, configured = true, pubmed } = {}) {
+async function fixture(t, { generate = defaultGenerate, texts = ['This test record reports an association.'], contextLimits, configured = true, pubmed, extractionConcurrency = 1 } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'rw2-application-')), store = await new LocalStore(directory).initialize();
   const service = await new ResearchApplication(store, { modelFactory: () => ({ generate }), pubmed: pubmed ?? { search: async () => { throw Error('unexpected retrieval'); } } }).initialize();
   t.after(async () => { await service.close(); await store.close(); });
-  if (configured) await service.settings.save({ baseUrl: 'https://test.invalid/v1', model: 'fixture-model', apiKey: 'isolated-test-key', enabled: true, ...(contextLimits ? { contextLimits } : {}) });
+  if (configured) await service.settings.save({ baseUrl: 'https://test.invalid/v1', model: 'fixture-model', apiKey: 'isolated-test-key', enabled: true, extractionConcurrency, ...(contextLimits ? { contextLimits } : {}) });
   const p = await store.update(s => {
     const p = ensureKernel(upgradeProject(createWorkspace(s, { name: '隔离工程课题', goal: '了解变量关系' }, 'create-fixture'), false));
     const a = Object.values(p.artifacts)[0];
@@ -431,4 +431,53 @@ test('retry migrates 230-paper legacy checkpoints, repairs saved syntax locally,
  assert.equal(retried.calls.length,3);assert.ok(retried.recoveredExtractionCallIds.includes('saved-legacy-syntax'));
  const result=await f.store.read(s=>s.projects[f.p.id].researchResults[retried.resultId]);assert.equal(result.paperNotes.length,230);
  assert.deepEqual(await f.store.read(s=>s.projects[f.p.id].researchTasks[first.id]),before);
+});
+
+test('parallel extraction publishes unique paper progress before synthesis and records stage-specific model settings',async t=>{
+  const gates=Array.from({length:4},()=>{let resolve;const promise=new Promise(r=>{resolve=r;});return {resolve,promise};});
+  t.after(()=>gates.forEach(g=>g.resolve()));
+  let enter;const ready=new Promise(r=>{enter=r;});let count=0;const configs=[];
+  const f=await fixture(t,{texts:['Observed one.','Observed two.','Observed three.','Observed four.'],extractionConcurrency:2,generate:async input=>{
+    if(input.instruction.includes('逐篇完整整理')){
+      const i=count++;if(count===2)enter();await gates[i].promise;return envelope(JSON.stringify(dimensionFixture(input.materials)));
+    }
+    return envelope(JSON.stringify(dimensionFixture([1,2,3,4].map(i=>({ref:`R${i}`})))));
+  }});
+  const factory=f.service.modelFactory;
+  f.service.modelFactory=config=>{configs.push(config.reasoningEffort);return factory(config);};
+  await f.service.settings.save({baseUrl:'https://open.bigmodel.cn/api/paas/v4',model:'GLM-5.3-Flash',apiKey:'test-only',enabled:true,
+    reasoningEffort:'max',paperBatchSize:1,extractionReasoningEffort:'low',extractionConcurrency:2});
+  const started=await start(f,'revise',{text:'整理全部材料'});await ready;assert.equal(count,2);
+  gates[1].resolve();
+  // Let the persisted completion and the next admitted unit become observable.
+  for(let i=0;i<100;i++){
+    const task=await f.store.read(s=>s.projects[f.p.id].researchTasks[started.taskId]);
+    if(task.extractionProgress?.completed===1){assert.match(task.progress,/已保存 1 \/ 4/);break;}
+    if(i===99)assert.fail('completed paper was not published');
+    await new Promise(r=>setTimeout(r,5));
+  }
+  gates.forEach(g=>g.resolve());const task=await done(f,started);assert.equal(task.status,'completed',task.error);
+  assert.deepEqual(configs,['low','low','low','low','max']);assert.equal(task.extractionProgress.completed,4);
+  const calls=await f.store.read(s=>s.modelCalls.filter(c=>c.taskId===task.id));
+  assert.deepEqual(calls.map(c=>c.configuredOptions.reasoningEffort),configs);
+  assert.equal(task.analysisSettings.reasoningEffort,'max');assert.equal(task.analysisSettings.extraction.reasoningEffort,'low');
+});
+
+test('a valid child is visible while its parent batch still awaits repair',async t=>{
+ let release,entered;const gate=new Promise(r=>{release=r;}),ready=new Promise(r=>{entered=r;});t.after(()=>release());
+ let calls=0;
+ const f=await fixture(t,{texts:['Observed one.','Observed two.','Observed three.'],generate:async input=>{
+  if(input.instruction.includes('逐篇完整整理')){
+   calls++;if(calls===1)return envelope(JSON.stringify(dimensionFixture(input.materials.slice(0,1))));
+   if(calls===2){entered();await gate;}
+   return envelope(JSON.stringify(dimensionFixture(input.materials)));
+  }
+  return envelope(JSON.stringify(dimensionFixture([1,2,3].map(i=>({ref:`R${i}`})))));
+ }});
+ await f.service.settings.save({...f.service.settings.config,apiKey:'',paperBatchSize:2});
+ const started=await start(f,'revise',{text:'完整整理'});await ready;
+ const task=await f.store.read(s=>s.projects[f.p.id].researchTasks[started.taskId]);
+ assert.equal(task.extractionProgress.completed,1);assert.match(task.progress,/已保存 1 \/ 3/);
+ assert.equal(task.paperBatchRecords[0].status,'running');
+ release();assert.equal((await done(f,started)).status,'completed');
 });
