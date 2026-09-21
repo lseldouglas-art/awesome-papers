@@ -23,6 +23,7 @@ function Judgment({ phase, project, onSource }) {
     <div className="partner-phase-title"><span>{investigationPhaseLabels[phase.key]}</span>{v.recommendation && <strong>{recommendationLabels[v.recommendation]}</strong>}</div>
     <p className="partner-reason">{v.reason ?? v.point}</p>
     {phase.key === 'initial' && <small>阶段结果 · 先读 {phase.readCount} 份或片段，本轮选择 {phase.selectedCount} 份；专项核查尚未完成。</small>}
+    {phase.processedCoverage?.complete && <small>已完整整理 {phase.processedCoverage.selectedCount} 份实际访问材料 · 本阶段引用 {new Set((v.claims??v.findings??[]).flatMap(c=>c.citations??[]).map(c=>c.accessId)).size} 份。整理完成不代表全文或科学结论已核验。</small>}
     {v.why && <p>{v.why}</p>}{v.wouldChange && <p>改变判断的条件：{v.wouldChange}</p>}
     {v.changed && <p className="partner-change">{v.changed}</p>}
     <details className="partner-argument"><summary>展开具体比较与依据</summary><Claims claims={v.claims ?? v.findings} project={project} onSource={onSource}/></details>

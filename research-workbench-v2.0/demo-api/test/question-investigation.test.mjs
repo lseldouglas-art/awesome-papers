@@ -218,3 +218,56 @@ test('earlier complete material extraction is reused but its relevance is recons
   assert.ok(second.investigation.extractionRecords.some(r => r.reusedFromTaskId === first.id));
   assert.deepEqual(second.investigation.coverage.processed.excludedAccessIds, []);
 });
+
+test('protocol string lists retain text in bullets with an audit; mixed values remain invalid', async t => {
+  const { outputContractFor, validateModelContract } = await import('../src/model-contracts.mjs');
+  const v = judgment(); v.protocol.secondaryOutcomes = ['First outcome', 'Second outcome'];
+  v.protocol.outcomeUnits = [];
+  validateModelContract(JSON.stringify(v), outputContractFor('model.investigation-revised'));
+  const parsed = validateInvestigationOutput(JSON.stringify(v), 'revised', []);
+  assert.equal(parsed.protocol.secondaryOutcomes, '- First outcome\n- Second outcome');
+  assert.equal(parsed.protocol.outcomeUnits, '');
+  assert.equal(parsed.normalization[0].contentRewritten, false);
+  for (const value of [[1], [{ text: 'invented' }], { text: 'not a string' }]) {
+    v.protocol.secondaryOutcomes = value;
+    assert.throws(() => validateModelContract(JSON.stringify(v), outputContractFor('model.investigation-revised')), e => e.code === 'model_structure');
+    assert.throws(() => validateInvestigationOutput(JSON.stringify(v), 'revised', []), e => e.code === 'model_structure');
+  }
+});
+
+test('investigation extraction honors parallel settings and retains both successful in-flight batches', async t => {
+  let active = 0, peak = 0, entered = 0, release;
+  const gate = new Promise(r => { release = r; }); t.after(() => release());
+  const f = await fixture(t, { count: 4, model: async input => {
+    if (input.instruction.includes('逐篇完整整理')) {
+      active++; peak = Math.max(peak, active); entered++;
+      if (entered === 2) release();
+      await gate; const result = await generate(input); active--; return result;
+    }
+    return generate(input);
+  } });
+  await f.service.settings.save({ ...f.service.settings.config, apiKey: '', paperBatchSize: 2, extractionConcurrency: 2 });
+  const task = await done(f, await start(f));
+  assert.equal(task.status, 'completed', task.error); assert.equal(peak, 2);
+  assert.equal(task.investigation.coverage.processed.selectedCount, 4);
+});
+
+test('manual investigation retry locally revalidates a complete response without calling the model again', async t => {
+  const f = await fixture(t), complete = await done(f, await start(f));
+  const saved = await f.store.read(s => s.projects[f.p.id].researchTasks[complete.id]);
+  // Isolated legacy checkpoint: a complete final call was saved, but its old
+  // format validator rejected protocol lists before persisting the final phase.
+  await f.store.update(s => {
+    const task = s.projects[f.p.id].researchTasks[complete.id];
+    task.status = 'failed'; task.investigation.phases.pop(); delete task.resultId;
+    const call = s.modelCalls.find(c => c.taskId === task.id && c.purpose === 'model.investigation-revised');
+    const raw = JSON.parse(call.outputText); raw.protocol.secondaryOutcomes = ['Unmodified outcome one', 'Unmodified outcome two'];
+    call.outputText = JSON.stringify(raw);
+  });
+  f.service.modelFactory = () => ({ generate: () => { throw Error('should reuse the complete saved response'); } });
+  const retry = await done(f, await start(f, { retryTaskId: complete.id }));
+  assert.equal(retry.status, 'completed', retry.error); assert.equal(retry.calls.length, 0);
+  assert.equal(retry.investigation.phases.at(-1).provenance.localRevalidation.modelCalled, false);
+  assert.equal(retry.investigation.phases.at(-1).value.protocol.secondaryOutcomes, '- Unmodified outcome one\n- Unmodified outcome two');
+  assert.equal(saved.investigation.phases.length, 3);
+});

@@ -354,3 +354,19 @@ test('separate processes racing to recover a stale writer cannot remove the new 
     const exits = children.map(child => once(child, 'exit')); children.forEach(child => child.send('close')); await Promise.all(exits);
   } finally { children.forEach(child => { if (child.exitCode === null) child.kill('SIGKILL'); }); }
 });
+
+test('task snapshots are scoped, conditional and reflect queued writes without reading global history', async t => {
+  const { store, p } = await populated(t);
+  const task = { id: 'isolated-task', status: 'running', input: { text: 'fixture' } };
+  await store.update(s => { s.projects[p.id].researchTasks = { [task.id]: task }; });
+  const first = await store.taskSnapshot(p.id, task.id);
+  assert.deepEqual(first.task, task);
+  assert.equal((await store.taskSnapshot(p.id, task.id, first.etag)).task, null);
+  first.task.input.text = 'caller mutation';
+  assert.equal((await store.taskSnapshot(p.id, task.id)).task.input.text, 'fixture');
+  const write = store.update(s => { s.projects[p.id].researchTasks[task.id].status = 'completed'; });
+  const next = store.taskSnapshot(p.id, task.id, first.etag);
+  await write; assert.equal((await next).task.status, 'completed');
+  await assert.rejects(store.taskSnapshot('another-project', task.id, '*'), e => e.code === 'not_found');
+  await assert.rejects(store.taskSnapshot(p.id, 'wrong-task', '*'), e => e.code === 'not_found');
+});

@@ -128,7 +128,7 @@ export function consistencyFindings(p,artifactId) {
 }
 export function readableBatches(task) {
   const seen = new Set();
-  return list(task?.paperBatchRecords).filter(r=>r.status==='completed'&&r.result).map(r=>{
+  return [...list(task?.paperBatchRecords),...list(task?.investigation?.extractionRecords)].filter(r=>r.status==='completed'&&r.result).map(r=>{
     const content = r.result.papers?.filter(p=>{
       const key=JSON.stringify([p.sourceId,p.accessId,p.segment?.start,p.segment?.end,p.segment?.totalLength]);
       if(seen.has(key))return false; seen.add(key); return true;

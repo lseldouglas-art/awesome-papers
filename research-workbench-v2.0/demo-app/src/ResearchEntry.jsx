@@ -1,18 +1,32 @@
 import { Icon } from './icons.jsx';
 import {readableBatches} from '../../shared/research-continuity.mjs';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { searchTotals } from '../../shared/topic-search.mjs';
 import { taskPurposes } from '../../shared/research-guidance.mjs';
 import { RetrievalScope } from './RetrievalScope.jsx';
 
 export function SavedBatches({task,project,onSource}) {
-  const batches=readableBatches(task);
+  const [open,setOpen]=useState(false);
+  const batches=useMemo(()=>readableBatches(task),[task.paperBatchRecords,task.investigation?.extractionRecords]);
   if(!batches.length)return null;
+  const count=new Set(batches.flatMap(b=>Array.isArray(b.content)?b.content.map(p=>p.accessId):[])).size;
+  return <details className="readable-batches" open={open} onToggle={e=>{if(e.target===e.currentTarget)setOpen(e.currentTarget.open);}}><summary>{count} 份材料已有整理，可先阅读</summary>{open&&<><p>这里保留已处理片段的整理；材料处理完成与综合结论完成分别记录。</p>{batches.map((b,i)=><SavedBatch key={b.id} batch={b} index={i} project={project} onSource={onSource}/>)}</>}</details>;
+}
+function SavedBatch({batch:b,index:i,project,onSource}) {
+  const [open,setOpen]=useState(false);
   const labels={subject:'研究对象与问题',methods:'方法概述',findings:'主要发现',relevance:'与课题的关系',unreported:'未报告与局限'};
-  return <details className="readable-batches"><summary>{batches.reduce((n,b)=>n+(Array.isArray(b.content)?b.content.length:0),0)} 份逐篇记录已保存，可先阅读</summary><p>这里是已处理片段的阶段整理，尚不能代表全部材料的综合结论。</p>{batches.map((b,i)=><details key={b.id}><summary>第 {i+1} 批 · 已完成片段</summary>{Array.isArray(b.content)&&b.content.map((paper,j)=><article key={j}><h4>{project?.sources?.[paper.sourceId]?.title??paper.ref}</h4>{Object.entries(paper.fields??{}).map(([field,v])=><div key={field}><strong>{labels[field]??'材料发现'} · {v.status==='unknown'?'未知':v.status==='inference'?'AI解释':'材料报告'}</strong><p>{v.text}</p>{v.citations?.map((c,n)=><button key={n} onClick={()=>onSource?.(paper.accessId,c)}>查看原文片段 {n+1}</button>)}</div>)}</article>)}</details>)}</details>;
+  return <details open={open} onToggle={e=>{if(e.target===e.currentTarget)setOpen(e.currentTarget.open);}}><summary>第 {i+1} 批 · 已完成片段</summary>{open&&Array.isArray(b.content)&&b.content.map((paper,j)=><article key={j}><h4>{project?.sources?.[paper.sourceId]?.title??paper.ref}</h4>{Object.entries(paper.fields??{}).map(([field,v])=><div key={field}><strong>{labels[field]??'材料发现'} · {v.status==='unknown'?'未知':v.status==='inference'?'AI解释':'材料报告'}</strong><p>{v.text}</p>{v.citations?.map((c,n)=><button key={n} onClick={()=>onSource?.(paper.accessId,c)}>查看原文片段 {n+1}</button>)}</div>)}</article>)}</details>;
+}
+function TaskTiming({task}) {
+  const [now,setNow]=useState(Date.now);
+  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),15000);return()=>clearInterval(timer);},[]);
+  const started=Date.parse(task.startedAt??task.createdAt),call=task.toolRuns?.filter(r=>r.status==='running'&&r.name?.startsWith('model.')).at(-1);
+  const elapsed=at=>`${Math.max(0,Math.floor((now-Date.parse(at))/60000))} 分钟`;
+  if(!Number.isFinite(started))return null;
+  return <small>本轮已运行 {elapsed(task.startedAt??task.createdAt)}{call?.startedAt?` · 当前模型请求已用时 ${elapsed(call.startedAt)}`:''}</small>;
 }
 export function TaskActivity({ task, onStop, project, onSource }) {
-  return <div><div className="task-status" role="status"><span className="activity-dot"/><div><span>{task.progress || taskPurposes[task.mode]}</span><small>已保存内容可继续阅读；停止后保留已完成工作。</small></div><button onClick={onStop}>停止</button></div><SavedBatches task={task} project={project} onSource={onSource}/></div>;
+  return <div><div className="task-status" role="status"><span className="activity-dot"/><div><span>{task.progress || taskPurposes[task.mode]}</span><TaskTiming task={task}/><small>已保存内容可继续阅读；停止后保留已完成工作。</small></div><button onClick={onStop}>停止</button></div><SavedBatches task={task} project={project} onSource={onSource}/></div>;
 }
 
 export function SearchReceipt({ search, previous }) {

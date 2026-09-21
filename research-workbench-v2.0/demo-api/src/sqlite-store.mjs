@@ -338,6 +338,18 @@ export class SqliteStore {
     this.#db.transaction(() => syncRows(this.#db, tables)).immediate();
   }
   read(select = state => state) { return this.#serial(() => structuredClone(select(readDatabase(this.#db)))); }
+  // Polling one task must not deserialize every project's history and source text.
+  // No cache or second state: the row is read in the same serialized queue as writes.
+  taskSnapshot(projectId, taskId, ifNoneMatch) {
+    return this.#serial(() => {
+      requireThat(this.#db.prepare('SELECT id FROM projects WHERE id=?').get(projectId), 'not_found', '没有这个课题。', 404);
+      const row = this.#db.prepare("SELECT payload FROM entities WHERE project_id=? AND collection='researchTasks' AND id=?").get(projectId, taskId);
+      requireThat(row, 'not_found', '没有这个任务。', 404);
+      const etag = `W/"${hash(row.payload)}"`;
+      const matches = typeof ifNoneMatch === 'string' && ifNoneMatch.split(',').some(tag => tag.trim() === '*' || tag.trim().replace(/^W\//, '') === etag.slice(2));
+      return { etag, task: matches ? null : parse(row.payload) };
+    });
+  }
   update(mutate) {
     return this.#serial(async () => {
       const state = readDatabase(this.#db);

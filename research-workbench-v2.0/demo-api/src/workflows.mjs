@@ -107,13 +107,20 @@ export function resolveMaterialCitation(citation, materials) {
     && !citation.quote && source.text.indexOf(citation.passage) >= 0
     && source.text.indexOf(citation.passage) === source.text.lastIndexOf(citation.passage) ? citation.passage : null;
   requireThat(!citation.passage || passage || legacyQuote, 'invalid_citation', '引用段落编号或摘录无法精确定位。', 502);
-  const quote = passage?.text ?? legacyQuote ?? citation.quote;
-  const start = passage?.start ?? (nonempty(quote) ? source.text.indexOf(quote) : -1);
+  // A supplied quote may be a shorter, exact excerpt inside its named passage.
+  // Never replace a mismatching quote with the passage merely to pass validation.
+  const quote = citation.quote ?? passage?.text ?? legacyQuote;
+  const within = passage && citation.quote ? passage.text.indexOf(quote) : 0;
+  requireThat(!passage || !citation.quote || (within >= 0 && within === passage.text.lastIndexOf(quote)),
+    'invalid_citation', '引文与指定原文片段不一致或位置不唯一，已有结果保留，尚未采用这条引文。', 502,
+    { ref: source.ref, passage: passage?.id ?? null, reason: 'quote_mismatch_or_ambiguous' });
+  const start = passage ? passage.start + within : nonempty(quote) ? source.text.indexOf(quote) : -1;
   requireThat(start >= 0 && nonempty(quote) && source.text.slice(start, start + quote.length) === quote && (!citation.quote || citation.quote === quote),
     'invalid_citation', '引用片段无法在实际访问文本中精确定位。', 502);
   return { ref: source.ref, sourceId: source.sourceId, accessId: source.accessId, level: source.level ?? 'unknown',
     passage: passage?.id ?? null, quote, start, end: start + quote.length, verification: 'exact_excerpt_only',
-    ...(legacyQuote ? { locatorAudit: { input: citation.passage, resolvedBy: 'unique_exact_legacy_excerpt', contentRewritten: false } } : {}) };
+    ...(legacyQuote ? { locatorAudit: { input: citation.passage, resolvedBy: 'unique_exact_legacy_excerpt', contentRewritten: false } }
+      : passage && citation.quote && quote !== passage.text ? { locatorAudit: { resolvedBy: 'unique_exact_excerpt_within_passage', contentRewritten: false } } : {}) };
 }
 
 // Models sometimes write the explicitly enumerated locator "P2、P3". Expand

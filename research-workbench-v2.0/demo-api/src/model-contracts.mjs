@@ -14,7 +14,8 @@ const statement = object({ key: string, headline: string, text: nonempty,
   status: { enum: ['reported', 'inference', 'unknown', 'suggestion'] }, citations: array(citation) }, ['text', 'status', 'citations']);
 const judgment = object({ recommendation: { enum: ['advance', 'conditional', 'narrow', 'defer'] }, reason: nonempty,
   claims: array(statement), unknowns: array(string), next: nonempty, changed: nonempty,
-  protocol: { anyOf: [{ type: 'null' }, object(Object.fromEntries(Object.keys(protocolFields).map(k => [k, string])), [])] } },
+  protocol: { anyOf: [{ type: 'null' }, object(Object.fromEntries(Object.keys(protocolFields).map(k => [k,
+    { anyOf: [string, array(string)] }])), [])] } },
   ['recommendation', 'reason', 'claims', 'unknowns', 'next', 'changed']);
 const schemas = {
   paper: object({ framework: { const: LANDSCAPE_FRAMEWORK }, papers: array(object({ ref: nonempty,
@@ -30,7 +31,7 @@ const schemas = {
 // repairs facts. Source/coverage/domain validators remain authoritative.
 const ajv = new Ajv({ allErrors: true, strict: true });
 const contracts = Object.fromEntries(Object.entries(schemas).map(([name, schema]) => [name, {
-  name, version: 'research-output-v1', schema,
+  name, version: name === 'initial' || name === 'revised' ? 'research-output-v2' : 'research-output-v1', schema,
   fingerprint: createHash('sha256').update(JSON.stringify(schema)).digest('hex'), validate: ajv.compile(schema),
 }]));
 export function outputContractFor(purpose) {

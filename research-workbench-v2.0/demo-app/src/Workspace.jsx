@@ -167,9 +167,26 @@ function ArtifactWorkspace({ onIntake, project, setProject, onProjects, onHome, 
   }, [artifact.draft.sourceAccessIds]);
   useEffect(() => {
     if (!activeTask) return;
-    let stopped = false, timer;
-    const poll = async () => { try { const task = await api.request(`/api/projects/${project.id}/research-tasks/${activeTask.id}`); if (stopped) return; if (isRunning(task)) { if((topicTaskModes.includes(task.mode)||(task.mode==='retrieve'&&task.input.retrievalOptions))&&task.progress!==pRef.current.researchTasks[task.id]?.progress)await refresh(); const p = pRef.current; commitProject({ ...p, researchTasks: { ...p.researchTasks, [task.id]: task } }); timer = setTimeout(poll, 1400); } else { const p = await refresh(); await refreshCaps(); await receiveTask(task, p); } } catch (e) { if (!stopped) { setError('暂时无法读取任务状态；请求不会自动重新执行。'); timer = setTimeout(poll, 3000); } } };
-    timer = setTimeout(poll, 700); return () => { stopped = true; clearTimeout(timer); };
+    let stopped = false, timer, version;
+    const controller = new AbortController();
+    const poll = async () => {
+      try {
+        const task = await api.request(`/api/projects/${project.id}/research-tasks/${activeTask.id}`, {
+          ifNoneMatch: version, onVersion: value => { version = value; }, signal: controller.signal,
+        });
+        if (stopped) return;
+        if (!task) { timer = setTimeout(poll, 1400); return; }
+        if (isRunning(task)) {
+          if ((topicTaskModes.includes(task.mode) || task.mode === 'retrieve' && task.input.retrievalOptions)
+            && task.progress !== pRef.current.researchTasks[task.id]?.progress) await refresh();
+          if (stopped) return;
+          const p = pRef.current;
+          commitProject({ ...p, researchTasks: { ...p.researchTasks, [task.id]: task } });
+          timer = setTimeout(poll, 1400);
+        } else { const p = await refresh(); if (stopped) return; await refreshCaps(); await receiveTask(task, p); }
+      } catch (e) { if (!stopped) { setError('暂时无法读取任务状态；请求不会自动重新执行。'); timer = setTimeout(poll, 3000); } }
+    };
+    timer = setTimeout(poll, 700); return () => { stopped = true; controller.abort(); clearTimeout(timer); };
   }, [activeTask?.id]);
   const jump = id => { setSelected(id);if(!historical&&currentResult?.kind==='brief'&&readingMode==='visual'){const section=chapterForBlock(currentResult,id);if(section){document.getElementById(`domain-chapter-${section.id}`)?.scrollIntoView({behavior:'smooth',block:'start'});if(window.innerWidth<1100)setLeft(false);return;}}if(!historical&&id.startsWith('note-')){setPanel('notes');setNotesTab('records');if(window.innerWidth<1100)setLeft(false);return;} const el = document.getElementById(`block-${id}`); let detail = el?.closest('details'); while (detail) { detail.open = true; detail = detail.parentElement?.closest('details'); } el?.scrollIntoView({ behavior: 'smooth', block: 'center' }); if (window.innerWidth < 1100) setLeft(false); };
   const source = (id, citation = null) => { setFocusSource(id); setFocusCitation(citation); setPanel('sources'); };

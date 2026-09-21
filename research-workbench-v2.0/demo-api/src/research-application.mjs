@@ -1,4 +1,5 @@
 import { extractPaperBatch, learnedPaperCallSize } from './paper-extraction.mjs';
+import { extractionForRevision } from './extraction-reuse.mjs';
 import { outputContractFor, validateModelContract } from './model-contracts.mjs';
 import { loadAgentPilot, usesAgentPilot, createAgentPilot, agentPilotIdentity } from './agent-pilot.mjs';
 import { questionRequest, candidateInstructions } from '../../shared/question-request.mjs';
@@ -272,6 +273,7 @@ export class ResearchApplication extends ResearchService {
       if (previous) requireThat(JSON.stringify(previous.agentRuntime ?? null) === JSON.stringify(task.agentRuntime), 'invalid_retry', '科研 Agent 设置已变更，请新建一轮保留准确对照。', 409);
       task.attempts.push(createTaskAttempt(task.id, { previousAttemptId: previous?.attempts?.at(-1)?.id ?? null, inputFingerprint: task.inputFingerprint, provider, model: task.model }));
       if (body.mode === 'question-investigation' && previous?.investigation) task.investigation = clone(previous.investigation);
+      if (previous?.extractionReuse) task.extractionReuse = clone(previous.extractionReuse);
       p.researchTasks[task.id] = task;
       if (body.text) task.messageId = executeCommand(s, projectId, 'append-message', { conversationId: Object.keys(p.conversations)[0], text: body.text,
         ...(target ? { target: { artifactId: a.id, revisionId: revision.id, blockId: target.blockId } } : {}) }, requestId).id;
@@ -446,8 +448,18 @@ export class ResearchApplication extends ResearchService {
       const recovered = await this.reuseValidatedExtraction(task, materials);
       if (recovered) return this.synthesizeExtraction(task, config, materials, context, recovered, signal);
     }
+    const revisionReuse = task.mode === 'revise' && !task.retryOfTaskId
+      ? await this.store.read(s => extractionForRevision(s.projects[task.projectId], task, materials)) : null;
+    if (revisionReuse) await this.store.update(s => {
+      const p = s.projects[task.projectId], t = p.researchTasks[task.id];
+      signal.throwIfAborted(); requireThat(!isTerminalRun(t.status), 'cancelled', '本步已停止。', 409);
+      t.paperBatchRecords = revisionReuse.records;
+      t.extractionReuse = { sourceTaskId: revisionReuse.sourceTaskId, sourceResultId: revisionReuse.sourceResultId,
+        accessIds: revisionReuse.accessIds, omittedFields: ['relevance'], verification: 'same_source_snapshot_not_new_reading' };
+      event(p, t, 'revision_extraction_reused', t.extractionReuse);
+    });
     const saved = await this.store.read(s => s.projects[task.projectId].researchTasks[task.id].paperBatchRecords ?? []);
-    const reused = reusablePaperExtractions(task.retryOfTaskId ? saved : [], materials);
+    const reused = reusablePaperExtractions(task.retryOfTaskId || revisionReuse ? saved : [], materials);
     const remaining = materials.filter(m => !reused.accessIds.has(m.accessId));
     const extractionInstruction = perPaperBatchInstructions(paperExtractionContext(context));
     const extractionPlan = ['landscape', 'revise', 'topic-review'].includes(task.mode)
@@ -474,7 +486,7 @@ export class ResearchApplication extends ResearchService {
       }),
       run: ({ batch, admit }) => this.extractPaperUnit(task, config, batch, extractionInstruction, signal, false, { materials, admit }) });
     const combined = combinePaperCoverage([...reused.results, ...batches.results], materials);
-    return this.synthesizeExtraction(task, config, materials, context, { ...batches, combined,
+    return this.synthesizeExtraction(task, config, materials, context, { ...batches, combined, extractionReuse: revisionReuse,
       records: [...reused.records, ...batches.records], recoveredCallIds: reused.records.map(r=>r.recovery?.sourceCallId).filter(Boolean), reusedBatchIds: [...reused.reusedBatchIds, ...batches.reusedBatchIds] }, signal);
   }
 
@@ -566,10 +578,13 @@ export class ResearchApplication extends ResearchService {
   }
 
   async synthesizeExtraction(task, config, materials, context, batches, signal) {
-    const synthesisContext = { ...context, selectedMaterialRefs: materials.map(({ ref, title, year, level }) => ({ ref, title, year, level })) };
+    const reuse = batches.extractionReuse ?? task.extractionReuse ?? null;
+    const synthesisContext = { ...context, selectedMaterialRefs: materials.map(({ ref, title, year, level }) => ({ ref, title, year, level })),
+      ...(reuse ? { extractionReuse: { sourceTaskId: reuse.sourceTaskId, reusedCount: reuse.accessIds.length,
+        boundary: '论文事实与原文位置来自同一访问快照的已保存整理。旧逐篇相关性已清空，必须按本次修改要求重新解释；不能声称重新阅读或新核验。' } } : {}) };
     const { combined } = batches, topical = task.mode === 'topic-review', synthesis = topical ? topicAggregationInstructions(combined,synthesisContext) : `${landscapeAggregationInstructions(combined, synthesisContext)}\n${landscapeSelfCheck}`;
     await this.updateTask(task, { materialBatchCoverage: combined.coverage, reusedBatchIds: batches.reusedBatchIds,
-      recoveredExtractionCallIds: batches.recoveredCallIds ?? [], progress: topical ? '全部材料已逐篇整理，正在论证证据、缺口与设计' : batches.reusedBatchIds.length ? '已复用完整逐篇记录，只重新整理七个领域维度' : '全部材料已逐篇整理，正在综合七个领域维度' });
+      recoveredExtractionCallIds: batches.recoveredCallIds ?? [], progress: topical ? '全部材料已逐篇整理，正在论证证据、缺口与设计' : batches.reusedBatchIds.length ? '已复用完整逐篇记录，正在按本次要求更新领域认识' : '全部材料已逐篇整理，正在综合七个领域维度' });
     assertMaterialContextFits([], { ...materialContextLimits(config), instruction: researchInstruction(synthesis) });
     let output, text, retryReason = '';
     for (let attempt = 0; attempt < (topical ? 1 : 2); attempt++) {

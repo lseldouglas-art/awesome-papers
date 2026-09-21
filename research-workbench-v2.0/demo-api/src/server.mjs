@@ -124,7 +124,12 @@ export async function startServer({ directory = fileURLToPath(new URL('../.local
         else if (parts.length === 4 && parts[3] === 'artifacts' && req.method === 'GET') data = await store.read(s => researchState(getProject(s, projectId)).artifacts);
         else if (parts.length === 5 && parts[3] === 'artifacts' && req.method === 'GET') data = await store.read(s => { const p = getProject(s, projectId); requireThat(Object.hasOwn(p.artifacts, parts[4]), 'not_found', '本课题没有这份成果。', 404); return p.artifacts[parts[4]]; });
         else if (parts.length === 4 && parts[3] === 'research-tasks' && req.method === 'POST') data = await research.start(projectId, await jsonBody(req), requestId);
-        else if (parts[3] === 'research-tasks' && parts.length === 5 && req.method === 'GET') data = await store.read(s => { const p = getProject(s, projectId); requireThat(Object.hasOwn(p.researchTasks, parts[4]), 'not_found', '没有这个任务。', 404); return p.researchTasks[parts[4]]; });
+        else if (parts[3] === 'research-tasks' && parts.length === 5 && req.method === 'GET') {
+          const snapshot = await store.taskSnapshot(projectId, parts[4], req.headers['if-none-match']);
+          res.setHeader('ETag', snapshot.etag);
+          if (!snapshot.task) { res.writeHead(304, { 'Cache-Control': 'private, no-store' }); res.end(); return; }
+          data = snapshot.task;
+        }
         else if (parts[3] === 'research-tasks' && parts.length === 6 && parts[5] === 'stop' && req.method === 'POST') { await jsonBody(req); data = await research.stop(projectId, parts[4], requestId); }
         else if (parts[3] === 'research-tasks' && parts.length === 6 && parts[5] === 'revalidate' && req.method === 'POST') data = await research.revalidateSavedOutput(projectId, parts[4], requestId, await jsonBody(req));
         else if (parts.length === 5 && parts[3] === 'commands' && req.method === 'POST') {

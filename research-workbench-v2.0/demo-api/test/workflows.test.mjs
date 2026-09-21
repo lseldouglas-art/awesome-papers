@@ -229,3 +229,17 @@ test('parallel cancellation waits for both calls and discards their late outputs
   await assert.rejects(pending,e=>e.name==='AbortError'); assert.equal(calls,2);
   assert.equal(saved.filter(r=>r.status==='cancelled').length,2);assert.equal(saved.filter(r=>r.status==='completed').length,0);
 });
+
+test('a quote can be a unique exact subrange of its named passage, never a rewritten or misplaced quote', () => {
+  const m = material(1, 'Background. A controlled study found an association. Limits remain.');
+  const quote = 'A controlled study found an association.';
+  const c = resolveMaterialCitation({ ref: 'R1', passage: 'P1', quote }, [m]);
+  assert.equal(m.text.slice(c.start, c.end), quote);
+  assert.equal(c.locatorAudit.resolvedBy, 'unique_exact_excerpt_within_passage');
+  assert.equal(c.locatorAudit.contentRewritten, false);
+  for (const quote of ['A controlled study proved causation.', ' ', 'association. Limits not reported']) {
+    assert.throws(() => resolveMaterialCitation({ ref: 'R1', passage: 'P1', quote }, [m]), e => e.code === 'invalid_citation');
+  }
+  const long = material(1, 'a'.repeat(600) + 'Unique finding.');
+  assert.throws(() => resolveMaterialCitation({ ref: 'R1', passage: 'P1', quote: 'Unique finding.' }, [long]), e => e.code === 'invalid_citation');
+});

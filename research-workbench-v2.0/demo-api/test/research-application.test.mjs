@@ -483,3 +483,25 @@ test('a valid child is visible while its parent batch still awaits repair',async
  assert.equal(task.paperBatchRecords[0].status,'running');
  release();assert.equal((await done(f,started)).status,'completed');
 });
+
+test('revising a saved report reuses source facts, clears old relevance and only synthesizes; explicit rereading still works', async t => {
+  let extracted = 0, synthesized = 0;
+  const materials = [1, 2, 3].map(i => ({ ref: `R${i}` }));
+  const f = await fixture(t, { texts: ['Observed one.', 'Observed two.', 'Observed three.'], generate: async input => {
+    if (input.instruction.includes('逐篇完整整理')) { extracted++; return envelope(JSON.stringify(dimensionFixture(input.materials))); }
+    synthesized++; return envelope(JSON.stringify(dimensionFixture(materials)));
+  } });
+  await f.service.settings.save({ ...f.service.settings.config, apiKey: '', paperBatchSize: 2 });
+  const first = await done(f, await start(f, 'revise', { text: '形成领域认识' }));
+  assert.equal(first.status, 'completed', first.error); assert.equal(extracted, 2);
+  const original = JSON.stringify(first.paperBatchRecords);
+  const revision = await done(f, await start(f, 'revise', { text: '补充不同研究之间的比较理由' }));
+  assert.equal(revision.status, 'completed', revision.error); assert.equal(extracted, 2); assert.equal(synthesized, 2);
+  assert.equal(revision.calls.length, 1); assert.equal(revision.extractionReuse.sourceTaskId, first.id);
+  assert.equal(revision.extractionReuse.accessIds.length, 3);
+  const result = await f.store.read(s => s.projects[f.p.id].researchResults[revision.resultId]);
+  assert.ok(result.paperNotes.every(p => p.fields.relevance.status === 'unknown'));
+  assert.equal(JSON.stringify((await f.store.read(s => s.projects[f.p.id].researchTasks[first.id])).paperBatchRecords), original);
+  const reread = await done(f, await start(f, 'revise', { text: '请重新逐篇核对文献' }));
+  assert.equal(reread.status, 'completed', reread.error); assert.equal(extracted, 4); assert.equal(reread.extractionReuse, undefined);
+});
