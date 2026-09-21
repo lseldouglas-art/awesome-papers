@@ -460,6 +460,8 @@ test('parallel extraction publishes unique paper progress before synthesis and r
   assert.deepEqual(configs,['low','low','low','low','max']);assert.equal(task.extractionProgress.completed,4);
   const calls=await f.store.read(s=>s.modelCalls.filter(c=>c.taskId===task.id));
   assert.deepEqual(calls.map(c=>c.configuredOptions.reasoningEffort),configs);
+  assert.equal(calls.at(-1).configuredOptions.generationBudget.maxOutputTokens,65536);
+  assert.ok(calls.slice(0,-1).every(c=>c.configuredOptions.generationBudget.maxOutputTokens===32768));
   assert.equal(task.analysisSettings.reasoningEffort,'max');assert.equal(task.analysisSettings.extraction.reasoningEffort,'low');
 });
 

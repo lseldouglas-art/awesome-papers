@@ -76,3 +76,10 @@ test('extraction settings are separate from judgment effort and preserve explici
  const changed=await settings.save({...body,baseUrl:'https://other.invalid/v1',model:'other',reasoningEffort:'default'});
  assert.equal(changed.extractionReasoningEffort,'inherit');assert.equal(changed.extractionConcurrency,2);
 });
+
+test('GLM explicit output allowance survives settings reload and rejects above documented capacity',async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'rw-output-allowance-')),settings=await new ModelSettings(directory).initialize();
+ const body={baseUrl:'https://open.bigmodel.cn/api/paas/v4',model:'GLM-5.3-Flash',apiKey:'test-only',enabled:true,contextLimits:{maxOutputTokens:65536}};
+ await settings.save(body);const loaded=await new ModelSettings(directory).initialize();assert.equal(loaded.public().contextLimits.maxOutputTokens,65536);
+ await assert.rejects(settings.save({...body,contextLimits:{maxOutputTokens:131073}}),e=>e.code==='invalid_configuration');
+});

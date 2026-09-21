@@ -18,3 +18,13 @@ export function extractionSettings(config = {}) {
     concurrency: config.extractionConcurrency ?? DEFAULT_EXTRACTION_CONCURRENCY,
   };
 }
+
+// GLM's output allowance includes generation before the final answer. A 32K
+// ceiling can finish with no answer at max effort on a large synthesis.
+export function generationBudget(config = {}, purpose = config.requestPurpose) {
+  if (!reasoningProfile(config.model, config.baseUrl).source) return null;
+  const synthesis = ['model.landscape-synthesis', 'model.topic-synthesis'].includes(purpose);
+  const explicit = config.contextLimits?.maxOutputTokens;
+  const maxOutputTokens = explicit > 0 ? explicit : synthesis && config.reasoningEffort === 'max' ? 65536 : 32768;
+  return { maxOutputTokens, timeoutMs: Math.max(720000, Math.ceil(maxOutputTokens / 32768) * 720000) };
+}

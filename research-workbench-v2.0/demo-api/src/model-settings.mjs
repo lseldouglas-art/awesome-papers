@@ -35,6 +35,7 @@ export class ModelSettings {
         const limits = materialContextLimits({ contextLimits: body.contextLimits });
         config.contextLimits = { maxInputTokens: limits.maxInputTokens, maxOutputTokens: limits.maxOutputTokens, contextWindowTokens: limits.contextWindowTokens };
       } else if (sameService && body.contextLimits === undefined && this.config.contextLimits) config.contextLimits = this.config.contextLimits;
+      if (profile.source) requireThat((config.contextLimits?.maxOutputTokens ?? 0) <= 131072, 'invalid_configuration', '该模型的单次输出额度不能超过官方128K上限。');
       requireThat(createModelAdapter(config).capabilities().configured, 'invalid_configuration', '配置不合法：远程服务须使用 HTTPS，地址不含用户名或查询参数，模型与密钥不能为空。');
       const temp = `${this.filename}.${randomUUID()}.tmp`, file = await open(temp, 'wx', 0o600);
       try { await file.writeFile(JSON.stringify(config)); await file.sync(); } finally { await file.close(); }

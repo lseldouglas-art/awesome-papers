@@ -335,3 +335,35 @@ test('GLM thinking setting is passed exactly to each physical request',async()=>
   await adapter.generate(request);assert.equal(sent.reasoning_effort,effort);
  }
 });
+
+test('max-effort synthesis has answer room, explicit budgets are honored and provider scope stays exact',async()=>{
+ for(const [purpose,effort,explicit,expected,timeout] of [
+  ['model.landscape-synthesis','max',undefined,65536,1440000],
+  ['model.topic-synthesis','max',undefined,65536,1440000],
+  ['model.paper-extraction','max',undefined,32768,720000],
+  ['model.landscape-synthesis','high',undefined,32768,720000],
+  ['model.landscape-synthesis','max',32768,32768,720000],
+  ['model.landscape-synthesis','max',131072,131072,2880000],
+ ]){
+  const adapter=createModelAdapter({...streamConfig,reasoningEffort:effort,requestPurpose:purpose,contextLimits:{maxOutputTokens:explicit}},{fetchImpl:async(_,init)=>{
+   const body=JSON.parse(init.body);assert.equal(body.max_tokens,expected);assert.equal(body.reasoning_effort,effort);return jsonResponse();
+  }});
+  const result=await adapter.generate(request);assert.equal(result.provenance.timeoutMs,timeout);
+ }
+ let calls=0;
+ const invalid=createModelAdapter({...streamConfig,contextLimits:{maxOutputTokens:131073}},{fetchImpl:async()=>{calls++;return jsonResponse();}});
+ await assert.rejects(invalid.generate(request),e=>e.code==='invalid_configuration');assert.equal(calls,0);
+ const other=createModelAdapter({...config,reasoningEffort:'max',requestPurpose:'model.landscape-synthesis',contextLimits:{maxOutputTokens:65536}},{fetchImpl:async(_,init)=>{
+  assert.equal(JSON.parse(init.body).max_tokens,undefined);return jsonResponse();
+ }});await other.generate(request);
+});
+
+test('exhausted generation with no answer has a distinct explanation and preserves allowance without thoughts',async()=>{
+ const adapter=createModelAdapter({...streamConfig,reasoningEffort:'max',requestPurpose:'model.landscape-synthesis'},{fetchImpl:async()=>streamResponse(
+  'data: '+JSON.stringify({choices:[{index:0,delta:{reasoning_content:'private model thought'},finish_reason:'length'}],usage:{prompt_tokens:10,completion_tokens:65536,total_tokens:65546}})+'\n\ndata: [DONE]\n\n')});
+ await assert.rejects(adapter.generate(request),e=>{
+  assert.equal(e.code,'model_incomplete_response');assert.match(e.message,/尚未返回可保存的答案/);assert.equal(e.responseSnapshot.text,'');
+  assert.equal(e.responseSnapshot.generationOptions.max_tokens,65536);assert.equal(e.responseSnapshot.timeoutMs,1440000);
+  assert.equal(e.responseSnapshot.usage.completion_tokens,65536);assert.doesNotMatch(JSON.stringify(e),/private model thought/);return true;
+ });
+});

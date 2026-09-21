@@ -2,7 +2,7 @@ import { extractPaperBatch, learnedPaperCallSize } from './paper-extraction.mjs'
 import { outputContractFor, validateModelContract } from './model-contracts.mjs';
 import { loadAgentPilot, usesAgentPilot, createAgentPilot, agentPilotIdentity } from './agent-pilot.mjs';
 import { questionRequest, candidateInstructions } from '../../shared/question-request.mjs';
-import { reasoningProfile, extractionSettings } from '../../shared/model-analysis.mjs';
+import { reasoningProfile, extractionSettings, generationBudget } from '../../shared/model-analysis.mjs';
 import {continuitySnapshot,continuitySignature,hasContinuity,continuityChanged} from '../../shared/research-continuity.mjs';
 import { investigationInput, executeInvestigation } from './question-investigation.mjs';
 import {compositionInput,executeComposition} from './figure-workspace.mjs';
@@ -637,7 +637,7 @@ export class ResearchApplication extends ResearchService {
         runtime: pilot ? 'claude-agent-sdk' : 'direct_model_api', runtimeReadReceipts: [],
         promptVersion, promptFingerprint, languageStandard:task.mode==='connection'?null:RESEARCH_LANGUAGE_VERSION, inputRefs: clone(inputRefs), materialRefs: materials.map(({ sourceId, accessId }) => ({ sourceId, accessId })),
         outputContract: contractRef,
-        configuredOptions: { model: runtimeConfig.model, reasoningEffort: pilot ? runtimeConfig.effort : config.reasoningEffort ?? null, paperBatchSize: config.paperBatchSize ?? 50, contextLimits: clone(config.contextLimits ?? null) },
+        configuredOptions: { model: runtimeConfig.model, reasoningEffort: pilot ? runtimeConfig.effort : config.reasoningEffort ?? null, paperBatchSize: config.paperBatchSize ?? 50, contextLimits: clone(config.contextLimits ?? null), generationBudget: pilot ? null : generationBudget(config, name) },
         ...(name==='model.topic-screen'?{screeningInput:{instruction,materials:clone(materials)}}:{}),
         inputCharacters: instruction.length + JSON.stringify(materials).length, status: 'running', startedAt: now(), usage: null, cost: { status: 'unknown', amount: null } });
       t.calls.push(callId);
@@ -648,7 +648,7 @@ export class ResearchApplication extends ResearchService {
       const runtime = pilot ? this.agentRuntimeFactory(runtimeConfig, { directory: this.store.directory,
         onRead: receipt => this.store.update(s => { signal.throwIfAborted();
           const call = s.modelCalls.find(c => c.id === callId); call.runtimeReadReceipts.push({ ...receipt, readAt: now() }); }) })
-        : this.modelFactory(config, { fetchImpl: this.fetchImpl });
+        : this.modelFactory({ ...config, requestPurpose: name }, { fetchImpl: this.fetchImpl });
       const generated = await runtime.generate({ requestId: callId, instruction, materials: runtimeMaterials, signal, outputSchema: contract?.schema });
       receivedOutput = generated;
       let normalized = null;
@@ -681,6 +681,7 @@ export class ResearchApplication extends ResearchService {
             const snapshot = error.responseSnapshot;
             Object.assign(call, { outputText: snapshot.text, outputStatus: 'incomplete_unvalidated_output',
               usage: clone(snapshot.usage), responseTermination: snapshot.finishReason,
+              ...(snapshot.generationOptions ? { generationOptions: clone(snapshot.generationOptions), timeoutMs: snapshot.timeoutMs } : {}),
               responseRecovery: { retained: true, validated: false, errorCode } });
           }
           event(p, t, `model_call_${status}`, { callId, toolRunId: tool.id, errorCode });

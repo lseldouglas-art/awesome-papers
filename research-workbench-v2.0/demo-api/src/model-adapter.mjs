@@ -1,5 +1,6 @@
 import { sourcePassages } from '../../shared/material-scope.mjs';
 import { randomUUID } from 'node:crypto';
+import { generationBudget } from '../../shared/model-analysis.mjs';
 
 // Protocol reference: https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create
 // This adapter generates text only. It neither executes research nor adopts its output.
@@ -213,14 +214,15 @@ export function createModelAdapter(config = {}, { fetchImpl = globalThis.fetch }
   // Provider-scoped profile: the publisher documents max as the GLM-5.3-Flash default.
   // Initial exploration needs a bounded response, not unrestricted deliberation.
   // https://huggingface.co/zai-org/GLM-5.3-Flash-BF16#note
-  const generationOptions = settings.provider === 'open.bigmodel.cn' && /^glm-5\.3-flash$/i.test(settings.model ?? '')
-    ? { reasoning_effort: ['low', 'high', 'max'].includes(config.reasoningEffort) ? config.reasoningEffort : 'low', max_tokens: 32768, stream: true } : {};
-  // The official model page documents 128K output. Reserve 32K for complete
-  // extraction + seven dimensions; keep smaller tasks free to finish early.
+  const budget = plainObject(config) ? generationBudget(config) : null;
+  if (budget && (!Number.isSafeInteger(budget.maxOutputTokens) || budget.maxOutputTokens < 1 || budget.maxOutputTokens > 131072)) settings.error = 'invalid_configuration';
+  const generationOptions = budget
+    ? { reasoning_effort: ['low', 'high', 'max'].includes(config.reasoningEffort) ? config.reasoningEffort : 'low', max_tokens: budget.maxOutputTokens, stream: true } : {};
+  // Respect an explicit allowance; max-effort synthesis has a larger default.
+  // The official model page documents up to 128K output.
   // https://docs.bigmodel.cn/cn/guide/models/vlm/glm-5.3-flash
-  // Public acceptance measured 13,613 output tokens in 264 seconds for 20 papers.
-  // Allow a full 32K structured response to finish; the user can still stop immediately.
-  const timeoutMs = generationOptions.stream ? 720_000 : TIMEOUT_MS;
+  // A ceiling is not a target: the model may finish earlier, and stop is immediate.
+  const timeoutMs = budget?.timeoutMs ?? TIMEOUT_MS;
   return {
     capabilities() {
       return { configured: !settings.error, enabled: settings.enabled, model: settings.model, protocol: PROTOCOL };
@@ -298,7 +300,9 @@ export function createModelAdapter(config = {}, { fetchImpl = globalThis.fetch }
           : failure('model_network_error', 502, '与模型服务的连接中断。已有材料保留；请检查网络后继续，本次不会自动重发。');
         // Only assistant answer bytes and validated usage, never HTTP error bodies,
         // credentials or private reasoning. A partial answer is not a result.
-        if (received) errorToThrow.responseSnapshot = received;
+        if (received) errorToThrow.responseSnapshot = { ...received, generationOptions: requestOptions, timeoutMs };
+        if (errorToThrow.code === 'model_incomplete_response' && received?.finishReason === 'length' && !received.text.trim())
+          errorToThrow.message = '本次生成额度已用尽，但模型尚未返回可保存的答案。已完成的文献整理仍保留；可提高输出额度或调整思考档位后接续未完成步骤。';
         throw errorToThrow;
       } finally {
         controller.abort();
