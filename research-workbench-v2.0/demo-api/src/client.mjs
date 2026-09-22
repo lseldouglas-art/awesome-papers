@@ -133,7 +133,7 @@ export function createClient({
     capabilities: () => request('/api/capabilities'),
     listProjects: () => request('/api/projects'),
     createProject: (body) => request('/api/projects', { method: 'POST', body }),
-    workspace: (projectId) => request(projectPath(projectId)),
+    workspace: (projectId, {summary = false} = {}) => request(`${projectPath(projectId)}${summary ? '?view=summary' : ''}`),
     command: (projectId, name, payload, { requestId } = {}) => request(
       `${projectPath(projectId)}/commands/${segment(name)}`,
       { method: 'POST', body: payload, requestId },

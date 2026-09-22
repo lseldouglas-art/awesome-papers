@@ -15,7 +15,7 @@ export function App() {
   const [editingIntake,setEditingIntake]=useState(false);
   const [showProjects, setShowProjects] = useState(false);
   const loadProjects = async () => { const list = await api.listProjects(); setProjects(list.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))); };
-  const open = async id => { setError(''); try { const p = await api.workspace(id); setProject(p); localStorage.setItem('rw2:last-project', id); setShowProjects(false); } catch (e) { setError(e.message); } };
+  const open = async id => { setError(''); try { const p = await api.workspace(id, {summary:true}); setProject(p); localStorage.setItem('rw2:last-project', id); setShowProjects(false); } catch (e) { setError(e.message); } };
   useEffect(() => { (async () => { try { await loadProjects(); const id = localStorage.getItem('rw2:last-project'); if (id) await open(id); } catch (e) { setError('无法连接本机工作台。请检查服务是否正在运行。'); } finally { setLoading(false); } })(); }, []);
   const create = async example => { if (creating) return; setCreating(true); setError(''); try { const p = await api.createProject(example ? { example: true } : { intake:true, name: goal.trim().slice(0, 60), goal: goal.trim() }); setProject(p); localStorage.setItem('rw2:last-project', p.id); setGoal(''); await loadProjects(); } catch (e) { setError(e.message); } finally { setCreating(false); } };
   if (loading) return <div className="loading"><Icon name="leaf" size={32}/><p>正在打开你的工作区…</p></div>;

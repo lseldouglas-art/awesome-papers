@@ -85,3 +85,11 @@ test('installed SDK exports and tool registration accept the production interfac
   assert.equal(server.type, 'sdk'); assert.equal(typeof sdk.query, 'function');
   await server.instance.close();
 });
+
+test('cancelling while SDK initialization is pending starts no query', async () => {
+  const directory=await mkdtemp(join(tmpdir(),'rw-agent-init-cancel-')),controller=new AbortController();let entered,release,queries=0;
+  const initialized=new Promise(r=>entered=r),gate=new Promise(r=>release=r);
+  const runtime=createAgentPilot(config,{directory,loadSdk:async()=>{entered();await gate;return fakeSdk(()=>{queries++;return (async function*(){yield success;})();});}});
+  const pending=runtime.generate({...request,signal:controller.signal});await initialized;controller.abort();release();
+  await assert.rejects(pending);assert.equal(queries,0);
+});

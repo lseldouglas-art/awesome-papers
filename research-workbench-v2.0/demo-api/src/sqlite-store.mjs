@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
 import { DomainError, requireThat } from './errors.mjs';
 import { migrateState } from './progress.mjs';
+import { taskSummarySql } from './task-view.mjs';
 
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const fresh = () => ({ schemaVersion: 2, projects: {}, receipts: {}, events: [], modelCalls: [] });
@@ -17,7 +18,7 @@ function canonical(value) {
   return json(value);
 }
 const hash = value => createHash('sha256').update(value).digest('hex');
-const equalJSON = (a, b) => canonical(parse(a)) === canonical(parse(b));
+const equalJSON = (a, b) => a === b || canonical(parse(a)) === canonical(parse(b));
 function validate(state) {
   requireThat(object(state) && [1, 2].includes(state.schemaVersion) && object(state.projects) && object(state.receipts)
     && Array.isArray(state.events) && (state.modelCalls === undefined || Array.isArray(state.modelCalls)),
@@ -139,36 +140,41 @@ function syncRows(db, tables) {
     for (const [key, row] of desired) if (!existing.has(key)) insert.run(row);
   }
 }
-function readDatabase(db) {
+function readDatabase(db, { projectId, summary = false } = {}) {
   const state = {};
   for (const row of db.prepare('SELECT * FROM root_properties').all()) own(state, row.name, parse(row.payload));
   state.projects = {}; state.events = []; state.receipts = {}; state.modelCalls = [];
-  for (const row of db.prepare('SELECT * FROM projects ORDER BY position').all()) own(state.projects, row.id, parse(row.payload));
-  for (const row of db.prepare('SELECT * FROM collections ORDER BY project_id,position').all()) {
+  const where = projectId ? ' WHERE project_id=?' : '', args = projectId ? [projectId] : [];
+  for (const row of db.prepare(`SELECT * FROM projects${projectId ? ' WHERE id=?' : ''} ORDER BY position`).all(...args)) own(state.projects, row.id, parse(row.payload));
+  if (projectId) requireThat(state.projects[projectId], 'not_found', '没有这个课题。', 404);
+  for (const row of db.prepare(`SELECT * FROM collections${where} ORDER BY project_id,position`).all(...args)) {
     const project = state.projects[row.project_id];
     requireThat(project, 'store_corrupt', '本机数据的课题关联已损坏，已停止写入。', 503);
     own(project, row.name, row.kind === 'array' ? [] : {});
   }
-  for (const row of db.prepare('SELECT * FROM entities ORDER BY project_id,collection,position').all()) {
+  const entityColumns = summary ? `project_id,collection,id,position,has_revisions,CASE WHEN collection='researchTasks' THEN ${taskSummarySql} ELSE payload END AS payload` : '*';
+  for (const row of db.prepare(`SELECT ${entityColumns} FROM entities${where} ORDER BY project_id,collection,position`).all(...args)) {
     const collection = state.projects[row.project_id]?.[row.collection];
     requireThat(object(collection), 'store_corrupt', '本机数据的内容关联已损坏，已停止写入。', 503);
     const entity = parse(row.payload);
     if (row.has_revisions) entity.revisions = [];
     own(collection, row.id, entity);
   }
-  for (const row of db.prepare('SELECT * FROM revisions ORDER BY project_id,collection,entity_id,position').all()) {
+  for (const row of db.prepare(`SELECT * FROM revisions${where} ORDER BY project_id,collection,entity_id,position`).all(...args)) {
     const revisions = state.projects[row.project_id]?.[row.collection]?.[row.entity_id]?.revisions;
     requireThat(Array.isArray(revisions) && revisions.length === row.position, 'store_corrupt', '本机数据的历史关联已损坏，已停止写入。', 503);
     revisions.push(parse(row.payload));
   }
-  for (const row of db.prepare('SELECT * FROM sequences ORDER BY project_id,collection,position').all()) {
+  for (const row of db.prepare(`SELECT * FROM sequences${where} ORDER BY project_id,collection,position`).all(...args)) {
     const sequence = state.projects[row.project_id]?.[row.collection];
     requireThat(Array.isArray(sequence) && sequence.length === row.position, 'store_corrupt', '本机数据的记录顺序已损坏，已停止写入。', 503);
     sequence.push(parse(row.payload));
   }
-  for (const row of db.prepare('SELECT * FROM events ORDER BY position').all()) state.events.push(parse(row.payload));
-  for (const row of db.prepare('SELECT * FROM receipts ORDER BY position').all()) own(state.receipts, row.id, parse(row.payload));
-  for (const row of db.prepare('SELECT * FROM model_calls ORDER BY position').all()) state.modelCalls.push(parse(row.payload));
+  if (!projectId) {
+    for (const row of db.prepare('SELECT * FROM events ORDER BY position').all()) state.events.push(parse(row.payload));
+    for (const row of db.prepare('SELECT * FROM receipts ORDER BY position').all()) own(state.receipts, row.id, parse(row.payload));
+    for (const row of db.prepare('SELECT * FROM model_calls ORDER BY position').all()) state.modelCalls.push(parse(row.payload));
+  }
   validate(state);
   return state;
 }
@@ -338,12 +344,71 @@ export class SqliteStore {
     this.#db.transaction(() => syncRows(this.#db, tables)).immediate();
   }
   read(select = state => state) { return this.#serial(() => structuredClone(select(readDatabase(this.#db)))); }
-  // Polling one task must not deserialize every project's history and source text.
-  // No cache or second state: the row is read in the same serialized queue as writes.
-  taskSnapshot(projectId, taskId, ifNoneMatch) {
+  projectList() {
+    return this.#serial(() => this.#db.prepare('SELECT payload FROM projects ORDER BY position').all().map(row => {
+      const { id, name, goal, example, updatedAt } = parse(row.payload);
+      return { id, name, goal, example, updatedAt };
+    }));
+  }
+  readProject(projectId, select = p => p, options = {}) {
+    return this.#serial(() => {
+      const project = readDatabase(this.#db, {projectId,...options}).projects[projectId];
+      requireThat(project, 'not_found', '没有这个课题。', 404);
+      return structuredClone(select(project));
+    });
+  }
+  callSummaries(projectId, taskId) {
+    return this.#serial(() => this.#db.prepare("SELECT json_set(json_remove(payload,'$.outputText','$.screeningInput','$.runtimeReadReceipts','$.provenance.readReceipts','$.inputRefs','$.materialRefs','$.formatNormalization.excludedOutput','$.provenance.formatNormalization.excludedOutput'),'$.outputAvailable',json(CASE WHEN length(json_extract(payload,'$.outputText'))>0 THEN 'true' ELSE 'false' END),'$.readReceiptCount',coalesce(json_array_length(payload,'$.runtimeReadReceipts'),0)) AS payload FROM model_calls WHERE json_extract(payload,'$.projectId')=? AND json_extract(payload,'$.taskId')=? ORDER BY position").all(projectId,taskId).map(row => parse(row.payload)));
+  }
+  requestStatus(projectId, requestId) {
     return this.#serial(() => {
       requireThat(this.#db.prepare('SELECT id FROM projects WHERE id=?').get(projectId), 'not_found', '没有这个课题。', 404);
+      const row = this.#db.prepare('SELECT payload FROM receipts WHERE id=?').get(requestId);
+      if (!row) return { status: 'not_received' };
+      const taskId = parse(row.payload).result?.taskId;
+      const task = taskId && this.#db.prepare("SELECT json_extract(payload,'$.requestId') AS requestId FROM entities WHERE project_id=? AND collection='researchTasks' AND id=?").get(projectId, taskId);
+      requireThat(task?.requestId === requestId, 'request_id_conflict', '该请求编号不属于本课题的开始任务。', 409);
+      return { status: 'accepted', taskId };
+    });
+  }
+  // Hot task updates touch one task, its call receipts and newly appended events.
+  // The callback receives only this scope; task + call + event commit atomically.
+  updateTaskState(projectId, taskId, mutate) {
+    return this.#serial(async () => {
       const row = this.#db.prepare("SELECT payload FROM entities WHERE project_id=? AND collection='researchTasks' AND id=?").get(projectId, taskId);
+      requireThat(row, 'not_found', '没有这个任务。', 404);
+      const calls = this.#db.prepare("SELECT position,payload FROM model_calls WHERE json_extract(payload,'$.projectId')=? AND json_extract(payload,'$.taskId')=? ORDER BY position").all(projectId, taskId);
+      const p = { id: projectId, researchTasks: { [taskId]: parse(row.payload) }, researchEvents: [] };
+      const state = { projects: { [projectId]: p }, modelCalls: calls.map(c => parse(c.payload)) };
+      const result = await mutate(state);
+      requireThat(p.researchTasks[taskId]?.id === taskId && p.researchTasks[taskId]?.projectId === projectId && Object.keys(p.researchTasks).length === 1,
+        'invalid_scope', '任务更新不能改变所属记录。');
+      requireThat(state.modelCalls.length >= calls.length && new Set(state.modelCalls.map(c=>c.id)).size===state.modelCalls.length && state.modelCalls.every((c,i) => c.projectId === projectId && c.taskId === taskId && (!calls[i] || c.id === parse(calls[i].payload).id)),
+        'invalid_scope', '调用更新不能改变所属任务或移除已有记录。');
+      this.#db.transaction(() => {
+        const payload = json(p.researchTasks[taskId]);
+        if (payload !== row.payload) this.#db.prepare("UPDATE entities SET payload=? WHERE project_id=? AND collection='researchTasks' AND id=?").run(payload, projectId, taskId);
+        let callPosition = this.#db.prepare('SELECT coalesce(max(position),-1)+1 AS next FROM model_calls').get().next;
+        state.modelCalls.forEach((call,i) => {
+          const value = json(call);
+          if (!calls[i]) this.#db.prepare('INSERT INTO model_calls(position,payload) VALUES(?,?)').run(callPosition++, value);
+          else if (value !== calls[i].payload) this.#db.prepare('UPDATE model_calls SET payload=? WHERE position=?').run(value, calls[i].position);
+        });
+        let eventPosition = this.#db.prepare("SELECT coalesce(max(position),-1)+1 AS next FROM sequences WHERE project_id=? AND collection='researchEvents'").get(projectId).next;
+        for (const event of p.researchEvents) {
+          requireThat(event.projectId === projectId, 'invalid_scope', '事件不能跨课题保存。');
+          this.#db.prepare("INSERT INTO sequences(project_id,collection,position,payload) VALUES(?,'researchEvents',?,?)").run(projectId, eventPosition++, json(event));
+        }
+      })();
+      return structuredClone(result);
+    });
+  }
+  // Polling one task must not deserialize every project's history and source text.
+  // No cache or second state: the row is read in the same serialized queue as writes.
+  taskSnapshot(projectId, taskId, ifNoneMatch, { summary = false } = {}) {
+    return this.#serial(() => {
+      requireThat(this.#db.prepare('SELECT id FROM projects WHERE id=?').get(projectId), 'not_found', '没有这个课题。', 404);
+      const row = this.#db.prepare(`SELECT ${summary ? taskSummarySql : 'payload'} AS payload FROM entities WHERE project_id=? AND collection='researchTasks' AND id=?`).get(projectId, taskId);
       requireThat(row, 'not_found', '没有这个任务。', 404);
       const etag = `W/"${hash(row.payload)}"`;
       const matches = typeof ifNoneMatch === 'string' && ifNoneMatch.split(',').some(tag => tag.trim() === '*' || tag.trim().replace(/^W\//, '') === etag.slice(2));

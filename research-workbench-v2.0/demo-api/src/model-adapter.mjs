@@ -22,6 +22,8 @@ class AdapterError extends Error {
 
 const failure = (code, status, message) => new AdapterError(code, status, message);
 const invalidInput = () => failure('invalid_input', 400, '模型请求的指令、材料或请求标识不合法。');
+const responseLimit = () => failure('model_response_limit', 502, '模型响应超过传输容量；本次已停止读取，不自动重发。已有完整整理保留，可缩小单步输出后继续。');
+const outputLimit = () => failure('model_output_limit', 502, '模型正文超过单步保存容量；已有材料保留，请拆分输出后继续。');
 const invalidResponse = () => failure('model_invalid_response', 502, '模型服务返回了不合法的响应。');
 const plainObject = (value) => value !== null && typeof value === 'object'
   && [Object.prototype, null].includes(Object.getPrototypeOf(value));
@@ -88,7 +90,7 @@ async function readJson(response) {
   const declaredLength = response.headers?.get?.('content-length');
   if (declaredLength && Number(declaredLength) > MAX_RESPONSE_BYTES) {
     response.body?.cancel?.().catch(() => {});
-    throw invalidResponse();
+    throw responseLimit();
   }
   if (response.body === null) throw failure('model_empty_response', 502, '模型服务未返回文本内容。');
   if (!response.body || typeof response.body.getReader !== 'function') throw invalidResponse();
@@ -103,7 +105,7 @@ async function readJson(response) {
       size += value.byteLength;
       if (size > MAX_RESPONSE_BYTES) {
         reader.cancel().catch(() => {});
-        throw invalidResponse();
+        throw responseLimit();
       }
       text += decoder.decode(value, { stream: true });
     }
@@ -144,7 +146,7 @@ async function readEvents(response, configuredModel, onSnapshot) {
       const delta = choice.delta;
       if (delta.tool_calls || delta.function_call || delta.refusal) throw failure('model_refused', 502, '模型服务没有提供可用的文本分析。');
       if (delta.content != null) { if (typeof delta.content !== 'string') throw invalidResponse(); content += delta.content; }
-      if (content.length > 200_000) throw invalidResponse();
+      if (content.length > 200_000) throw outputLimit();
       if (choice.finish_reason != null) finish = choice.finish_reason;
     }
     onSnapshot(responseSnapshot(content, model, usage, finish));
@@ -156,7 +158,7 @@ async function readEvents(response, configuredModel, onSnapshot) {
       bytes += chunk.value.byteLength;
       // SSE envelopes can be much larger than the actual answer. This bounds
       // transport overhead, not the input context or number of papers.
-      if (bytes > 16_777_216) throw invalidResponse();
+      if (bytes > 16_777_216) throw responseLimit();
       buffer += decoder.decode(chunk.value, { stream: true });
       let separator;
       while ((separator = /\r?\n\r?\n/.exec(buffer))) {
@@ -187,7 +189,8 @@ function parseResult(body, configuredModel) {
   if (text === null || (typeof text === 'string' && !text.trim())) {
     throw failure('model_empty_response', 502, '模型服务未返回文本内容。');
   }
-  if (typeof text !== 'string' || text.length > 200_000) throw invalidResponse();
+  if (typeof text !== 'string') throw invalidResponse();
+  if (text.length > 200_000) throw outputLimit();
   const model = body.model === undefined ? configuredModel : body.model;
   if (typeof model !== 'string' || !MODEL_PATTERN.test(model)) throw invalidResponse();
   let usage = null;

@@ -197,7 +197,7 @@ test('oversized response streams are stopped', async () => {
     start(controller) { controller.enqueue(new Uint8Array(1_048_577)); },
     cancel() { cancelled = true; },
   })) });
-  await assert.rejects(adapter.generate(request), rejectCode('model_invalid_response', 502));
+  await assert.rejects(adapter.generate(request), rejectCode('model_response_limit', 502));
   assert.equal(cancelled, true);
 });
 
@@ -366,4 +366,13 @@ test('exhausted generation with no answer has a distinct explanation and preserv
   assert.equal(e.responseSnapshot.generationOptions.max_tokens,65536);assert.equal(e.responseSnapshot.timeoutMs,1440000);
   assert.equal(e.responseSnapshot.usage.completion_tokens,65536);assert.doesNotMatch(JSON.stringify(e),/private model thought/);return true;
  });
+});
+
+test('body transport, answer size and generation exhaustion have distinct recovery reasons',async()=>{
+ const cases=[
+  [()=>new Response('{}',{headers:{'content-length':'1048577'}}),'model_response_limit'],
+  [()=>jsonResponse(responseBody({choices:[{finish_reason:'stop',message:{role:'assistant',content:'a'.repeat(200001)}}]})),'model_output_limit'],
+  [()=>jsonResponse(responseBody({choices:[{finish_reason:'length',message:{role:'assistant',content:'partial'}}]})),'model_incomplete_response'],
+ ];
+ for(const [response,code] of cases){let calls=0;const adapter=createModelAdapter(config,{fetchImpl:async()=>{calls++;return response();}});await assert.rejects(adapter.generate(request),rejectCode(code,502));assert.equal(calls,1);}
 });

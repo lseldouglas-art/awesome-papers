@@ -9,7 +9,7 @@ export function exactQuestion(project, ref) {
   return revision ? { ...revision, id: item.id, revisionId: revision.id, kind: item.kind, evidence: (revision.evidenceIds ?? []).map(id => project.evidence[id]).filter(Boolean) } : null;
 }
 export function continuationQuestion(project, artifact, focused) {
-  return exactQuestion(project, artifact.branchQuestion) ?? exactQuestion(project, project.researchState?.currentQuestion) ?? exactQuestion(project, focused);
+  return exactQuestion(project, project.researchResults?.[artifact.draft?.resultId]?.branchQuestion ?? artifact.branchQuestion) ?? exactQuestion(project, project.researchState?.currentQuestion) ?? exactQuestion(project, focused);
 }
 export function savedInvestigations(project, question) {
   if (!question) return [];

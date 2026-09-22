@@ -1,0 +1,26 @@
+name: Research Workbench V2
+on:
+  push:
+    paths: ['research-workbench-v2.0/**', '.github/workflows/research-workbench-v2.yml']
+  pull_request:
+    paths: ['research-workbench-v2.0/**', '.github/workflows/research-workbench-v2.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: research-workbench-v2.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.1
+          cache: npm
+          cache-dependency-path: research-workbench-v2.0/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm run test:agent-smoke
+        env:
+          CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1'

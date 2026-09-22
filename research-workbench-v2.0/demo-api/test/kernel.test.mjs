@@ -213,3 +213,45 @@ test('late comparison saves its original task choice and context instead of clai
   assert.ok(result.dependencies.some(d => d.to.type === 'research_choice' && d.to.revisionId === prior.currentQuestion.decisionId));
   assert.ok(researchState(p).impacts.some(i => i.artifactId === late.artifactId && i.status === 'needs_review'));
 });
+
+
+test('applying a topic refinement updates the branch and its comparison atomically, keeping adoption and old snapshots', () => {
+  const {p,comparison,call,decide}=fixture();const c=comparison(),id=c.questionIds[0],a=p.artifacts[c.artifactId];
+  decide(id,'adopt');const adopted=structuredClone(p.researchKernel.currentQuestion),oldComparison=structuredClone(p.researchResults[a.draft.resultId]);
+  const branch=call('open-branch',{inputArtifactId:a.id,inputRevisionId:a.headRevisionId,baseInputVersion:a.draft.version,itemId:id,itemRevisionId:p.researchItems[id].headRevisionId});
+  const b=p.artifacts[branch.artifactId],oldBranch=structuredClone(p.researchResults[b.draft.resultId]);
+  const input={artifactId:b.id,baseVersion:b.draft.version,itemId:id,baseRevisionId:p.researchItems[id].headRevisionId,title:'限定青少年',text:'青少年睡眠与疼痛如何相关？',scope:'青少年观察研究'};
+  const updated=call('apply-question-refinement',input);
+  assert.equal(updated.artifactId,b.id);assert.equal(b.branchQuestion.revisionId,updated.revisionId);assert.equal(b.title,'限定青少年');
+  assert.equal(p.researchResults[b.draft.resultId].blocks.find(v=>v.id==='branch-question').text,input.text);
+  const comparisonResult=p.researchResults[a.draft.resultId];assert.equal(comparisonResult.questionRefs[0].revisionId,updated.revisionId);
+  assert.deepEqual(comparisonResult.questionRefs[1],oldComparison.questionRefs[1]);
+  assert.ok(!comparisonResult.blocks.some(v=>v.id===`${id}-rationale`));
+  assert.deepEqual(p.researchResults[oldBranch.id],oldBranch);assert.deepEqual(p.researchResults[oldComparison.id],oldComparison);
+  assert.deepEqual(p.researchKernel.currentQuestion,adopted);assert.equal(researchState(p).questions.find(q=>q.id===id).assessmentNeedsReview,true);
+  assert.throws(()=>call('apply-question-refinement',input),e=>e.status===409);
+  assert.ok(b.revisions.some(v=>v.resultId===oldBranch.id));
+});
+
+test('topic refinement rejects wrong pages, active tasks and stale discussion before changing a question',()=>{
+  const {p,a,comparison,call}=fixture();const c=comparison(),page=p.artifacts[c.artifactId],id=c.questionIds[0],before=structuredClone(p.researchItems[id]);
+  const input={artifactId:page.id,baseVersion:page.draft.version,itemId:id,baseRevisionId:before.headRevisionId,title:'新名',text:'新问题？',scope:'新范围'};
+  assert.throws(()=>call('apply-question-refinement',{...input,artifactId:a.id,baseVersion:a.draft.version}),e=>e.code==='invalid_target');
+  p.researchTasks.running={status:'running'};assert.throws(()=>call('apply-question-refinement',input),e=>e.code==='task_running');delete p.researchTasks.running;
+  p.researchTasks.discussion={id:'discussion',mode:'question-investigation',artifactId:page.id,status:'completed',staleInput:true,input:{itemTarget:{itemId:id,revisionId:before.headRevisionId}},investigation:{phases:[{key:'revised'}]}};
+  assert.throws(()=>call('apply-question-refinement',{...input,sourceTaskId:'discussion'}),e=>e.code==='research_state_conflict');
+  assert.deepEqual(p.researchItems[id],before);
+  p.researchTasks.discussion.staleInput=false;
+  const updated=call('apply-question-refinement',{...input,sourceTaskId:'discussion'});
+  assert.equal(updated.revisionId,p.researchItems[id].headRevisionId);
+  assert.equal(p.researchItems[id].revisions.at(-1).refinementSource.taskId,'discussion');
+});
+
+test('refining an old branch cannot resurrect a topic removed by a replacement comparison',()=>{
+  const {p,comparison,call}=fixture();const c=comparison(),a=p.artifacts[c.artifactId],id=c.questionIds[0];
+  const branch=call('open-branch',{inputArtifactId:a.id,inputRevisionId:a.headRevisionId,baseInputVersion:a.draft.version,itemId:id,itemRevisionId:p.researchItems[id].headRevisionId});
+  createQuestionComparison(p,{questions:[{question:'另一批研究问题？',scope:'另一范围'}]},{artifactId:a.id});
+  const latest=structuredClone(p.researchResults[a.draft.resultId]),b=p.artifacts[branch.artifactId];
+  call('apply-question-refinement',{artifactId:b.id,baseVersion:b.draft.version,itemId:id,baseRevisionId:p.researchItems[id].headRevisionId,title:'保留分支微调',text:'新的分支问题？',scope:'局部'});
+  assert.deepEqual(p.researchResults[a.draft.resultId],latest);
+});

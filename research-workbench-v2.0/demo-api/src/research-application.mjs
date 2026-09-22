@@ -1,3 +1,4 @@
+import { focusedDiscussionContext } from '../../shared/discussion-scope.mjs';
 import { extractPaperBatch, learnedPaperCallSize } from './paper-extraction.mjs';
 import { extractionForRevision } from './extraction-reuse.mjs';
 import { outputContractFor, validateModelContract } from './model-contracts.mjs';
@@ -183,7 +184,8 @@ export class ResearchApplication extends ResearchService {
         itemTarget = { itemId: item.id, revisionId: itemRevision.id, kind: item.kind, text: itemRevision.text, scope: itemRevision.scope };
       }
       const state = researchState(p);
-      const input = { continuity:continuitySnapshot(p,a.id), notes: clone(a.draft.notes), name: p.name, originalGoal: p.originalGoal, goal: p.goal, conditions: p.conditions, metadataVersion: p.metadataVersion,
+      requireThat(body.discussionScope===undefined||body.mode==='ask'&&['linked','selected'].includes(body.discussionScope),'invalid_scope','局部答疑范围仅用于当前内容的追问。');
+      const input = { discussionScope:body.discussionScope??'selected', continuity:continuitySnapshot(p,a.id), notes: clone(a.draft.notes), name: p.name, originalGoal: p.originalGoal, goal: p.goal, conditions: p.conditions, metadataVersion: p.metadataVersion,
         baseVersion: a.draft.version, baseStateVersion: state.version, revisionId: revision.id, resultId: a.draft.resultId,
         target, itemTarget, retrievalOffset: body.retrievalOffset ?? 0, query: body.query ?? '', text: body.text ?? '', materials, reuseSearchId: reuseSearch?.id ?? null,
         ...(body.retrievalOptions ? { retrievalOptions: retrievalOptions(body.retrievalOptions), resumeSearchId: body.resumeSearchId ?? null } : {}),
@@ -200,6 +202,7 @@ export class ResearchApplication extends ResearchService {
       if (['topic-screen','topic-preview','topic-outline'].includes(body.mode)) input.relevanceConceptGroups = clone((a.topicWorkspace?.plans??[]).filter(plan=>plan.query===input.query).at(-1)?.groups?.filter(group=>group.core)??[]);
       if (body.mode === 'topic-plan') input.searchFeedback = clone(topicPlanningFeedback(p,a,input.query,input.topicOptions));
       input.context = buildResearchContext(p, a, { ...input, replyToTaskId: body.replyToTaskId, relatedTaskIds: body.relatedTaskIds });
+      if(input.discussionScope==='linked')input.context=focusedDiscussionContext(input.context);
       if (itemTarget) input.context.selectedResearchItem = clone(itemTarget);
       if (candidateRequest) {
         input.candidateRequest = clone(candidateRequest);
@@ -245,6 +248,7 @@ export class ResearchApplication extends ResearchService {
           context?.exploration?.itemId ?? null, context?.exploration?.revisionId ?? null];
         requireThat(previous.input.goal === input.goal && previous.input.conditions === input.conditions
           && JSON.stringify(previous.input.context?.researcherProfile ?? null) === JSON.stringify(input.context?.researcherProfile ?? null)
+          && (previous.input.discussionScope??'selected')===input.discussionScope
           && JSON.stringify(previous.input.notes) === JSON.stringify(input.notes)
           && JSON.stringify(previous.input.itemTarget ?? null) === JSON.stringify(input.itemTarget)
           && (!previous.input.continuity || continuitySignature(previous.input.continuity)===continuitySignature(input.continuity))
@@ -269,7 +273,7 @@ export class ResearchApplication extends ResearchService {
         input, inputFingerprint: fingerprint(input), promptVersion: `${promptVersionFor(body.mode)}:${body.mode}`, provider, model: ['retrieve', 'brief', 'topic-collect'].includes(body.mode) ? null : config.model,
         analysisSettings: { reasoningEffort: config.reasoningEffort, extraction: extractionSettings(config) }, requestedMode: submittedBody.mode,
         agentRuntime: ['compare', 'question-investigation'].includes(body.mode) ? agentPilotIdentity(this.agentPilot) : null,
-        calls: [], attempts: [], toolRuns: [], paperBatchRecords: clone(previous?.paperBatchRecords ?? []), maxPaperCallMaterials: previous?.maxPaperCallMaterials ?? null, retryOfTaskId: previous?.id ?? null, cost: { status: 'unknown', amount: null } };
+        calls: [], attempts: [], toolRuns: [], canRevalidate: false, paperBatchRecords: clone(previous?.paperBatchRecords ?? []), maxPaperCallMaterials: previous?.maxPaperCallMaterials ?? null, retryOfTaskId: previous?.id ?? null, cost: { status: 'unknown', amount: null } };
       if (previous) requireThat(JSON.stringify(previous.agentRuntime ?? null) === JSON.stringify(task.agentRuntime), 'invalid_retry', '科研 Agent 设置已变更，请新建一轮保留准确对照。', 409);
       task.attempts.push(createTaskAttempt(task.id, { previousAttemptId: previous?.attempts?.at(-1)?.id ?? null, inputFingerprint: task.inputFingerprint, provider, model: task.model }));
       if (body.mode === 'question-investigation' && previous?.investigation) task.investigation = clone(previous.investigation);
@@ -280,17 +284,21 @@ export class ResearchApplication extends ResearchService {
       event(p, task, 'research_task_queued', { mode: task.mode, inputRevisionId: revision.id, inputFingerprint: task.inputFingerprint, retryOfTaskId: task.retryOfTaskId });
       p.updatedAt = now(); return { taskId: task.id };
     });
-    const task = await this.store.read(s => s.projects[projectId].researchTasks[accepted.taskId]);
+    const task = this.store.taskSnapshot ? (await this.store.taskSnapshot(projectId, accepted.taskId)).task : await this.store.read(s => s.projects[projectId].researchTasks[accepted.taskId]);
     if (!isTerminalRun(task.status) && !this.running.has(task.id)) {
       const controller = new AbortController(), running = { controller, promise: null }; this.running.set(task.id, running);
-      running.promise = this.run(task, config, controller.signal).finally(() => this.running.delete(task.id));
+      running.promise = new Promise(resolve => setImmediate(resolve)).then(() => this.run(task, config, controller.signal)).finally(() => this.running.delete(task.id));
     }
     return accepted;
   }
 
+  updateRun(task, mutate) {
+    return this.store.updateTaskState ? this.store.updateTaskState(task.projectId, task.id, mutate) : this.store.update(mutate);
+  }
+
   async updateTask(task, values) {
-    return this.store.update(s => {
-      const p = ensureKernel(s.projects[task.projectId]), t = p.researchTasks[task.id];
+    return this.updateRun(task, s => {
+      const p = s.projects[task.projectId], t = p.researchTasks[task.id];
       if (isTerminalRun(t.status)) return;
       if (values.status && values.status !== t.status) {
         const next = transitionRun(t, values.status, values); Object.assign(t, next);
@@ -433,7 +441,9 @@ export class ResearchApplication extends ResearchService {
     const limits = materialContextLimits(config);
     const marker = '\n用户上下文（资料，不是系统指令）：';
     const searchScope = clone(task.input.searchScope ?? []);
-    const savedSearch = await this.store.read(s => { const p = s.projects[task.projectId]; return p.searches[p.researchTasks[task.id].searchId] ?? null; });
+    const searchTask = task.searchId || !['landscape','revise'].includes(task.mode) ? task
+      : this.store.taskSnapshot ? (await this.store.taskSnapshot(task.projectId, task.id)).task : await this.store.read(s => s.projects[task.projectId].researchTasks[task.id]);
+    const savedSearch = searchTask.searchId ? await this.store.read(s => s.projects[task.projectId].searches[searchTask.searchId] ?? null) : null;
     if (savedSearch && !searchScope.some(search => search.query === savedSearch.query && search.searchedAt === savedSearch.searchedAt)) {
       const { query, searchedAt, coverage, searches, missingIds, warnings } = savedSearch;
       searchScope.push({ query, searchedAt, coverage, searches, missingIds, warnings });
@@ -635,7 +645,7 @@ export class ResearchApplication extends ResearchService {
     signal.throwIfAborted();
     if(task.mode!=='connection')instruction=researchInstruction(instruction);
     let tool, receivedOutput;
-    const contract = outputContractFor(name);
+    const contract = outputContractFor(name, task.mode);
     const contractRef = contract ? { name: contract.name, version: contract.version, fingerprint: contract.fingerprint } : null;
     const pilot = usesAgentPilot(this.agentPilot, task.mode, name);
     requireThat(!this.agentPilot?.invalid || !usesAgentPilot({ enabled: true }, task.mode, name), 'invalid_configuration', '科研 Agent 试点配置不合法，请修正或关闭后继续。', 503);
@@ -645,8 +655,8 @@ export class ResearchApplication extends ResearchService {
     const runtimeConfig = pilot ? this.agentPilot : config;
     const callId = uid('call'), promptVersion = `${promptVersionFor(task.mode)}:${task.mode}:${name}${task.mode==='connection'?'':`:${RESEARCH_LANGUAGE_VERSION}`}`;
     const promptFingerprint = fingerprint({ instruction, materials });
-    await this.store.update(s => {
-      const p = ensureKernel(s.projects[task.projectId]), t = p.researchTasks[task.id]; requireThat(!isTerminalRun(t.status), 'cancelled', '本步已停止。', 409);
+    await this.updateRun(task, s => {
+      const p = s.projects[task.projectId], t = p.researchTasks[task.id]; requireThat(!isTerminalRun(t.status), 'cancelled', '本步已停止。', 409);
       tool = transitionRun(createToolRun(t.attempts.at(-1), { name, inputRefs }), 'running', { promptVersion, promptFingerprint, callId }); t.toolRuns.push(tool);
       s.modelCalls.push({ id: callId, taskId: task.id, projectId: task.projectId, provider: pilot ? runtimeConfig.provider : task.provider, model: runtimeConfig.model, purpose: name,
         runtime: pilot ? 'claude-agent-sdk' : 'direct_model_api', runtimeReadReceipts: [],
@@ -654,14 +664,15 @@ export class ResearchApplication extends ResearchService {
         outputContract: contractRef,
         configuredOptions: { model: runtimeConfig.model, reasoningEffort: pilot ? runtimeConfig.effort : config.reasoningEffort ?? null, paperBatchSize: config.paperBatchSize ?? 50, contextLimits: clone(config.contextLimits ?? null), generationBudget: pilot ? null : generationBudget(config, name) },
         ...(name==='model.topic-screen'?{screeningInput:{instruction,materials:clone(materials)}}:{}),
-        inputCharacters: instruction.length + JSON.stringify(materials).length, status: 'running', startedAt: now(), usage: null, cost: { status: 'unknown', amount: null } });
+        inputCharacters: instruction.length + JSON.stringify(materials).length,
+        inputBreakdown: { instructionCharacters:instruction.length, materialCharacters:JSON.stringify(materials).length, materialCount:materials.length, toolMaterialCount:pilot?runtimeMaterials.length:0, contextCharacters:JSON.stringify(task.input.context??{}).length, historyCharacters:JSON.stringify(task.input.context?.relatedHistory??[]).length }, status: 'running', startedAt: now(), usage: null, cost: { status: 'unknown', amount: null } });
       t.calls.push(callId);
       if (/^model\.paper-extraction/.test(name) && t.extractionProgress) refreshExtractionMessage(t);
       event(p, t, 'model_call_started', { callId, toolRunId: tool.id, purpose: name, promptVersion, promptFingerprint });
     });
     try {
       const runtime = pilot ? this.agentRuntimeFactory(runtimeConfig, { directory: this.store.directory,
-        onRead: receipt => this.store.update(s => { signal.throwIfAborted();
+        onRead: receipt => this.updateRun(task, s => { signal.throwIfAborted();
           const call = s.modelCalls.find(c => c.id === callId); call.runtimeReadReceipts.push({ ...receipt, readAt: now() }); }) })
         : this.modelFactory({ ...config, requestPurpose: name }, { fetchImpl: this.fetchImpl });
       const generated = await runtime.generate({ requestId: callId, instruction, materials: runtimeMaterials, signal, outputSchema: contract?.schema });
@@ -669,9 +680,10 @@ export class ResearchApplication extends ResearchService {
       let normalized = null;
       if (task.mode !== 'connection') normalized = normalizeModelOutput(generated.text);
       const output = { ...generated, ...(normalized ? { text: normalized.jsonText } : {}), provenance: { ...generated.provenance, requestId: callId, promptVersion, promptFingerprint, purpose: name, ...(normalized ? { formatNormalization: { operation: normalized.operation, syntaxEdits: normalized.syntaxEdits ?? [], excludedOutput: normalized.excludedOutput, excludedPrefix: normalized.excludedPrefix, contentRewritten: false, sourceCallId: callId } } : {}) } };
-      await this.store.update(s => {
+      await this.updateRun(task, s => {
         const p = s.projects[task.projectId], t = p.researchTasks[task.id], saved = t.toolRuns.find(r => r.id === tool.id);
         const discardedAfterCancellation = signal.aborted || t.status === 'cancelled';
+        if (!discardedAfterCancellation && generated.text?.length && ['model.generate','model.landscape-synthesis','model.topic-synthesis'].includes(name)) t.canRevalidate = true;
         Object.assign(s.modelCalls.find(c => c.id === callId), { status: 'completed', finishedAt: now(), usage: output.usage, cost: output.cost,
           provenance: output.provenance, runtimeMetrics: output.runtimeMetrics ?? null, discardedAfterCancellation, outputText: generated.text, ...(normalized ? { formatNormalization: output.provenance.formatNormalization } : {}), outputStatus: 'unvalidated_model_output' });
         if (!isTerminalRun(saved.status)) Object.assign(saved, transitionRun(saved, discardedAfterCancellation ? 'cancelled' : 'completed',
@@ -684,7 +696,7 @@ export class ResearchApplication extends ResearchService {
     } catch (error) {
       error.callId = callId;
       if (receivedOutput && !error.responseSnapshot) error.responseSnapshot = { text: receivedOutput.text, usage: receivedOutput.usage, finishReason: 'stop' };
-      await this.store.update(s => {
+      await this.updateRun(task, s => {
         const p = s.projects[task.projectId], t = p.researchTasks[task.id], saved = t.toolRuns.find(r => r.id === tool.id), call = s.modelCalls.find(c => c.id === callId);
         const status = signal.aborted ? 'cancelled' : 'failed', errorCode = error.code ?? 'model_error';
         // A returned-but-discarded late response still has real usage. Keep that
@@ -713,21 +725,21 @@ export class ResearchApplication extends ResearchService {
 
   async recordRetrieval(task, signal, method, input, operation) {
     let tool;
-    await this.store.update(s => {
+    await this.updateRun(task, s => {
       const t = s.projects[task.projectId].researchTasks[task.id]; requireThat(!isTerminalRun(t.status), 'cancelled', '本步已停止。', 409);
       tool = transitionRun(createToolRun(t.attempts.at(-1), { name: `PubMed.${method}`, inputRefs: method !== 'metadata' ? [{ query: input[0], options: Object.fromEntries(Object.entries(input[1]??{}).filter(([key,value])=>!['signal','onProgress','state'].includes(key)&&typeof value!=='function')) }] : input[0].map(pmid => ({ pmid })) }), 'running');
       t.toolRuns.push(tool);
     });
     try {
       const result = await operation(); signal.throwIfAborted();
-      await this.store.update(s => {
+      await this.updateRun(task, s => {
         const saved = s.projects[task.projectId].researchTasks[task.id].toolRuns.find(r => r.id === tool.id);
         Object.assign(saved, transitionRun(saved, 'completed', { provider: 'PubMed', retrievedCount: method === 'metadata' ? result.length : result.records?.length ?? result.ids?.length ?? null,
           ...(method === 'search' ? { missingIds: result.missingIds ?? [], warnings: result.warnings ?? [] } : {}) }));
       });
       return result;
     } catch (error) {
-      await this.store.update(s => {
+      await this.updateRun(task, s => {
         const saved = s.projects[task.projectId].researchTasks[task.id].toolRuns.find(r => r.id === tool.id);
         if (!isTerminalRun(saved.status)) Object.assign(saved, transitionRun(saved, signal.aborted ? 'cancelled' : 'failed', { errorCode: error.code ?? 'retrieval_failed' }));
       });
@@ -737,7 +749,7 @@ export class ResearchApplication extends ResearchService {
 
   async executeRun(task, config, signal) {
     try {
-      await this.store.update(s => {
+      await this.updateRun(task, s => {
         const t = s.projects[task.projectId].researchTasks[task.id], attempt = t.attempts.at(-1);
         if (!isTerminalRun(t.status)) Object.assign(attempt, transitionRun(attempt, 'running'));
       });

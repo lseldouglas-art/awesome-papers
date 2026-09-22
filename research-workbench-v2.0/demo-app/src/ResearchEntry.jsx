@@ -4,13 +4,24 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { searchTotals } from '../../shared/topic-search.mjs';
 import { taskPurposes } from '../../shared/research-guidance.mjs';
 import { RetrievalScope } from './RetrievalScope.jsx';
+import { api } from './ui.jsx';
 
 export function SavedBatches({task,project,onSource}) {
   const [open,setOpen]=useState(false);
-  const batches=useMemo(()=>readableBatches(task),[task.paperBatchRecords,task.investigation?.extractionRecords]);
-  if(!batches.length)return null;
+  const [loaded,setLoaded]=useState(null), [error,setError]=useState('');
+  useEffect(()=>{setLoaded(null);setError('');},[task.id]);
+  useEffect(()=>{
+    if(!open||!task.summaryView)return;
+    let alive=true; const controller=new AbortController();setError('');
+    api.request(`/api/projects/${project.id}/research-tasks/${task.id}/batches`,{signal:controller.signal})
+      .then(value=>{if(alive)setLoaded(value);}).catch(e=>{if(alive)setError(e.message);});
+    return()=>{alive=false;controller.abort();};
+  },[open,task.id,task.savedBatchCount,task.extractionProgress?.completed]);
+  const direct=useMemo(()=>readableBatches(task),[task.paperBatchRecords,task.investigation?.extractionRecords]);
+  const batches=task.summaryView?loaded??[]:direct;
+  if(!batches.length&&!task.savedBatchCount)return null;
   const count=new Set(batches.flatMap(b=>Array.isArray(b.content)?b.content.map(p=>p.accessId):[])).size;
-  return <details className="readable-batches" open={open} onToggle={e=>{if(e.target===e.currentTarget)setOpen(e.currentTarget.open);}}><summary>{count} 份材料已有整理，可先阅读</summary>{open&&<><p>这里保留已处理片段的整理；材料处理完成与综合结论完成分别记录。</p>{batches.map((b,i)=><SavedBatch key={b.id} batch={b} index={i} project={project} onSource={onSource}/>)}</>}</details>;
+  return <details className="readable-batches" open={open} onToggle={e=>{if(e.target===e.currentTarget)setOpen(e.currentTarget.open);}}><summary>{count||task.extractionProgress?.completed||task.savedBatchCount} {count||task.extractionProgress?.completed?'份材料':'批材料'}已有整理，可先阅读</summary>{open&&<>{error?<p role="alert">{error}</p>:task.summaryView&&!loaded?<p>正在读取已保存的整理…</p>:null}<p>这里保留已处理片段的整理；材料处理完成与综合结论完成分别记录。</p>{batches.map((b,i)=><SavedBatch key={b.id} batch={b} index={i} project={project} onSource={onSource}/>)}</>}</details>;
 }
 function SavedBatch({batch:b,index:i,project,onSource}) {
   const [open,setOpen]=useState(false);

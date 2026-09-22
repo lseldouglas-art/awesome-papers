@@ -1,7 +1,8 @@
 import {useMemo,useState} from 'react';
 import {ArrowRight,BookOpen,MagnifyingGlass,Microscope,TreeStructure,Question,ArrowSquareOut} from '@phosphor-icons/react';
-import {chapterView,overviewNodes,methodRows,maturityFindings,directions,pairedClauses,conceptTitle,comparisonConditions,focusDiagram,excerpt,clauses,prose} from '../../shared/domain-chapters.mjs';
+import {chapterView,overviewNodes,methodRows,maturityFindings,directions,pairedClauses,conceptTitle,comparisonConditions,excerpt,clauses,prose} from '../../shared/domain-chapters.mjs';
 import './domain-chapters.css';
+import {DomainExplorer} from './DomainExplorer.jsx';
 
 function References({blockId,result,numbers,onSource,onEvidence}) {
   const refs=(result.citations??[]).filter(c=>c.blockId===blockId).filter((c,i,a)=>a.findIndex(x=>x.accessId===c.accessId)===i);
@@ -21,12 +22,6 @@ function History({section,onSupplement}) {
   if(!insufficient)return <div className="atlas-history-records">{section.findings.map(b=><div key={b.id}><BookOpen size={26}/><strong>{excerpt(b.headline??b.text,68)}</strong></div>)}</div>;
   const gap=prose(block?.text).match(/中间[^，；。]+/)?.[0]??clauses(block?.text).find(t=>/缺失|无法|不能/.test(t));
   return <div className="atlas-history-gap"><div className="atlas-history-node"><BookOpen size={32}/><strong>历史材料</strong><span>当时已知什么？</span></div><div className="atlas-missing-link"><span className="atlas-dashed-line"/><Question size={32}/><strong>{excerpt(gap??block?.headline??'研究认识的衔接尚不明确',72)}</strong><button onClick={()=>onSupplement({focus:prose(block?.headline??'领域历史'),context:block?.text,blockId:block?.id,kinds:['历年综述']})}>补查历史综述 <ArrowRight size={14}/></button></div><div className="atlas-history-node"><Microscope size={32}/><strong>当前研究材料</strong><span>不由年份推断转折</span></div></div>;
-}
-function Focus({section,result,numbers,onSource,onEvidence}) {
-  return <div className="atlas-focus-grid">{section.findings.map((b,i)=>{
-    const d=focusDiagram(b);
-    return <article key={b.id}><h3>{conceptTitle(b)}</h3><div className={`atlas-focus-concepts is-${d.kind}`}>{d.kind!=='question'&&<span>{excerpt(d.nodes[0],38)}</span>}<div aria-hidden="true">{d.kind==='change'?<ArrowRight size={23}/>:d.kind==='connection'?<TreeStructure size={23}/>:<Question size={23}/>}</div><span>{excerpt(d.nodes[1],52)}</span></div><small>{d.caption}</small><footer><References {...{result,numbers,onSource,onEvidence}} blockId={b.id}/><button className="atlas-text-link" onClick={()=>onEvidence(b.id)}>依据 <ArrowSquareOut size={13}/></button></footer></article>;
-  })}</div>;
 }
 function Methods({section,onEvidence}) {
   const rows=methodRows(section);
@@ -60,10 +55,10 @@ function Maturity({section,onEvidence}) {
 function Next({section,onSupplement}) {
   return <div className="atlas-direction-list">{directions(section).map((r,i)=><article key={i}><h3>{r.label}</h3><p>{r.finding}</p><button onClick={()=>onSupplement({focus:r.label,context:r.finding,blockId:r.blockId})}>围绕这个方向补充材料 <ArrowRight size={18}/></button></article>)}</div>;
 }
-export function DomainChapters({project,result,numbers,onSource,onEvidence,onSupplement,renderBranches,renderNextAction}) {
+export function DomainChapters({project,result,numbers,onSource,onEvidence,onSupplement,onDiscuss,renderNextAction}) {
   const sections=useMemo(()=>chapterView(result),[result]);
   return <div className="domain-chapter-atlas" aria-label="完整领域图解">{sections.map((s,i)=><section className={`atlas-chapter atlas-${s.kind}`} key={s.id} id={`domain-chapter-${s.id}`} data-chapter-id={s.id}>
     <header><div><span className="atlas-chapter-number">{String(i+1).padStart(2,'0')}</span><h2>{s.name}</h2></div><button onClick={()=>onEvidence(s.heading.id)}><BookOpen size={15}/>原文与依据</button></header>
-    {s.kind==='map'?<Overview section={s} sections={sections} goal={project.goal} onEvidence={onEvidence}/>:s.kind==='studies'?renderBranches(s):s.kind==='coverage'?<History section={s} onSupplement={onSupplement}/>:s.kind==='methods'?<Methods section={s} onEvidence={onEvidence}/>:s.kind==='comparison'?<Comparisons section={s} {...{result,numbers,onSource,onEvidence}}/>:s.kind==='gaps'?<Gaps section={s} {...{onEvidence,onSupplement}}/>:s.kind==='evidence'?<Maturity section={s} onEvidence={onEvidence}/>:s.kind==='directions'?<>{renderNextAction?.()}<Next section={s} onSupplement={onSupplement}/></>:<Focus section={s} {...{result,numbers,onSource,onEvidence}}/>}
+    {s.kind==='map'?<Overview section={s} sections={sections} goal={project.goal} onEvidence={onEvidence}/>:s.kind==='studies'||s.kind==='focus'?<DomainExplorer section={s} {...{result,project,onSource,onEvidence,onDiscuss}}/>:s.kind==='coverage'?<History section={s} onSupplement={onSupplement}/>:s.kind==='methods'?<Methods section={s} onEvidence={onEvidence}/>:s.kind==='comparison'?<Comparisons section={s} {...{result,numbers,onSource,onEvidence}}/>:s.kind==='gaps'?<Gaps section={s} {...{onEvidence,onSupplement}}/>:s.kind==='evidence'?<Maturity section={s} onEvidence={onEvidence}/>:s.kind==='directions'?<>{renderNextAction?.()}<Next section={s} onSupplement={onSupplement}/></>:<DomainExplorer section={s} {...{result,project,onSource,onEvidence,onDiscuss}}/>}
   </section>)}</div>;
 }

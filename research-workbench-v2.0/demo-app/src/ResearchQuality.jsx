@@ -1,3 +1,4 @@
+import {RuntimeReceipts} from './RuntimeReceipts.jsx';
 import { useState } from 'react';
 import { qualityCases, qualityDimensions, qualityCauses } from '../../shared/question-investigation.mjs';
 
@@ -16,7 +17,7 @@ export function QualityComparison({ project, onCommand }) {
     {pair && <><div className="quality-versions">{pair.detail.versions.map(v => {
       const task = project.researchTasks[v.taskId], judgment = task.investigation?.phases.find(p => p.key === 'revised')?.value;
       return <article key={v.label}><h3>输出 {v.label}</h3>{judgment?.reason && <p>{judgment.reason}</p>}{project.researchResults[v.resultId]?.blocks.map((b, i) => <section key={b.id}><h4>{v.label}-{i + 1} · {b.headline ?? ''}</h4><p>{b.text}</p></section>)}
-        {reviewed && <p>模型 {v.model} · {task.mode} · {task.calls.length} 次调用 · {task.usage?.total_tokens ?? '未知'} tokens · 费用{task.cost?.amount ?? '未知'}</p>}</article>;
+        {reviewed && <RuntimeReceipts projectId={project.id} task={task}/>}</article>;
     })}</div><label>哪份更有帮助<select value={preference} onChange={e => setPreference(e.target.value)}><option value="equal">差异不明显</option><option value="A">A</option><option value="B">B</option><option value="neither">都未达到要求</option></select></label>
       <label>具体改善、退步或问题<textarea value={reason} onChange={e => setReason(e.target.value)} placeholder="例如：B-3 找到相近研究，改变了我对新颖性的判断…"/></label>
       <details><summary>逐项质量记录（可保留未核对）</summary>{Object.entries(qualityDimensions).map(([k, label]) => <label key={k}>{label}<select value={dimensions[k].rating} onChange={e => setDimensions({ ...dimensions, [k]: { ...dimensions[k], rating: e.target.value } })}>

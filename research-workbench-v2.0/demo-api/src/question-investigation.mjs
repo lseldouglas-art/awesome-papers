@@ -91,7 +91,15 @@ export function validateInvestigationOutput(raw, phase, materials) {
       return [k, value.map(x => `- ${x}`).join('\n')];
     }));
   }
-  return { recommendation: v.recommendation, reason: v.reason, claims, unknowns: v.unknowns, next: v.next, changed: v.changed, protocol,
+  let questionProposal = null;
+  if (phase === 'revised' && v.questionProposal != null) {
+    const proposal = v.questionProposal;
+    requireThat(object(proposal) && text(proposal.title) && text(proposal.question) && text(proposal.reason)
+      && typeof proposal.scope === 'string' && Object.keys(proposal).every(k => ['title','question','scope','reason'].includes(k)),
+      'model_structure', '选题修改建议需要明确名称、问题、范围与修改理由。', 502);
+    questionProposal = {...proposal};
+  }
+  return { recommendation: v.recommendation, reason: v.reason, claims, unknowns: v.unknowns, next: v.next, changed: v.changed, protocol, questionProposal,
     ...(normalization.length ? { normalization } : {}) };
 }
 
@@ -274,6 +282,7 @@ export async function executeInvestigation(service, task, config, signal) {
   const search = (await read()).searches;
   await service.updateTask(task, { progress: '材料核查已完成，正在修订建议与研究路线' });
   const revised = await phase('revised', [], `${judgmentSchema}，另可提供 protocol:{${Object.keys(protocolFields).join(',')}}，各字段仅允许字符串或字符串列表，均为拟议文本，资料不足的字段写具体未知；不适用留空。用户无方案意图时可为null。
+当本轮针对具体选题的微调、收窄或转向形成明确建议时，提供 questionProposal:{title:"修改后的具体名称",question:"可研究的完整问题",scope:"纳入与排除边界",reason:"为什么这样调整，仍有哪些未知"}；只是解释或尚无法形成修改时为null。修改须回应用户意见，不自动改成综述，不承诺创新或发表。建议供研究者编辑确认后更新主页面，不代表采用方案。
 claims 必须分别覆盖以下key：${JSON.stringify(investigationSections)}。各段解释实际研究之间的差异；没有合理备选不强凑路线。changed 要明确哪些依据增强、削弱或推翻初判及设计含义，无法解决则说明原因。
 当前已经完整整理 ${all.coverage.selectedCount} 份材料。不能把“初判只看部分”重复成“其余全部尚未处理”；实际引用少于处理数量是正常的，摘要未报告与全文未核验仍须保留边界。
 初判：${JSON.stringify(initial)}\n最强质疑：${JSON.stringify(challenge)}\n关键全文核对：${JSON.stringify((await read()).fulltext ?? { performed: false, allowed: input.options.allowFulltext, unresolvedMethodsRemainUnknown: true })}\n专项检索的实际边界：${JSON.stringify(search.length ? search.map(({ plan, accessByPmid, ...rest }) => rest) : { performed: false, reason: input.options.search === 'saved' ? '本轮只获准使用所选材料' : '关键问题已在材料中核查', cannotInferAbsence: true })}

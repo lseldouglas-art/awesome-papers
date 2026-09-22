@@ -1,3 +1,4 @@
+import {RuntimeReceipts} from './RuntimeReceipts.jsx';
 import { ReasoningControl } from './ReasoningControl.jsx';
 import { questionRequest } from '../../shared/question-request.mjs';
 import { useState } from 'react';
@@ -6,6 +7,7 @@ import { protocolFields } from '../../shared/research-continuity.mjs';
 import { setRetrievalRange, retrievalScopeError } from '../../shared/retrieval-scope.mjs';
 import { QualityComparison } from './ResearchQuality.jsx';
 import './research-partner.css';
+import {QuestionRefinement} from './QuestionRefinement.jsx';
 
 const running = t => ['queued', 'running'].includes(t?.status);
 const stateLabels = { reported: '材料报告', inference: '据材料推论', unknown: '尚未确定', suggestion: '拟议判断' };
@@ -58,7 +60,12 @@ export function ResearchPartner({ project, artifact, target, accessIds, disabled
     <header className="partner-target"><small>正在讨论 · {target.kind === 'protocol' ? '研究方案' : '候选题目'} · 第 {revision?.number ?? 1} 版</small><h3>{target.title || target.text}</h3>
       <button className="text-button" aria-pressed={quality} onClick={() => setQuality(!quality)}>{quality ? '返回研判' : '比较研究质量'}</button></header>
     {quality ? <QualityComparison project={project} onCommand={onCommand}/> : <>
+      {latest && !sameVersion && <p className="partner-change">以下是修改前题目的讨论；继续交流会围绕当前新题重新判断。</p>}
       {latestPhase && <Judgment phase={latestPhase} project={project} onSource={onSource}/>}
+      {target.kind !== 'protocol' && revision && ['questions','research_branch'].includes(artifact.kind) && <QuestionRefinement key={`${target.revisionId}:${revised?.finishedAt ?? 'manual'}`} target={target} revision={revision}
+        proposal={sameVersion && !latest?.staleInput ? revised?.value.questionProposal : null}
+        sourceTaskId={sameVersion && !latest?.staleInput && latest?.status==='completed' ? latest.id : null} blocked={blocked}
+        onApply={async body=>{const result=await onCommand('apply-question-refinement',body);if(result)onTarget({...target,revisionId:result.revisionId,title:result.title,text:result.text,scope:result.scope});}}/>}
       <div className="partner-shortcuts">{(target.kind === 'protocol' ? ['比较两种设计的取舍', '解释这项主要结局为什么合适', '按我的条件缩小方案'] :
         ['结合我的条件，这个题到底值不值得做？', '找出最强反例，核查后更新建议', '比较最小可行方案与更强证据方案']).map(t => <button key={t} disabled={blocked} onClick={() => update(t)}>{t}</button>)}</div>
       <form onSubmit={e => { e.preventDefault(); submit(); }} className="partner-composer">
@@ -77,7 +84,6 @@ export function ResearchPartner({ project, artifact, target, accessIds, disabled
       </form>
       {error && <p role="alert">{error}</p>}
       {activeTask?.mode === 'question-investigation' && activeTask.input.itemTarget?.itemId === target.id && <div className="partner-progress" role="status"><p>{activeTask.progress}</p><button onClick={() => execute(() => onStop(activeTask))}>停止本轮，保留已完成内容</button></div>}
-      {latest && !sameVersion && <p className="partner-change">以下是此前题目版本的讨论；新一轮会带入你的纠正并重新判断。</p>}
       {latest?.staleInput && <p className="partner-change">任务期间研究条件或采用内容发生变化。这份判断保留原依据，请按当前内容继续核查。</p>}
       {revised?.value.protocol && <details className="partner-protocol"><summary>研究路线形成的方案草案</summary><p>模型拟议内容；保存草案后可精确编辑，采用会改变后续工作的依据。</p>
         {Object.entries(protocolFields).filter(([k]) => revised.value.protocol[k]).map(([k, label]) => <section key={k}><h4>{label}</h4><p>{revised.value.protocol[k]}</p></section>)}
@@ -91,7 +97,7 @@ export function ResearchPartner({ project, artifact, target, accessIds, disabled
       {latest && <details className="partner-history"><summary>本轮过程与实际范围</summary>{phases.filter(p => p !== latestPhase).map(p => <Judgment key={p.key} phase={p} project={project} onSource={onSource}/>)}
         {latest.investigation?.searches?.map(s => <p key={s.id}>{s.query}<br/>{s.coverage ?? '专项检索尚未完成'}</p>)}
         {latest.investigation?.fulltext && <p>关键全文：{latest.investigation.fulltext.status==='completed'?'已取得并纳入核查':'未取得，相关方法与数值仍待核对'} · {latest.investigation.fulltext.reason}</p>}
-        <p>实际调用 {latest.calls.length} 次 · 科研模型 {latest.model} · 费用{latest.cost?.status === 'unknown' ? '未知' : latest.cost?.amount ?? '未知'}</p>
+        <RuntimeReceipts projectId={project.id} task={latest}/>
         {latest.investigation?.coverage && <p>选择 {latest.investigation.coverage.selected.length} 份 · 总共取得 {latest.investigation.coverage.acquired.length} 份 · 最终引用 {latest.investigation.coverage.cited.length} 份</p>}
         {phases.map(p => <p key={p.key}>{investigationPhaseLabels[p.key]}：{Math.round((Date.parse(p.finishedAt) - Date.parse(p.startedAt)) / 1000)} 秒</p>)}</details>}
       {tasks.length > 1 && <details className="partner-history"><summary>同一问题的此前讨论 · {tasks.length - 1}</summary>{tasks.slice(0, -1).reverse().map(t => <details key={t.id}><summary>{t.input.text || '此前研判'}</summary>

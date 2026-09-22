@@ -271,3 +271,11 @@ test('manual investigation retry locally revalidates a complete response without
   assert.equal(retry.investigation.phases.at(-1).value.protocol.secondaryOutcomes, '- Unmodified outcome one\n- Unmodified outcome two');
   assert.equal(saved.investigation.phases.length, 3);
 });
+
+
+test('revised discussion returns an editable topic proposal while legacy judgments remain valid',()=>{
+ const v=judgment(),proposal={title:'范围明确的选题',question:'限定人群中变量是否相关？',scope:'只用已有观察资料',reason:'用户要求收窄，具体证据仍需核查。'};
+ assert.equal(validateInvestigationOutput(JSON.stringify(v),'revised',[]).questionProposal,null);
+ assert.deepEqual(validateInvestigationOutput(JSON.stringify({...v,questionProposal:proposal}),'revised',[]).questionProposal,proposal);
+ assert.throws(()=>validateInvestigationOutput(JSON.stringify({...v,questionProposal:{...proposal,question:''}}),'revised',[]),e=>e.code==='model_structure');
+});

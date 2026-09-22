@@ -9,7 +9,7 @@ import { readableArtifactBlocks } from './artifact-content.mjs';
 import { parentReference } from '../../shared/research-path.mjs';
 import { assessmentText, normalizeAssessment } from '../../shared/question-assessment.mjs';
 import {continuityCommands,applyContinuityCommand,linkContinuityOutput} from './continuity.mjs';
-import {resolveResearchRef,continuitySnapshot,sameRef} from '../../shared/research-continuity.mjs';
+import {resolveResearchRef,continuitySnapshot,sameRef,taskInputsChanged} from '../../shared/research-continuity.mjs';
 
 // The research kernel has no model, transport or storage dependency. Choices belong
 // to the researcher; model results can only create proposed research content.
@@ -98,8 +98,8 @@ function projectItem(p, item, revisionId = item.headRevisionId) {
   const revision = revisionOf(item, revisionId), decisionId = p.researchKernel.choices[item.id], decision = p.decisions[decisionId];
   return { id: item.id, itemId: item.id, kind: item.kind, revisionId: revision.id, version: revision.number, latestRevisionId: item.headRevisionId,
     text: revision.text, title: revision.title || item.title, scope: revision.scope, rationale: revision.rationale, unknowns: clone(revision.unknowns), feasibility: clone(revision.feasibility),
-    informationStatus: revision.informationStatus, proposal: clone(revision.proposal ?? null), ...(revision.assessment ? { assessment:clone(revision.assessment), assessmentNeedsReview:revision.assessmentNeedsReview ?? false } : {}), evidence: revision.evidenceIds.map(id => sourceAnchor(p, find(p.evidence, id, '依据'))), origin: clone(item.origin),
-    evidenceNeedsReview: revision.evidenceNeedsReview ?? false, proposalNeedsReview: revision.proposalNeedsReview ?? false,
+    informationStatus: revision.informationStatus, proposal: clone(revision.proposal ?? null), ...(revision.assessment ? { assessment:clone(revision.assessment) } : {}), evidence: revision.evidenceIds.map(id => sourceAnchor(p, find(p.evidence, id, '依据'))), origin: clone(item.origin),
+    assessmentNeedsReview: revision.assessmentNeedsReview ?? false, evidenceNeedsReview: revision.evidenceNeedsReview ?? false, proposalNeedsReview: revision.proposalNeedsReview ?? false,
     supporting: clone(revision.supporting ?? []), conflicting: clone(revision.conflicting ?? []), choice: decision?.choice ?? null, decisionId: decision?.id ?? null,
     isAdopted: p.researchKernel.currentQuestion?.itemId === item.id && p.researchKernel.currentQuestion?.revisionId === revision.id };
 }
@@ -553,12 +553,93 @@ export function saveTopicReview(project, task, parsed, provenance) {
 }
 
 export function recordOutputDependencies(p,ref,snapshot) { return linkContinuityOutput(p,ref,snapshot,{link}); }
-export const kernelCommands = new Set([...continuityCommands,'update-research-templates', 'create-question', 'decide-question', 'revise-question', 'compose-brief', 'open-branch', 'open-topic-library', 'update-topic-library', 'update-topic-workspace', 'resolve-impact', 'set-position']);
+function applyQuestionRefinement(state, p, body, operationId) {
+  checkState(p, body.baseStateVersion);
+  const a = find(p.artifacts, body.artifactId, '当前页面'), item = find(p.researchItems, body.itemId, '研究问题');
+  const original = p.researchResults[a.draft.resultId], previous = revisionOf(item);
+  requireThat(item.kind === 'question' && ['questions','research_branch'].includes(a.kind)
+    && (a.branchQuestion?.itemId === item.id || original?.questionRefs?.some(r => r.itemId === item.id)),
+    'invalid_target', '请在当前候选比较或本题探索页面更新这个选题。');
+  requireThat(body.baseVersion === a.draft.version && body.baseRevisionId === previous.id,
+    'revision_conflict', '页面或题目已有新版，请保留编辑内容并重新查看。', 409);
+  requireThat(!Object.values(p.researchTasks ?? {}).some(t => ['queued','running'].includes(t.status)),
+    'task_running', '请等待本轮完成，或停止后再更新选题。', 409);
+  text(body.title, '选题名称'); text(body.text, '研究问题');
+  requireThat(typeof body.scope === 'string', 'invalid_input', '研究范围需要文本。');
+  let sourceTask = null;
+  if (body.sourceTaskId) {
+    sourceTask = find(p.researchTasks, body.sourceTaskId, '交流记录');
+    const target = sourceTask.input?.itemTarget;
+    requireThat(sourceTask.status === 'completed' && sourceTask.mode === 'question-investigation'
+      && sourceTask.artifactId === a.id && target?.itemId === item.id && target.revisionId === previous.id
+      && sourceTask.investigation?.phases?.some(v => v.key === 'revised'), 'invalid_reference', '请选择本题当前版本已完成的交流结果。');
+    requireThat(!sourceTask.staleInput && !taskInputsChanged(p, a.id, sourceTask.input),
+      'research_state_conflict', '交流后的依据或研究条件已变化，请先重新核查建议。', 409);
+  }
+  const q = kernelCommand(state, p.id, 'revise-question', body, operationId);
+  if (q.revisionId === previous.id) return { ...q, itemId:item.id, artifactId:a.id, unchanged:true };
+  const next = revisionOf(item), scientificChange = next.change.text || next.change.scope;
+  if (scientificChange) { next.assessmentNeedsReview = true; next.proposalNeedsReview = true; }
+  if (sourceTask) next.refinementSource = {taskId:sourceTask.id, resultId:sourceTask.resultId, actor:'local_user', editedPreview:true};
+  // Update the current canvas and, if still present, its current comparison row.
+  // Old branches and superseded comparisons retain their exact saved inputs.
+  const origin = p.artifacts[item.origin?.artifactId];
+  const targets = [a];
+  if (origin && origin.id !== a.id && origin.kind === 'questions'
+    && p.researchResults[origin.draft.resultId]?.questionRefs?.some(r => r.itemId === item.id && r.revisionId === previous.id)) targets.push(origin);
+  for (const target of targets) {
+    const old = p.researchResults[target.draft.resultId];
+    let blocks = clone(old.blocks);
+    const questionRef = {itemId:item.id, revisionId:next.id};
+    const notice = '研究问题或范围已更新；此前的证据解释、价值判断和设计保留在旧版本，需围绕新问题重新核查。';
+    if (target.kind === 'research_branch') {
+      target.branchQuestion = questionRef; target.title = next.title || next.text;
+      if (scientificChange) blocks = [
+        {id:'branch-question-heading',type:'heading',text:'研究命题'},
+        {id:'branch-question',type:'paragraph',text:next.text,owner:'user',informationStatus:'user_provided'},
+        {id:'branch-scope-heading',type:'heading',text:'研究范围'},
+        {id:'branch-scope',type:'paragraph',text:next.scope || '研究范围尚待补充',owner:'user'},
+        {id:'branch-refinement',type:'paragraph',text:notice,informationStatus:'unknown'},
+      ];
+    } else {
+      const ownBlock = b => b.id === item.id || b.id.startsWith(`${item.id}-`);
+      blocks = blocks.flatMap(b => b.id === item.id ? [
+        {...b,text:next.text,itemRevisionId:next.id,owner:'user',informationStatus:'user_provided'},
+        ...(scientificChange ? [{id:`${item.id}-scope`,type:'paragraph',text:`研究范围：${next.scope || '尚待补充'}`,owner:'user'},
+          {id:`${item.id}-refinement`,type:'paragraph',text:notice,informationStatus:'unknown'}] : []),
+      ] : scientificChange && ownBlock(b) ? [] : [b]);
+    }
+    const blockIds = new Set(blocks.map(b => b.id));
+    const saved = createArtifact(p, target.kind, target.title, blocks, old.accessIds,
+      {artifactId:target.id,operationId,inputRevisionId:target.headRevisionId,provenance:{actor:'local_user',kind:'question_refinement',sourceTaskId:sourceTask?.id ?? null}},
+      {inputContext:clone(old.inputContext ?? null),
+        citations:clone((old.citations ?? []).filter(c => blockIds.has(c.blockId) && !(scientificChange && target.kind === 'questions' && c.blockId === item.id))),
+        ...(target.kind === 'questions' ? {questionRefs:old.questionRefs.map(r => r.itemId === item.id ? questionRef : r),candidateRequest:clone(old.candidateRequest ?? null),explanation:old.explanation,next:old.next}
+          : {branchQuestion:questionRef,proposal:scientificChange ? null : clone(old.proposal ?? null),...(!scientificChange && old.investigationResultId ? {investigationResultId:old.investigationResultId} : {}),continuation:'ready_for_investigation'}),
+        refinement:{itemId:item.id,previousRevisionId:previous.id,revisionId:next.id,sourceTaskId:sourceTask?.id ?? null}});
+    saved.artifact.checkpoints.at(-1).name = '更新当前选题';
+    // Carry other dependencies forward; replace only this question's exact ref.
+    for (const dep of old.dependencies ?? []) {
+      if (dep.to.type === 'research_item' && dep.to.id === item.id) continue;
+      link(p, node('artifact',target.id,saved.revision.id), dep.to, dep.relation);
+    }
+    link(p, node('artifact',target.id,saved.revision.id), itemNode(item,next.id));
+    snapshotDependencies(p,saved.artifact,saved.revision,saved.result);
+    p.kernelRegistrations[saved.result.id] = {resultId:saved.result.id,itemIds:target.kind === 'questions' ? saved.result.questionRefs.map(r=>r.itemId) : [item.id]};
+  }
+  emit(p,'question_refinement_applied','local_user',operationId,itemNode(item),
+    {artifactIds:targets.map(v=>v.id),sourceTaskId:sourceTask?.id ?? null,adoptionUnchanged:true});
+  changed(p);
+  return {...projectItem(p,item),itemId:item.id,artifactId:a.id,updatedArtifactIds:targets.map(v=>v.id)};
+}
+
+export const kernelCommands = new Set([...continuityCommands,'apply-question-refinement','update-research-templates', 'create-question', 'decide-question', 'revise-question', 'compose-brief', 'open-branch', 'open-topic-library', 'update-topic-library', 'update-topic-workspace', 'resolve-impact', 'set-position']);
 export function kernelCommand(state, projectId, name, body, operationId) {
   requireThat(kernelCommands.has(name), 'unknown_command', '不支持此研究操作。', 404);
   const p = ensureKernel(getProject(state, projectId)), k = p.researchKernel, eventStart = p.researchEvents.length;
   let result;
   if(continuityCommands.has(name)) result=applyContinuityCommand(p,name,body,operationId,{checkState,find,addItem,link,markAffected,emit,changed,userIntent,uid,now});
+  else if(name==='apply-question-refinement') result=applyQuestionRefinement(state,p,body,operationId);
   else if(name==='update-research-templates') result=editTemplates(p,find(p.artifacts,body.artifactId,'研究页面'),body,operationId);
   else if (name === 'compose-brief') result = composeResearchBrief(p, body, operationId);
   else if (name === 'open-branch') result = openResearchBranch(state, p, body, operationId);
