@@ -41,6 +41,30 @@ export function validateResearchOutput(text, mode, materials, { requirePaperNote
     return typeof item.quote === 'string' && source.text.includes(item.quote) ? item.quote : null;
   };
   const blocks = [], citations = [], dimensions = [];
+  // Child claims keep their own provenance while retaining the chapter block
+  // anchor used by exports, dependency tracking and the evidence reader.
+  function childrenOf(items, blockId, parentId, depth, coverage) {
+    if (items === undefined) return [];
+    requireThat(Array.isArray(items) && (depth <= 2 || items.length === 0), 'model_structure', '领域内容最多按主方向、子方向和具体问题逐层展开。', 502);
+    return items.map((item, i) => {
+      requireThat(item && str(item.headline, 300) && str(item.text, 5000)
+        && ['reported', 'inference', 'unknown', 'suggestion'].includes(item.status)
+        && Array.isArray(item.citations), 'model_structure', '子方向缺少标题、具体解释或信息状态。', 502);
+      requireThat(!['reported', 'inference'].includes(item.status) || item.citations.length > 0,
+        'unsupported_claim', '子方向的研究判断需要自己的实际依据。', 502);
+      requireThat(coverage !== 'insufficient' || ['unknown', 'suggestion'].includes(item.status),
+        'inconsistent_coverage', '材料不足的维度不能在子方向中宣称已知结论。', 502);
+      const id = `${parentId}-child-${i}`;
+      for (const c of item.citations) {
+        const source = resolve(c);
+        requireThat(source && str(excerpt(c, source), 10000), 'invalid_citation', '子方向的引用无法定位到实际读取的材料。', 502);
+        citations.push({blockId, nodeId:id, accessId:source.accessId, sourceId:source.sourceId,
+          ref:source.ref, passage:c.passage ?? null, quote:excerpt(c, source)});
+      }
+      return {id, headline:item.headline, text:item.text, informationStatus:item.status,
+        children:childrenOf(item.children, blockId, id, depth + 1, coverage)};
+    });
+  }
   for (const section of sections) {
     requireThat(Array.isArray(section.items) && section.items.length > 0, 'model_structure', '简报章节缺少有效内容。', 502);
     const isDimension = dimensional && DOMAIN_DIMENSIONS.some(d => d.id === section.id);
@@ -72,12 +96,15 @@ export function validateResearchOutput(text, mode, materials, { requirePaperNote
         recordAnchor={ref:record.ref,title:record.title,number:record.number,field,fieldLabel:recordFields[field],quote,performedBy:record.payload.performedBy,origin:record.payload.origin,verification:'exact_record_quote_not_independent_verification'};
       }
       const visual = dimensional ? domainVisual(item.visual, item.status) : null;
-      blocks.push({ ...(recordAnchor?{recordAnchor}:{}),...(visual ? { visual } : {}), id: blockId, type: section.id === 'branches' && !dimensional ? 'candidate' : 'paragraph', text: item.text, ...(item.headline ? { headline: item.headline } : {}), informationStatus: item.status, ...(item.comparison ? { analysisRole: 'comparison' } : {}), owner: 'model' });
+      const children = childrenOf(item.children, blockId, blockId, 1, section.coverage);
+      blocks.push({ ...(children.length ? {children} : {}), ...(recordAnchor?{recordAnchor}:{}),...(visual ? { visual } : {}), id: blockId, type: section.id === 'branches' && !dimensional ? 'candidate' : 'paragraph', text: item.text, ...(item.headline ? { headline: item.headline } : {}), informationStatus: item.status, ...(item.comparison ? { analysisRole: 'comparison' } : {}), owner: 'model' });
     });
   }
   const paperNotes = [];
   if (requirePaperNotes && mode !== 'ask') {
-    requireThat(Array.isArray(data.papers) && data.papers.length === materials.length, 'incomplete_paper_coverage', '逐篇整理尚未覆盖全部所选材料；材料与当前简报已保留，可重新整理。', 502);
+    requireThat(Array.isArray(data.papers) && data.papers.length === materials.length, 'incomplete_paper_coverage',
+      `本次选择 ${materials.length} 篇，模型返回 ${Array.isArray(data.papers) ? data.papers.length : 0} 份逐篇记录，尚未覆盖全部材料。材料与当前简报已保留，可重新整理。`, 502,
+      { expectedPaperCount: materials.length, returnedPaperCount: Array.isArray(data.papers) ? data.papers.length : 0 });
     const seen = new Set();
     for (const item of data.papers) {
       const source = resolve(item);

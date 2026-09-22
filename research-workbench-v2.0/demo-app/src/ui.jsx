@@ -10,11 +10,15 @@ function download(name, text, type = 'application/json') { const url = URL.creat
 function markdown(data) {
   const number = id => data.sources.find(s => s.id === id)?.referenceNumber ?? '?';
   const citations = data.research?.citations ?? [];
+  const nested = (nodes,blockId,depth=3) => (nodes??[]).map(n=>{
+    const refs=[...new Set(citations.filter(c=>c.blockId===blockId&&c.nodeId===n.id).map(c=>number(c.sourceId)))];
+    return `${'#'.repeat(depth)} ${n.headline}\n\n${n.text}${refs.map(v=>` [${v}]`).join('')}\n\n（${INFORMATION_LABELS[n.informationStatus]}）\n\n${nested(n.children,blockId,depth+1)}`;
+  }).join('\n\n');
   const body = data.revision.blocks.map(b => {
     if (b.type === 'heading') return `## ${b.text}${b.dimensionCoverage ? `\n\n${COVERAGE_LABELS[b.dimensionCoverage]}：${b.dimensionLimitation}` : ''}`;
     if (b.type === 'table') return [b.columns.map(c => c.label).join(' | '), b.columns.map(() => '---').join(' | '), ...b.rows.map(r => b.columns.map(c => r.cells[c.id]).join(' | '))].join('\n');
-    const refs = [...new Set(citations.filter(c => c.blockId === b.id).map(c => number(c.sourceId)))];
-    return `${b.text}${refs.map(n => ` [${n}]`).join('')}${b.informationStatus === 'inference' ? '\n\n（综合推论）' : ''}`;
+    const refs = [...new Set(citations.filter(c => c.blockId === b.id && !c.nodeId).map(c => number(c.sourceId)))];
+    return `${b.text}${refs.map(n => ` [${n}]`).join('')}${b.informationStatus === 'inference' ? '\n\n（综合推论）' : ''}${b.children?.length ? `\n\n${nested(b.children,b.id)}` : ''}`;
   });
   const notes = data.research?.paperNotes?.flatMap(n => [`### [${number(n.sourceId)}] 逐篇整理`, ...(n.fields ? Object.entries(PAPER_FIELDS).flatMap(([key, label]) => [`**${label}**（${INFORMATION_LABELS[n.fields[key].status]}）`, n.fields[key].text, ...n.fields[key].quotes.map(q => `> ${q}`)]) : [n.summary, n.quote ? `> ${n.quote}` : '摘要未报告 / 尚不清楚'])]) ?? [];
   const sources = data.accesses.map(a => {

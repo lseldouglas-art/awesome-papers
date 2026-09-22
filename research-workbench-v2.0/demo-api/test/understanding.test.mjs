@@ -242,15 +242,24 @@ test('retrieval stops for reading and screening; analysis honors explicit select
 test('sixty full abstracts and large personal context survive synthesis and a short follow-up', async t => {
   const records = Array.from({ length: 60 }, (_, i) => ({ ...sample, pmid: String(i + 1000), title: `Fixture ${i}`, authors: ['Known Author'], year: '2026', text: 'Large public abstract fixture. '.repeat(800) + `End-${i}` }));
   const inputs = [];
-  const f = await fixture(t, { pubmed: { search: async () => searchResult(records) }, generate: async input => { inputs.push(input); return generate(input); } });
+  const f = await fixture(t, { pubmed: { search: async () => searchResult(records) }, generate: async input => {
+    inputs.push(input);
+    if (!input.materials.length && input.instruction.includes('已完成逐篇记录')) {
+      const extracted = [...new Map(inputs.filter(i => i.instruction.includes('逐篇完整整理')).flatMap(i => i.materials).map(m => [m.accessId, m])).values()];
+      return { ...await generate(input), text: JSON.stringify(dimensionFixture(extracted)) };
+    }
+    return generate(input);
+  } });
   await f.api.command(f.p.id, 'save-notes', { artifactId: f.a.id, baseVersion: 1, notes: { ...f.a.draft.notes, understanding: '长的个人认识。'.repeat(2500) } });
   const synthesis = await done(f, (await run(f, 'landscape')).taskId);
   assert.equal(synthesis.status, 'completed', synthesis.error); assert.equal(synthesis.excludedAccessIds.length, 0);
   const followup = await done(f, (await run(f, 'ask', { text: '解释最后一篇。' })).taskId);
   assert.equal(followup.status, 'completed', followup.error);
-  assert.equal(inputs[1].materials.length, 60); assert.equal(inputs[1].materials.at(-1).text, records.at(-1).text);
-  assert.equal(inputs[1].materials[0].authors[0], 'Known Author');
-  assert.ok(inputs[1].instruction.length > 10000); assert.match(inputs[1].instruction, /解释最后一篇/);
+  const followupInput = inputs.at(-1), extracted = inputs.filter(i => i.instruction.includes('逐篇完整整理')).flatMap(i => i.materials);
+  assert.equal(followupInput.materials.length, 60); assert.equal(followupInput.materials.at(-1).text, records.at(-1).text);
+  assert.equal(followupInput.materials[0].authors[0], 'Known Author');
+  assert.ok(followupInput.instruction.length > 10000); assert.match(followupInput.instruction, /解释最后一篇/);
+  for (const record of records) assert.equal(extracted.filter(m => m.pmid === record.pmid).map(m => m.text).join(''), record.text);
   const p = await f.api.workspace(f.p.id), r = p.researchResults[synthesis.resultId];
   assert.equal(r.paperNotes.length, 60); assert.equal(r.paperNotes.at(-1).ref, 'R60');
 });

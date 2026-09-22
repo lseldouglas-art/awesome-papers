@@ -1,4 +1,12 @@
+import { focusedDiscussionContext } from '../../shared/discussion-scope.mjs';
+import { extractPaperBatch, learnedPaperCallSize } from './paper-extraction.mjs';
+import { extractionForRevision } from './extraction-reuse.mjs';
+import { outputContractFor, validateModelContract } from './model-contracts.mjs';
+import { loadAgentPilot, usesAgentPilot, createAgentPilot, agentPilotIdentity } from './agent-pilot.mjs';
+import { questionRequest, candidateInstructions } from '../../shared/question-request.mjs';
+import { reasoningProfile, extractionSettings, generationBudget } from '../../shared/model-analysis.mjs';
 import {continuitySnapshot,continuitySignature,hasContinuity,continuityChanged} from '../../shared/research-continuity.mjs';
+import { investigationInput, executeInvestigation } from './question-investigation.mjs';
 import {compositionInput,executeComposition} from './figure-workspace.mjs';
 import {researchInstruction,RESEARCH_LANGUAGE_VERSION} from '../../shared/research-language.mjs';
 import {manuscriptInput,executeManuscript} from './manuscript-writing.mjs';
@@ -15,13 +23,13 @@ import { ResearchService, validateResearchOutput } from './research.mjs';
 import { DomainError, requireThat } from './errors.mjs';
 import { executeCommand, getProject } from './domain.mjs';
 import { artifactOf, capture, checkDraft, checkpoint } from './progress.mjs';
-import { MODEL_OUTPUT_PARSER_VERSION, normalizeOuterJsonFence, parseModelJsonObject, extractLeadingJsonObject } from './model-output.mjs';
+import { MODEL_OUTPUT_PARSER_VERSION, normalizeOuterJsonFence, parseModelJsonObject, extractLeadingJsonObject, normalizeModelOutput } from './model-output.mjs';
 import { ensureKernel, researchState, createQuestionComparison, composeResearchBrief, registerResearchResult, recordOutputDependencies, saveBranchInvestigation, saveTopicReview, applyTopicScreeningPolicy } from './kernel.mjs';
 import { materialPacket } from '../../shared/material-scope.mjs';
 import { searchesForArtifact, topicSearchMethod } from '../../shared/topic-search.mjs';
 import { LANDSCAPE_FRAMEWORK, materialCoverage } from '../../shared/domain-landscape.mjs';
 import { workflowRegistry, buildResearchContext, comparisonInstructions, scientificComparabilityInstructions, validateComparisonOutput, materialContextLimits,
-  planMaterialBatches, assertMaterialContextFits, perPaperBatchInstructions, validatePaperBatchOutput, combinePaperCoverage,
+  planMaterialBatches, planPaperExtractionBatches, paperExtractionContext, materialRequestSize, assertMaterialContextFits, perPaperBatchInstructions, validatePaperBatchOutput, combinePaperCoverage, reusablePaperExtractions, recoverPaperBatch,
   landscapeAggregationInstructions, completeLandscapeAggregation, runMaterialBatches, isTerminalRun, createTaskAttempt,
   createToolRun, transitionRun } from './workflows.mjs';
 
@@ -32,9 +40,10 @@ const now = () => new Date().toISOString();
 const clone = value => structuredClone(value);
 const nonempty = value => typeof value === 'string' && value.trim();
 const fingerprint = input => createHash('sha256').update(JSON.stringify(input)).digest('hex');
-const modes = new Set([...Object.keys(workflowRegistry), ...topicTaskModes, ...templateModes, 'figure-compose', 'connection']);
+const modes = new Set([...Object.keys(workflowRegistry), ...topicTaskModes, ...templateModes, 'figure-compose', 'connection', 'question-investigation']);
 export const RESEARCH_PROMPT_VERSION = 'research-workbench-v0.14-topic-decisions-v2-continuity-v0.28';
-const promptVersionFor = mode => ['landscape','revise','clarify'].includes(mode)?'research-workbench-domain-storyboard-v2':mode==='figure-compose'?'research-workbench-figure-compose-v1': ['topic-writing','manuscript-writing'].includes(mode) ? 'research-workbench-v0.22.1-academic-manuscript-v2' : mode==='topic-outline' ? 'research-workbench-v0.18-argument-outline-v2' : ['topic-screen','topic-preview'].includes(mode) ? 'research-workbench-v0.19-relevance-recovery-v2' : mode==='topic-review' ? 'research-workbench-v0.16-topic-abcd-v1' : mode === 'topic-plan' ? 'research-workbench-v0.15-search-repair-digest-v1' : RESEARCH_PROMPT_VERSION;
+export const TOPIC_ANALYSIS_PROMPT_VERSION = 'research-workbench-v0.31-topic-analysis-v1';
+const promptVersionFor = mode => mode==='question-investigation'?'research-workbench-v0.34-investigation-v1':mode==='compare'?TOPIC_ANALYSIS_PROMPT_VERSION:['landscape','revise','clarify'].includes(mode)?'research-workbench-domain-storyboard-v2':mode==='figure-compose'?'research-workbench-figure-compose-v1': ['topic-writing','manuscript-writing'].includes(mode) ? 'research-workbench-v0.22.1-academic-manuscript-v2' : mode==='topic-outline' ? 'research-workbench-v0.18-argument-outline-v2' : ['topic-screen','topic-preview'].includes(mode) ? 'research-workbench-v0.19-relevance-recovery-v2' : mode==='topic-review' ? 'research-workbench-v0.16-topic-abcd-v1' : mode === 'topic-plan' ? 'research-workbench-v0.15-search-repair-digest-v1' : RESEARCH_PROMPT_VERSION;
 const landscapeSelfCheck = `输出前逐项检查最终 JSON（检查包括每一节的每个 items 元素，以及七个维度各自的 comparison）：每个 status=reported 或 inference 的陈述必须至少有一个实际支持本陈述的 citations:{ref,passage}，且 R/P 编号确实存在于本次给定材料中。不能因 comparison 是解释文字就省略其依据，也不能借用不相关片段来通过结构检查。
 找不到相关依据时，把该项的 status 改为 unknown，并把正文改为具体的待了解内容或“本次材料未覆盖／摘要未报告”；不要保留肯定结论再贴 unknown 标签。建议性的下一步用 suggestion。coverage=insufficient 的维度，其 items 和 comparison 都只能使用 unknown 或 suggestion；有局部依据的维度仍需展示具体支持片段与缺失边界。
 材料数量、年份范围、访问层级等来源统计由程序和界面展示，不要在 overview 中重复这些统计，也不要把来源范围说明标成 reported 的科研发现。确需解释材料边界时，用 unknown 说明本次不能回答什么。
@@ -45,6 +54,17 @@ headline 和 text 必须具有相同的证据边界，标题不得将“摘要�
 const event = (p, task, type, detail = {}) => p.researchEvents.push({ id: uid('event'), projectId: p.id, type, actor: 'local_program',
   operationId: task.requestId ?? task.id, target: { taskId: task.id, artifactId: task.artifactId }, detail: clone(detail), at: now() });
 const safeError = error => error instanceof DomainError || error.name === 'ModelAdapterError' ? error.message : '本步处理失败，已有材料与记录保留；可以手动继续。';
+function updateExtractionProgress(task, materials) {
+  const completed = reusablePaperExtractions(task.paperBatchRecords ?? [], materials).accessIds.size;
+  task.extractionProgress = { completed, total: materials.length };
+  refreshExtractionMessage(task);
+}
+function refreshExtractionMessage(task) {
+  const { completed, total } = task.extractionProgress;
+  const active = task.toolRuns.filter(r => r.status === 'running' && /^model\.paper-extraction/.test(r.name)).length;
+  Object.assign(task.extractionProgress, { activeCalls: active, updatedAt: now() });
+  task.progress = `正在逐篇整理：已保存 ${completed} / ${total} 篇完整材料${active ? ` · ${active} 批正在处理` : ' · 正在接续'}；完成后综合领域认识`;
+}
 
 /** Application service around the existing retrieval/landscape vertical slice.
  * Model generation never performs a research adoption decision. */
@@ -52,6 +72,7 @@ export class ResearchApplication extends ResearchService {
   applyScreeningPolicy(p,a,operationId) { return applyTopicScreeningPolicy(p,a,operationId); }
   constructor(...args) {
     super(...args);
+    this.agentRuntimeFactory = args[1]?.agentRuntimeFactory ?? createAgentPilot;
     this.taskContext = new AsyncLocalStorage();
     const pubmed = this.pubmed;
     this.pubmed = Object.create(pubmed);
@@ -64,6 +85,7 @@ export class ResearchApplication extends ResearchService {
 
   async initialize() {
     await super.initialize();
+    this.agentPilot = await loadAgentPilot(this.store.directory);
     await this.store.update(s => {
       recoverWritingOutputs(s);
       for (const p of Object.values(s.projects)) {
@@ -82,6 +104,8 @@ export class ResearchApplication extends ResearchService {
 
   async capabilities() {
     return { ...await super.capabilities(), storage: this.store.filename?.endsWith('.sqlite') ? 'sqlite' : 'local_file',
+      agentPilot: { enabled: this.agentPilot?.enabled === true, invalid: this.agentPilot?.invalid === true,
+        runtime: 'claude-agent-sdk', model: this.agentPilot?.model ?? null, provider: this.agentPilot?.provider ?? null, effort: this.agentPilot?.effort ?? null },
       workflows: Object.values(workflowRegistry), contextLimits: materialContextLimits(this.settings.config) };
   }
 
@@ -100,9 +124,19 @@ export class ResearchApplication extends ResearchService {
   async start(projectId, body, requestId) {
     requireThat(!this.closing, 'service_closing', '服务正在关闭，请稍后继续。', 503);
     requireThat(body && modes.has(body.mode), 'invalid_mode', '不支持这一研究动作。');
-    const config = clone(this.settings.config);
+    requireThat(body.reviewConstraints===undefined,'retired_workflow','请回到领域认识，先分析材料，再通过交流确定具体研究问题。',409);
+    const config = clone(this.settings.config), submittedBody = body;
+    const reasoning = reasoningProfile(config.model, config.baseUrl);
+    requireThat(body.reasoningEffort === undefined || reasoning.options.some(o => o.value === body.reasoningEffort), 'invalid_reasoning', '当前模型不支持这个思考档位，请重新选择。');
+    config.reasoningEffort = body.reasoningEffort ?? config.reasoningEffort ?? reasoning.defaultValue;
     const accepted = await this.store.transact(requestId, { operation: 'start-research', projectId, body }, s => {
+      let body = { ...submittedBody };
       const p = ensureKernel(getProject(s, projectId)), a = artifactOf(p, body.artifactId); checkDraft(a, body.baseVersion);
+      const priorRequest = p.researchResults[a.draft.resultId]?.candidateRequest ?? null;
+      const request = !body.retryTaskId && (questionRequest(body.text, a.kind, priorRequest) ?? (body.mode === 'compare' && !body.itemId ? questionRequest(`请推荐选题。${body.text ?? ''}`, a.kind, priorRequest) : null));
+      const reroute = request && (['ask', 'question-investigation'].includes(body.mode) || body.mode === 'compare' && !body.itemId);
+      if (reroute) body = { ...body, mode: 'compare', itemId: undefined, itemRevisionId: undefined, blockId: undefined, replyToTaskId: undefined, investigationOptions: undefined };
+      const candidateRequest = reroute ? request : body.mode === 'compare' ? priorRequest : null;
       requireThat(['retrieve', 'brief', 'topic-preview', 'topic-collect'].includes(body.mode) || (this.settings.public().configured && config.enabled), 'model_not_configured', '请先配置并启用本机模型服务。', 503);
       requireThat(!Object.values(p.researchTasks).some(t => !isTerminalRun(t.status)), 'task_running', '本课题已有一步正在进行，可等待或停止后继续。', 409);
       requireThat(body.text === undefined || nonempty(body.text), 'invalid_input', '请填写本次问题。');
@@ -150,7 +184,8 @@ export class ResearchApplication extends ResearchService {
         itemTarget = { itemId: item.id, revisionId: itemRevision.id, kind: item.kind, text: itemRevision.text, scope: itemRevision.scope };
       }
       const state = researchState(p);
-      const input = { continuity:continuitySnapshot(p,a.id), notes: clone(a.draft.notes), name: p.name, originalGoal: p.originalGoal, goal: p.goal, conditions: p.conditions, metadataVersion: p.metadataVersion,
+      requireThat(body.discussionScope===undefined||body.mode==='ask'&&['linked','selected'].includes(body.discussionScope),'invalid_scope','局部答疑范围仅用于当前内容的追问。');
+      const input = { discussionScope:body.discussionScope??'selected', continuity:continuitySnapshot(p,a.id), notes: clone(a.draft.notes), name: p.name, originalGoal: p.originalGoal, goal: p.goal, conditions: p.conditions, metadataVersion: p.metadataVersion,
         baseVersion: a.draft.version, baseStateVersion: state.version, revisionId: revision.id, resultId: a.draft.resultId,
         target, itemTarget, retrievalOffset: body.retrievalOffset ?? 0, query: body.query ?? '', text: body.text ?? '', materials, reuseSearchId: reuseSearch?.id ?? null,
         ...(body.retrievalOptions ? { retrievalOptions: retrievalOptions(body.retrievalOptions), resumeSearchId: body.resumeSearchId ?? null } : {}),
@@ -167,7 +202,16 @@ export class ResearchApplication extends ResearchService {
       if (['topic-screen','topic-preview','topic-outline'].includes(body.mode)) input.relevanceConceptGroups = clone((a.topicWorkspace?.plans??[]).filter(plan=>plan.query===input.query).at(-1)?.groups?.filter(group=>group.core)??[]);
       if (body.mode === 'topic-plan') input.searchFeedback = clone(topicPlanningFeedback(p,a,input.query,input.topicOptions));
       input.context = buildResearchContext(p, a, { ...input, replyToTaskId: body.replyToTaskId, relatedTaskIds: body.relatedTaskIds });
+      if(input.discussionScope==='linked')input.context=focusedDiscussionContext(input.context);
       if (itemTarget) input.context.selectedResearchItem = clone(itemTarget);
+      if (candidateRequest) {
+        input.candidateRequest = clone(candidateRequest);
+        input.context.candidateRequest = { ...clone(candidateRequest), previousCandidates: (p.researchResults[a.draft.resultId]?.questionRefs ?? []).map(ref => {
+          const item = p.researchItems[ref.itemId], revision = item?.revisions.find(r => r.id === ref.revisionId);
+          return { title: revision?.title, question: revision?.text, scope: revision?.scope, status: 'previous_candidate_not_evidence' };
+        }) };
+      }
+      if (body.mode === 'question-investigation') input.investigation = investigationInput(p, a, input, body);
       if (topicTarget) {
         input.searchScopeMode = body.searchScopeMode ?? 'focused';
         input.context.primaryResearchObject = clone(itemTarget);
@@ -188,6 +232,13 @@ export class ResearchApplication extends ResearchService {
         previous = p.researchTasks[body.retryTaskId];
         requireThat(previous && ['failed', 'cancelled', 'interrupted'].includes(previous.status) && previous.mode === body.mode && previous.artifactId === a.id,
           'invalid_retry', '请选择本课题未完成的同一研究任务进行手动重试。', 409);
+        const previousEffort = previous.analysisSettings?.reasoningEffort ?? s.modelCalls.find(call => call.taskId === previous.id)?.configuredOptions?.reasoningEffort;
+        if (previousEffort) {
+          requireThat(reasoning.options.some(o => o.value === previousEffort), 'invalid_retry', '当前模型不支持原任务档位，请按当前设置开始新任务。', 409);
+          requireThat(submittedBody.reasoningEffort === undefined || submittedBody.reasoningEffort === previousEffort, 'invalid_retry', '接续使用原任务的思考档位；如需换档，请开始新任务。', 409);
+          config.reasoningEffort = previousEffort;
+        }
+        requireThat(!previous.input.reviewConstraints,'retired_workflow','这次记录与材料已保留；请回到领域认识继续分析。',409);
         const previousIds = [...new Set([...(previous.input.materials ?? []).map(m => m.accessId), ...(previous.searchId ? p.searches[previous.searchId]?.accessIds ?? [] : [])])].sort();
         requireThat(previous.input.query === input.query && (previous.input.retrievalOffset ?? 0) === input.retrievalOffset && previous.input.text === input.text
           && (previous.input.searchScopeMode ?? 'focused') === (input.searchScopeMode ?? 'focused')
@@ -196,6 +247,8 @@ export class ResearchApplication extends ResearchService {
         const researchFocus = context => [context?.currentQuestion?.itemId ?? null, context?.currentQuestion?.revisionId ?? null,
           context?.exploration?.itemId ?? null, context?.exploration?.revisionId ?? null];
         requireThat(previous.input.goal === input.goal && previous.input.conditions === input.conditions
+          && JSON.stringify(previous.input.context?.researcherProfile ?? null) === JSON.stringify(input.context?.researcherProfile ?? null)
+          && (previous.input.discussionScope??'selected')===input.discussionScope
           && JSON.stringify(previous.input.notes) === JSON.stringify(input.notes)
           && JSON.stringify(previous.input.itemTarget ?? null) === JSON.stringify(input.itemTarget)
           && (!previous.input.continuity || continuitySignature(previous.input.continuity)===continuitySignature(input.continuity))
@@ -205,6 +258,11 @@ export class ResearchApplication extends ResearchService {
         // input revision. Keep that exact context on an explicitly requested
         // retry, otherwise a new capture ID would invalidate valid checkpoints.
         input.context = clone(previous.modelContext ?? previous.input.context ?? input.context);
+        if (previous.input.candidateRequest) input.candidateRequest = clone(previous.input.candidateRequest);
+        if (body.mode === 'question-investigation') {
+          requireThat(JSON.stringify(previous.input.investigation.options) === JSON.stringify(input.investigation.options), 'invalid_retry', '核查权限或范围已改变，请创建新一轮研判。', 409);
+          input.investigation = clone(previous.input.investigation);
+        }
         input.revisionId = previous.input.revisionId;
         input.adoptionContext = clone(previous.input.adoptionContext ?? input.adoptionContext);
         input.baseStateVersion = previous.input.baseStateVersion ?? input.baseStateVersion;
@@ -213,25 +271,34 @@ export class ResearchApplication extends ResearchService {
       const provider = body.mode === 'brief' ? 'local_program' : (['retrieve','topic-collect'].includes(body.mode)||body.mode==='topic-preview'&&!this.settings.public().configured) ? 'PubMed' : new URL(config.baseUrl).hostname;
       const task = { id: uid('task'), requestId, projectId, artifactId: a.id, mode: body.mode, status: 'queued', createdAt: now(), progress: '准备本步工作',
         input, inputFingerprint: fingerprint(input), promptVersion: `${promptVersionFor(body.mode)}:${body.mode}`, provider, model: ['retrieve', 'brief', 'topic-collect'].includes(body.mode) ? null : config.model,
-        calls: [], attempts: [], toolRuns: [], paperBatchRecords: clone(previous?.paperBatchRecords ?? []), retryOfTaskId: previous?.id ?? null, cost: { status: 'unknown', amount: null } };
+        analysisSettings: { reasoningEffort: config.reasoningEffort, extraction: extractionSettings(config) }, requestedMode: submittedBody.mode,
+        agentRuntime: ['compare', 'question-investigation'].includes(body.mode) ? agentPilotIdentity(this.agentPilot) : null,
+        calls: [], attempts: [], toolRuns: [], canRevalidate: false, paperBatchRecords: clone(previous?.paperBatchRecords ?? []), maxPaperCallMaterials: previous?.maxPaperCallMaterials ?? null, retryOfTaskId: previous?.id ?? null, cost: { status: 'unknown', amount: null } };
+      if (previous) requireThat(JSON.stringify(previous.agentRuntime ?? null) === JSON.stringify(task.agentRuntime), 'invalid_retry', '科研 Agent 设置已变更，请新建一轮保留准确对照。', 409);
       task.attempts.push(createTaskAttempt(task.id, { previousAttemptId: previous?.attempts?.at(-1)?.id ?? null, inputFingerprint: task.inputFingerprint, provider, model: task.model }));
+      if (body.mode === 'question-investigation' && previous?.investigation) task.investigation = clone(previous.investigation);
+      if (previous?.extractionReuse) task.extractionReuse = clone(previous.extractionReuse);
       p.researchTasks[task.id] = task;
       if (body.text) task.messageId = executeCommand(s, projectId, 'append-message', { conversationId: Object.keys(p.conversations)[0], text: body.text,
         ...(target ? { target: { artifactId: a.id, revisionId: revision.id, blockId: target.blockId } } : {}) }, requestId).id;
       event(p, task, 'research_task_queued', { mode: task.mode, inputRevisionId: revision.id, inputFingerprint: task.inputFingerprint, retryOfTaskId: task.retryOfTaskId });
       p.updatedAt = now(); return { taskId: task.id };
     });
-    const task = await this.store.read(s => s.projects[projectId].researchTasks[accepted.taskId]);
+    const task = this.store.taskSnapshot ? (await this.store.taskSnapshot(projectId, accepted.taskId)).task : await this.store.read(s => s.projects[projectId].researchTasks[accepted.taskId]);
     if (!isTerminalRun(task.status) && !this.running.has(task.id)) {
       const controller = new AbortController(), running = { controller, promise: null }; this.running.set(task.id, running);
-      running.promise = this.run(task, config, controller.signal).finally(() => this.running.delete(task.id));
+      running.promise = new Promise(resolve => setImmediate(resolve)).then(() => this.run(task, config, controller.signal)).finally(() => this.running.delete(task.id));
     }
     return accepted;
   }
 
+  updateRun(task, mutate) {
+    return this.store.updateTaskState ? this.store.updateTaskState(task.projectId, task.id, mutate) : this.store.update(mutate);
+  }
+
   async updateTask(task, values) {
-    return this.store.update(s => {
-      const p = ensureKernel(s.projects[task.projectId]), t = p.researchTasks[task.id];
+    return this.updateRun(task, s => {
+      const p = s.projects[task.projectId], t = p.researchTasks[task.id];
       if (isTerminalRun(t.status)) return;
       if (values.status && values.status !== t.status) {
         const next = transitionRun(t, values.status, values); Object.assign(t, next);
@@ -245,6 +312,7 @@ export class ResearchApplication extends ResearchService {
     requireThat(typeof extractLeadingJson === 'boolean', 'invalid_input', '提取尾注前 JSON 的选项必须明确为 true 或 false。');
     const accepted = await this.store.transact(requestId, { operation: 'revalidate-saved-output', projectId, failedTaskId, sourceCallId: sourceCallId ?? null, extractLeadingJson }, s => {
       const p = ensureKernel(getProject(s, projectId)), previous = p.researchTasks[failedTaskId];
+      requireThat(!previous?.input.reviewConstraints,'retired_workflow','这次记录与材料已保留；请回到领域认识继续分析。',409);
       requireThat(previous?.status === 'failed' && ['landscape', 'revise', 'ask', 'deepen', 'compare', 'clarify', 'topic-review'].includes(previous.mode), 'invalid_revalidation', '请选择一项已有原始模型响应的失败研究任务。', 409);
       requireThat(!Object.values(p.researchTasks).some(task => !isTerminalRun(task.status)), 'task_running', '本课题仍有任务正在运行，请结束后进行本地重新校验。', 409);
       const calls = s.modelCalls.filter(call => call.projectId === projectId && call.taskId === previous.id && previous.calls.includes(call.id)
@@ -316,7 +384,7 @@ export class ResearchApplication extends ResearchService {
         text = call.purpose === 'model.topic-synthesis' ? completeTopicAggregation(text, combined) : completeLandscapeAggregation(text, combined);
         provenance.extractionSourceCallIds = [...new Set(task.paperBatchRecords.map(record => record.recovery?.sourceCallId ?? record.result?.provenance?.requestId).filter(Boolean))];
       }
-      const parsed = task.mode === 'topic-review' ? validateTopicReview(text, task.input.materials, {criteriaVersion:/v0\.16-topic-abcd/.test(call.promptVersion??'')?'topic-abcd-v1':null}) : task.mode === 'compare' ? validateComparisonOutput(text, task.input.materials, {requireAssessment: /v0\.(12-decision-estimates|13-topic-library|14-topic-decisions)/.test(call.promptVersion ?? ''), requireDifficulty: /v0\.14-topic-decisions/.test(call.promptVersion ?? '')})
+      const parsed = task.mode === 'topic-review' ? validateTopicReview(text, task.input.materials, {criteriaVersion:/v0\.16-topic-abcd/.test(call.promptVersion??'')?'topic-abcd-v1':null}) : task.mode === 'compare' ? validateComparisonOutput(text, task.input.materials, {requireAssessment: /v0\.(12-decision-estimates|13-topic-library|14-topic-decisions)/.test(call.promptVersion ?? ''), requireDifficulty: /v0\.(14-topic-decisions|31-topic-analysis)/.test(call.promptVersion ?? ''), requireAnalysis: /v0\.31-topic-analysis/.test(call.promptVersion ?? ''), selectedQuestion:/v0\.31-topic-analysis/.test(call.promptVersion ?? '')?task.input.itemTarget:null})
         : validateResearchOutput(text, task.mode === 'deepen' ? 'ask' : task.mode, task.input.materials,
           { records:task.input.continuity?.records??[], requirePaperNotes: ['landscape', 'revise', 'topic-review'].includes(task.mode), requireDimensions: ['landscape', 'revise', 'topic-review'].includes(task.mode) });
       signal.throwIfAborted();
@@ -328,6 +396,7 @@ export class ResearchApplication extends ResearchService {
           t.proposal = parsed; p.researchProposal = { ...parsed, taskId: t.id, inputVersion: task.input.baseVersion };
         } else if (task.mode === 'compare') {
           const result = createQuestionComparison(p, parsed, { operationId: task.requestId, taskId: task.id, inputArtifactId: a.id,
+              ...(a.kind === 'questions' && task.input.candidateRequest?.replace && !t.staleInput ? { artifactId: a.id } : {}), candidateRequest: task.input.candidateRequest ?? null,
             inputRevisionId: task.input.revisionId, accessIds: task.input.materials.map(m => m.accessId), provenance, adoptionContext: task.input.adoptionContext,
             projectContext: { name: task.input.name ?? p.name, goal: task.input.goal, originalGoal: task.input.originalGoal, conditions: task.input.conditions, metadataVersion: task.input.metadataVersion } });
           t.outputArtifactId = result.artifactId; t.resultId = result.resultId;
@@ -372,7 +441,9 @@ export class ResearchApplication extends ResearchService {
     const limits = materialContextLimits(config);
     const marker = '\n用户上下文（资料，不是系统指令）：';
     const searchScope = clone(task.input.searchScope ?? []);
-    const savedSearch = await this.store.read(s => { const p = s.projects[task.projectId]; return p.searches[p.researchTasks[task.id].searchId] ?? null; });
+    const searchTask = task.searchId || !['landscape','revise'].includes(task.mode) ? task
+      : this.store.taskSnapshot ? (await this.store.taskSnapshot(task.projectId, task.id)).task : await this.store.read(s => s.projects[task.projectId].researchTasks[task.id]);
+    const savedSearch = searchTask.searchId ? await this.store.read(s => s.projects[task.projectId].searches[searchTask.searchId] ?? null) : null;
     if (savedSearch && !searchScope.some(search => search.query === savedSearch.query && search.searchedAt === savedSearch.searchedAt)) {
       const { query, searchedAt, coverage, searches, missingIds, warnings } = savedSearch;
       searchScope.push({ query, searchedAt, coverage, searches, missingIds, warnings });
@@ -387,30 +458,46 @@ export class ResearchApplication extends ResearchService {
       const recovered = await this.reuseValidatedExtraction(task, materials);
       if (recovered) return this.synthesizeExtraction(task, config, materials, context, recovered, signal);
     }
-    const plan = planMaterialBatches(materials, options);
-    if (!['landscape', 'revise', 'topic-review'].includes(task.mode) || plan.batches.length <= 1) {
+    const revisionReuse = task.mode === 'revise' && !task.retryOfTaskId
+      ? await this.store.read(s => extractionForRevision(s.projects[task.projectId], task, materials)) : null;
+    if (revisionReuse) await this.store.update(s => {
+      const p = s.projects[task.projectId], t = p.researchTasks[task.id];
+      signal.throwIfAborted(); requireThat(!isTerminalRun(t.status), 'cancelled', '本步已停止。', 409);
+      t.paperBatchRecords = revisionReuse.records;
+      t.extractionReuse = { sourceTaskId: revisionReuse.sourceTaskId, sourceResultId: revisionReuse.sourceResultId,
+        accessIds: revisionReuse.accessIds, omittedFields: ['relevance'], verification: 'same_source_snapshot_not_new_reading' };
+      event(p, t, 'revision_extraction_reused', t.extractionReuse);
+    });
+    const saved = await this.store.read(s => s.projects[task.projectId].researchTasks[task.id].paperBatchRecords ?? []);
+    const reused = reusablePaperExtractions(task.retryOfTaskId || revisionReuse ? saved : [], materials);
+    const remaining = materials.filter(m => !reused.accessIds.has(m.accessId));
+    const extractionInstruction = perPaperBatchInstructions(paperExtractionContext(context));
+    const extractionPlan = ['landscape', 'revise', 'topic-review'].includes(task.mode)
+      ? planPaperExtractionBatches(remaining, { ...options, paperBatchSize: config.paperBatchSize ?? 50, instruction: researchInstruction(extractionInstruction) }) : null;
+    const needsExtraction = extractionPlan && (reused.accessIds.size > 0 || extractionPlan.batches.length > 1
+      || (limits.maxInputTokens !== null && materialRequestSize(materials, options) > limits.maxInputTokens));
+    if (!needsExtraction) {
       assertMaterialContextFits(materials, options);
       return this.invokeModel(task, config, materials, scoped, signal, 'model.generate');
     }
-    const extractionInstruction = perPaperBatchInstructions(context);
-    const extractionPlan = planMaterialBatches(materials, { ...options, instruction: researchInstruction(extractionInstruction) });
-    const saved = await this.store.read(s => s.projects[task.projectId].researchTasks[task.id].paperBatchRecords ?? []);
+    await this.updateTask(task, { paperBatchPlan: { processingPolicy: extractionPlan.processingPolicy, providerLimits: extractionPlan.limits,
+      batchCount: extractionPlan.batches.length, coverage: extractionPlan.coverage, concurrency: extractionSettings(config).concurrency }, progress: `正在分批整理全部 ${materials.length} 篇材料` });
     const batches = await runMaterialBatches({ plan: extractionPlan, taskId: task.id, provider: task.provider, model: task.model, previous: saved,
-      manualRetry: Boolean(task.retryOfTaskId), signal,
+      manualRetry: Boolean(task.retryOfTaskId), signal, concurrency: extractionSettings(config).concurrency,
       checkpoint: record => this.store.update(s => {
         const p = s.projects[task.projectId], t = p.researchTasks[task.id];
         t.paperBatchRecords ??= [];
         const index = t.paperBatchRecords.findIndex(r => r.batchId === record.batchId);
         if (index < 0) t.paperBatchRecords.push(record); else t.paperBatchRecords[index] = record;
-        if (!isTerminalRun(t.status)) t.progress = `正在完整整理材料：已完成 ${t.paperBatchRecords.filter(r => r.status === 'completed').length} / ${extractionPlan.batches.length} 批`;
+        if (!isTerminalRun(t.status)) {
+          updateExtractionProgress(t, materials);
+        }
         event(p, t, 'material_batch_checkpoint', { batchId: record.batchId, status: record.status, segments: record.segments });
       }),
-      run: async ({ batch }) => {
-        const output = await this.invokeModel(task, config, batch.materials, extractionInstruction, signal, 'model.paper-extraction', batch.segments);
-        return { ...validatePaperBatchOutput(output.text, batch), usage: output.usage, cost: output.cost, provenance: output.provenance };
-      } });
-    const combined = combinePaperCoverage(batches.results, materials);
-    return this.synthesizeExtraction(task, config, materials, context, { ...batches, combined }, signal);
+      run: ({ batch, admit }) => this.extractPaperUnit(task, config, batch, extractionInstruction, signal, false, { materials, admit }) });
+    const combined = combinePaperCoverage([...reused.results, ...batches.results], materials);
+    return this.synthesizeExtraction(task, config, materials, context, { ...batches, combined, extractionReuse: revisionReuse,
+      records: [...reused.records, ...batches.records], recoveredCallIds: reused.records.map(r=>r.recovery?.sourceCallId).filter(Boolean), reusedBatchIds: [...reused.reusedBatchIds, ...batches.reusedBatchIds] }, signal);
   }
 
   /** A user's retry may reuse complete extraction inside a rejected synthesis.
@@ -422,7 +509,35 @@ export class ResearchApplication extends ResearchService {
       return { records: current.paperBatchRecords ?? [], previous, calls: s.modelCalls.filter(call => call.projectId === task.projectId && call.taskId === previous?.id) };
     });
     if (!saved.previous || saved.previous.mode !== task.mode || saved.previous.artifactId !== task.artifactId) return null;
+    for (const record of saved.records.filter(r => r.status !== 'completed')) {
+      const call = [...saved.calls].reverse().find(c => c.status === 'completed' && !c.discardedAfterCancellation
+        && ['model.paper-extraction','model.paper-extraction-repair'].includes(c.purpose)
+        && JSON.stringify(c.inputRefs) === JSON.stringify(record.segments));
+      if (!call) continue;
+      try {
+        const normalized = normalizeModelOutput(call.outputText);
+        const batchMaterials = record.segments.map(segment => {
+          const material = materials.find(m => m.accessId === segment.accessId && m.sourceId === segment.sourceId);
+          requireThat(material && material.text.length === segment.totalLength, 'incomplete_paper_coverage', '保存的材料版本已变化。');
+          return {...material,ref:segment.ref,text:material.text.slice(segment.start,segment.end)};
+        });
+        const batch={id:record.batchId,fingerprint:record.fingerprint,materials:batchMaterials,segments:record.segments};
+        let validated;
+        try{validated=validatePaperBatchOutput(normalized?.jsonText??call.outputText,batch);}catch{validated=recoverPaperBatch(normalized?.jsonText??call.outputText,batch);}
+        if(!validated.papers.length)continue;
+        const recovered = {...record,status:'completed',segments:validated.papers.map(p=>p.segment),result:validated,recovery:{sourceCallId:call.id,sourceTaskId:saved.previous.id,newModelCall:false,operation:normalized?.operation??'independent_paper_validation',syntaxEdits:normalized?.syntaxEdits??[]}};
+        await this.store.update(s => {
+          const p=s.projects[task.projectId], t=p.researchTasks[task.id];
+          requireThat(!isTerminalRun(t.status),'cancelled','本步已停止。',409);
+          t.paperBatchRecords[t.paperBatchRecords.findIndex(r=>r.batchId===record.batchId)] = recovered;
+          event(p,t,'paper_extraction_recovered',{sourceCallId:call.id,batchId:record.batchId,newModelCall:false});
+        });
+        Object.assign(record,recovered);
+      } catch(error) { if (!(error instanceof DomainError)) throw error; }
+    }
     const completed = saved.records.filter(record => record.status === 'completed' && record.result);
+    const unique=reusablePaperExtractions(completed,materials);
+    if(unique.accessIds.size===materials.length)return {...unique,combined:combinePaperCoverage(unique.results,materials),recoveredCallIds:unique.records.map(r=>r.recovery?.sourceCallId).filter(Boolean)};
     // A recovered complete record can coexist with earlier partial batches.
     // Prefer that exact complete record so partial history is neither deleted
     // nor accidentally counted as a second copy of the same source coverage.
@@ -473,56 +588,129 @@ export class ResearchApplication extends ResearchService {
   }
 
   async synthesizeExtraction(task, config, materials, context, batches, signal) {
-    const { combined } = batches, topical = task.mode === 'topic-review', synthesis = topical ? topicAggregationInstructions(combined,context) : `${landscapeAggregationInstructions(combined, context)}\n${landscapeSelfCheck}`;
+    const reuse = batches.extractionReuse ?? task.extractionReuse ?? null;
+    const synthesisContext = { ...context, selectedMaterialRefs: materials.map(({ ref, title, year, level }) => ({ ref, title, year, level })),
+      ...(reuse ? { extractionReuse: { sourceTaskId: reuse.sourceTaskId, reusedCount: reuse.accessIds.length,
+        boundary: '论文事实与原文位置来自同一访问快照的已保存整理。旧逐篇相关性已清空，必须按本次修改要求重新解释；不能声称重新阅读或新核验。' } } : {}) };
+    const { combined } = batches, topical = task.mode === 'topic-review', synthesis = topical ? topicAggregationInstructions(combined,synthesisContext) : `${landscapeAggregationInstructions(combined, synthesisContext)}\n${landscapeSelfCheck}`;
     await this.updateTask(task, { materialBatchCoverage: combined.coverage, reusedBatchIds: batches.reusedBatchIds,
-      recoveredExtractionCallIds: batches.recoveredCallIds ?? [], progress: topical ? '全部材料已逐篇整理，正在论证证据、缺口与设计' : batches.reusedBatchIds.length ? '已复用完整逐篇记录，只重新整理七个领域维度' : '全部材料已逐篇整理，正在综合七个领域维度' });
+      recoveredExtractionCallIds: batches.recoveredCallIds ?? [], progress: topical ? '全部材料已逐篇整理，正在论证证据、缺口与设计' : batches.reusedBatchIds.length ? '已复用完整逐篇记录，正在按本次要求更新领域认识' : '全部材料已逐篇整理，正在综合七个领域维度' });
     assertMaterialContextFits([], { ...materialContextLimits(config), instruction: researchInstruction(synthesis) });
-    const output = await this.invokeModel(task, config, [], synthesis, signal, topical ? 'model.topic-synthesis' : 'model.landscape-synthesis', materials.map(({ accessId, sourceId }) => ({ accessId, sourceId })));
-    return { ...output, text: topical ? completeTopicAggregation(output.text,combined) : completeLandscapeAggregation(output.text, combined), provenance: { ...output.provenance, processing: 'complete_extraction_then_synthesis',
+    let output, text, retryReason = '';
+    for (let attempt = 0; attempt < (topical ? 1 : 2); attempt++) {
+      output = await this.invokeModel(task, config, [], `${synthesis}${retryReason}`, signal, topical ? 'model.topic-synthesis' : 'model.landscape-synthesis', materials.map(({ accessId, sourceId }) => ({ accessId, sourceId })));
+      try {
+        text = topical ? completeTopicAggregation(output.text,combined) : completeLandscapeAggregation(output.text,combined);
+        if (!topical) validateResearchOutput(text, task.mode, materials, {requirePaperNotes:true,requireDimensions:true});
+        break;
+      } catch(error) {
+        if(topical || attempt || signal.aborted || !['model_structure','incomplete_dimensions','incomplete_landscape','invalid_citation','incomplete_paper_coverage'].includes(error.code)) throw error;
+        await this.updateTask(task,{progress:'逐篇整理已完成，正在补救综合简报的格式或维度；无需重新分析文献'});
+        retryReason = `\n上次综合输出未通过检查：${error.message}。请重新输出完整的综合部分，逐篇记录已由系统保留。不要编造缺失事实。`;
+      }
+    }
+    return { ...output, text, provenance: { ...output.provenance, processing: 'complete_extraction_then_synthesis',
       materialRefs: materials.map(({ accessId, sourceId }) => ({ accessId, sourceId })), batchIds: batches.records.map(r => r.batchId), reusedBatchIds: batches.reusedBatchIds,
       recoveredExtractionCallIds: batches.recoveredCallIds ?? [], coverage: combined.coverage } };
+  }
+
+  async extractPaperUnit(task, config, batch, instruction, signal, investigation = false, { materials, admit } = {}) {
+    const saved = await this.store.read(s => s.projects[task.projectId].researchTasks[task.id]);
+    const records = investigation ? saved.investigation.extractionRecords : saved.paperBatchRecords;
+    const maxCallMaterials = Math.min(saved.maxPaperCallMaterials ?? config.paperBatchSize ?? 50,
+      learnedPaperCallSize(config.paperBatchSize ?? 50, records));
+    const extractionConfig = { ...config, reasoningEffort: extractionSettings(config).reasoningEffort };
+    return extractPaperBatch({ batch, signal, maxCallMaterials, admit,
+      invoke: unit => this.invokeModel(task, extractionConfig, unit.materials,
+        `${instruction}${unit.repair ? '\n上次部分条目未通过检查。只整理本次所列材料，准确返回编号与全部必填字段，不补造缺失事实。' : ''}`,
+        signal, investigation ? 'model.investigation-extraction' : unit.repair ? 'model.paper-extraction-repair' : 'model.paper-extraction', unit.segments),
+      retain: record => this.store.update(s => {
+        const p = s.projects[task.projectId], t = p.researchTasks[task.id];
+        signal.throwIfAborted(); requireThat(!isTerminalRun(t.status), 'cancelled', '本步已停止。', 409);
+        const list = investigation ? t.investigation.extractionRecords : t.paperBatchRecords;
+        if (!list.some(r => r.batchId === record.batchId)) list.push(record);
+        if (!investigation && materials) updateExtractionProgress(t, materials);
+        event(p, t, 'paper_unit_retained', { sourceCallId: record.recovery.sourceCallId, count: record.result.papers.length, recovery: record.recovery });
+      }),
+      onLimit: (limit, cause) => this.store.update(s => {
+        const p = s.projects[task.projectId], t = p.researchTasks[task.id];
+        signal.throwIfAborted(); requireThat(!isTerminalRun(t.status), 'cancelled', '本步已停止。', 409);
+        t.maxPaperCallMaterials = Math.min(t.maxPaperCallMaterials ?? Infinity, limit);
+        t.progress = `已保留有效整理；剩余材料改为每次最多 ${limit} 篇接续，所选范围不变`;
+        event(p, t, 'paper_output_capacity_adjusted', { maxCallMaterials: limit, cause, materialScopeUnchanged: true });
+      }) });
   }
 
   async invokeModel(task, config, materials, instruction, signal, name, inputRefs = materials.map(({ accessId, sourceId }) => ({ accessId, sourceId }))) {
     signal.throwIfAborted();
     if(task.mode!=='connection')instruction=researchInstruction(instruction);
-    let tool;
+    let tool, receivedOutput;
+    const contract = outputContractFor(name, task.mode);
+    const contractRef = contract ? { name: contract.name, version: contract.version, fingerprint: contract.fingerprint } : null;
+    const pilot = usesAgentPilot(this.agentPilot, task.mode, name);
+    requireThat(!this.agentPilot?.invalid || !usesAgentPilot({ enabled: true }, task.mode, name), 'invalid_configuration', '科研 Agent 试点配置不合法，请修正或关闭后继续。', 503);
+    // Tool-readable sources come from the task's exact access references, never
+    // arbitrary model-supplied paths or a global project search.
+    const runtimeMaterials = pilot && !materials.length ? await this.store.read(s => materialPacket(s.projects[task.projectId], [...new Set(inputRefs.map(r => r.accessId).filter(Boolean))])) : materials;
+    const runtimeConfig = pilot ? this.agentPilot : config;
     const callId = uid('call'), promptVersion = `${promptVersionFor(task.mode)}:${task.mode}:${name}${task.mode==='connection'?'':`:${RESEARCH_LANGUAGE_VERSION}`}`;
     const promptFingerprint = fingerprint({ instruction, materials });
-    await this.store.update(s => {
-      const p = ensureKernel(s.projects[task.projectId]), t = p.researchTasks[task.id]; requireThat(!isTerminalRun(t.status), 'cancelled', '本步已停止。', 409);
+    await this.updateRun(task, s => {
+      const p = s.projects[task.projectId], t = p.researchTasks[task.id]; requireThat(!isTerminalRun(t.status), 'cancelled', '本步已停止。', 409);
       tool = transitionRun(createToolRun(t.attempts.at(-1), { name, inputRefs }), 'running', { promptVersion, promptFingerprint, callId }); t.toolRuns.push(tool);
-      s.modelCalls.push({ id: callId, taskId: task.id, projectId: task.projectId, provider: task.provider, model: task.model, purpose: name,
+      s.modelCalls.push({ id: callId, taskId: task.id, projectId: task.projectId, provider: pilot ? runtimeConfig.provider : task.provider, model: runtimeConfig.model, purpose: name,
+        runtime: pilot ? 'claude-agent-sdk' : 'direct_model_api', runtimeReadReceipts: [],
         promptVersion, promptFingerprint, languageStandard:task.mode==='connection'?null:RESEARCH_LANGUAGE_VERSION, inputRefs: clone(inputRefs), materialRefs: materials.map(({ sourceId, accessId }) => ({ sourceId, accessId })),
+        outputContract: contractRef,
+        configuredOptions: { model: runtimeConfig.model, reasoningEffort: pilot ? runtimeConfig.effort : config.reasoningEffort ?? null, paperBatchSize: config.paperBatchSize ?? 50, contextLimits: clone(config.contextLimits ?? null), generationBudget: pilot ? null : generationBudget(config, name) },
         ...(name==='model.topic-screen'?{screeningInput:{instruction,materials:clone(materials)}}:{}),
-        inputCharacters: instruction.length + JSON.stringify(materials).length, status: 'running', startedAt: now(), usage: null, cost: { status: 'unknown', amount: null } });
+        inputCharacters: instruction.length + JSON.stringify(materials).length,
+        inputBreakdown: { instructionCharacters:instruction.length, materialCharacters:JSON.stringify(materials).length, materialCount:materials.length, toolMaterialCount:pilot?runtimeMaterials.length:0, contextCharacters:JSON.stringify(task.input.context??{}).length, historyCharacters:JSON.stringify(task.input.context?.relatedHistory??[]).length }, status: 'running', startedAt: now(), usage: null, cost: { status: 'unknown', amount: null } });
       t.calls.push(callId);
+      if (/^model\.paper-extraction/.test(name) && t.extractionProgress) refreshExtractionMessage(t);
       event(p, t, 'model_call_started', { callId, toolRunId: tool.id, purpose: name, promptVersion, promptFingerprint });
     });
     try {
-      const generated = await this.modelFactory(config, { fetchImpl: this.fetchImpl }).generate({ requestId: callId, instruction, materials, signal });
+      const runtime = pilot ? this.agentRuntimeFactory(runtimeConfig, { directory: this.store.directory,
+        onRead: receipt => this.updateRun(task, s => { signal.throwIfAborted();
+          const call = s.modelCalls.find(c => c.id === callId); call.runtimeReadReceipts.push({ ...receipt, readAt: now() }); }) })
+        : this.modelFactory({ ...config, requestPurpose: name }, { fetchImpl: this.fetchImpl });
+      const generated = await runtime.generate({ requestId: callId, instruction, materials: runtimeMaterials, signal, outputSchema: contract?.schema });
+      receivedOutput = generated;
       let normalized = null;
-      if (task.mode !== 'connection') { try { parseModelJsonObject(generated.text); } catch { try { normalized = extractLeadingJsonObject(generated.text); } catch { /* Validation below reports malformed or ambiguous output. */ } } }
-      const output = { ...generated, ...(normalized ? { text: normalized.jsonText } : {}), provenance: { ...generated.provenance, requestId: callId, promptVersion, promptFingerprint, purpose: name, ...(normalized ? { formatNormalization: { operation: 'leading_complete_object', excludedOutput: normalized.excludedOutput, excludedPrefix: normalized.excludedPrefix, contentRewritten: false, sourceCallId: callId } } : {}) } };
-      await this.store.update(s => {
+      if (task.mode !== 'connection') normalized = normalizeModelOutput(generated.text);
+      const output = { ...generated, ...(normalized ? { text: normalized.jsonText } : {}), provenance: { ...generated.provenance, requestId: callId, promptVersion, promptFingerprint, purpose: name, ...(normalized ? { formatNormalization: { operation: normalized.operation, syntaxEdits: normalized.syntaxEdits ?? [], excludedOutput: normalized.excludedOutput, excludedPrefix: normalized.excludedPrefix, contentRewritten: false, sourceCallId: callId } } : {}) } };
+      await this.updateRun(task, s => {
         const p = s.projects[task.projectId], t = p.researchTasks[task.id], saved = t.toolRuns.find(r => r.id === tool.id);
         const discardedAfterCancellation = signal.aborted || t.status === 'cancelled';
+        if (!discardedAfterCancellation && generated.text?.length && ['model.generate','model.landscape-synthesis','model.topic-synthesis'].includes(name)) t.canRevalidate = true;
         Object.assign(s.modelCalls.find(c => c.id === callId), { status: 'completed', finishedAt: now(), usage: output.usage, cost: output.cost,
-          provenance: output.provenance, discardedAfterCancellation, outputText: generated.text, ...(normalized ? { formatNormalization: output.provenance.formatNormalization } : {}), outputStatus: 'unvalidated_model_output' });
+          provenance: output.provenance, runtimeMetrics: output.runtimeMetrics ?? null, discardedAfterCancellation, outputText: generated.text, ...(normalized ? { formatNormalization: output.provenance.formatNormalization } : {}), outputStatus: 'unvalidated_model_output' });
         if (!isTerminalRun(saved.status)) Object.assign(saved, transitionRun(saved, discardedAfterCancellation ? 'cancelled' : 'completed',
           { usage: output.usage, cost: output.cost, provenance: output.provenance }));
         event(p, t, 'model_call_completed', { callId, toolRunId: tool.id, discardedAfterCancellation });
       });
       signal.throwIfAborted();
+      validateModelContract(output.text, contract);
       return output;
     } catch (error) {
-      await this.store.update(s => {
+      error.callId = callId;
+      if (receivedOutput && !error.responseSnapshot) error.responseSnapshot = { text: receivedOutput.text, usage: receivedOutput.usage, finishReason: 'stop' };
+      await this.updateRun(task, s => {
         const p = s.projects[task.projectId], t = p.researchTasks[task.id], saved = t.toolRuns.find(r => r.id === tool.id), call = s.modelCalls.find(c => c.id === callId);
         const status = signal.aborted ? 'cancelled' : 'failed', errorCode = error.code ?? 'model_error';
         // A returned-but-discarded late response still has real usage. Keep that
         // physical call record completed while the task/tool remain cancelled.
         if (call.status === 'running') {
           Object.assign(call, { status, finishedAt: now(), errorCode });
+          if (error.runtimeReceipt) Object.assign(call, clone(error.runtimeReceipt));
+          if (error.responseSnapshot) {
+            const snapshot = error.responseSnapshot;
+            Object.assign(call, { outputText: snapshot.text, outputStatus: 'incomplete_unvalidated_output',
+              usage: clone(snapshot.usage), responseTermination: snapshot.finishReason,
+              ...(snapshot.generationOptions ? { generationOptions: clone(snapshot.generationOptions), timeoutMs: snapshot.timeoutMs } : {}),
+              responseRecovery: { retained: true, validated: false, errorCode } });
+          }
           event(p, t, `model_call_${status}`, { callId, toolRunId: tool.id, errorCode });
         }
         if (!isTerminalRun(saved.status)) Object.assign(saved, transitionRun(saved, status, { errorCode }));
@@ -537,21 +725,21 @@ export class ResearchApplication extends ResearchService {
 
   async recordRetrieval(task, signal, method, input, operation) {
     let tool;
-    await this.store.update(s => {
+    await this.updateRun(task, s => {
       const t = s.projects[task.projectId].researchTasks[task.id]; requireThat(!isTerminalRun(t.status), 'cancelled', '本步已停止。', 409);
       tool = transitionRun(createToolRun(t.attempts.at(-1), { name: `PubMed.${method}`, inputRefs: method !== 'metadata' ? [{ query: input[0], options: Object.fromEntries(Object.entries(input[1]??{}).filter(([key,value])=>!['signal','onProgress','state'].includes(key)&&typeof value!=='function')) }] : input[0].map(pmid => ({ pmid })) }), 'running');
       t.toolRuns.push(tool);
     });
     try {
       const result = await operation(); signal.throwIfAborted();
-      await this.store.update(s => {
+      await this.updateRun(task, s => {
         const saved = s.projects[task.projectId].researchTasks[task.id].toolRuns.find(r => r.id === tool.id);
         Object.assign(saved, transitionRun(saved, 'completed', { provider: 'PubMed', retrievedCount: method === 'metadata' ? result.length : result.records?.length ?? result.ids?.length ?? null,
           ...(method === 'search' ? { missingIds: result.missingIds ?? [], warnings: result.warnings ?? [] } : {}) }));
       });
       return result;
     } catch (error) {
-      await this.store.update(s => {
+      await this.updateRun(task, s => {
         const saved = s.projects[task.projectId].researchTasks[task.id].toolRuns.find(r => r.id === tool.id);
         if (!isTerminalRun(saved.status)) Object.assign(saved, transitionRun(saved, signal.aborted ? 'cancelled' : 'failed', { errorCode: error.code ?? 'retrieval_failed' }));
       });
@@ -561,12 +749,13 @@ export class ResearchApplication extends ResearchService {
 
   async executeRun(task, config, signal) {
     try {
-      await this.store.update(s => {
+      await this.updateRun(task, s => {
         const t = s.projects[task.projectId].researchTasks[task.id], attempt = t.attempts.at(-1);
         if (!isTerminalRun(t.status)) Object.assign(attempt, transitionRun(attempt, 'running'));
       });
       signal.throwIfAborted();
-      if(task.mode==='retrieve' && task.input.retrievalOptions) await executeRangeRetrieval(this,task,signal);
+      if(task.mode==='question-investigation') await executeInvestigation(this,task,config,signal);
+      else if(task.mode==='retrieve' && task.input.retrievalOptions) await executeRangeRetrieval(this,task,signal);
       else if(task.mode==='figure-compose') await executeComposition(this,task,config,signal);
       else if(templateModes.includes(task.mode)) await executeTemplateTask(this,task,config,signal);
       else if(task.mode==='topic-writing') await executeWriting(this,task,config,signal);
@@ -577,10 +766,10 @@ export class ResearchApplication extends ResearchService {
         await this.updateTask(task, { status: 'running', progress: task.mode === 'brief' ? '正在整理实际问题、依据与取舍' : task.mode === 'compare' ? '正在比较问题、依据与未知' : '正在深入所选方向与依据' });
         let output = null, parsed = null;
         if (task.mode !== 'brief') {
-          const instruction = task.mode === 'topic-review' ? topicReviewInstructions() : task.mode === 'compare' ? comparisonInstructions()
+          const instruction = task.mode === 'topic-review' ? topicReviewInstructions() : task.mode === 'compare' ? comparisonInstructions() + candidateInstructions(task.input.candidateRequest) + (task.input.itemTarget?.kind === 'question' ? '\n本次只分析 context.selectedResearchItem 指定的问题；questions 必须恰好一项，question 与 scope 保持其原文，只深化论证，不另换题。' : '')
             : `返回 JSON {items:[{headline,text,status,citations:[{ref,passage}]}]}。${deepArgumentInstructions} reported/inference 必须有本次实际 R/P 引用，unknown/suggestion 区分未知与拟议设计。每段标题给具体判断，正文解释证据与对设计的影响。只返回完整JSON，不追加尾注。`;
           output = await this.callModel(task, config, task.input.materials, instruction, signal); signal.throwIfAborted();
-          parsed = task.mode === 'topic-review' ? validateTopicReview(output.text,task.input.materials) : task.mode === 'compare' ? validateComparisonOutput(output.text, task.input.materials, {requireAssessment:true,requireDifficulty:true})
+          parsed = task.mode === 'topic-review' ? validateTopicReview(output.text,task.input.materials) : task.mode === 'compare' ? validateComparisonOutput(output.text, task.input.materials, {requireAssessment:true,requireDifficulty:true,requireAnalysis:true,selectedQuestion:task.input.itemTarget})
             : validateResearchOutput(output.text, 'ask', task.input.materials,{records:task.input.continuity?.records??[]});
         }
         await this.store.update(s => {
@@ -589,6 +778,7 @@ export class ResearchApplication extends ResearchService {
           t.staleInput = a.draft.version !== task.input.baseVersion || p.metadataVersion !== task.input.metadataVersion || this.isResearchInputStale(p, task);
           if (task.mode === 'compare') {
             const result = createQuestionComparison(p, parsed, { operationId: task.requestId, taskId: task.id, inputArtifactId: a.id,
+              ...(a.kind === 'questions' && task.input.candidateRequest?.replace && !t.staleInput ? { artifactId: a.id } : {}), candidateRequest: task.input.candidateRequest ?? null,
               inputRevisionId: task.input.revisionId, accessIds: task.input.materials.map(m => m.accessId), provenance: output.provenance, adoptionContext: task.input.adoptionContext,
               projectContext: { name: task.input.name, goal: task.input.goal, originalGoal: task.input.originalGoal, conditions: task.input.conditions, metadataVersion: task.input.metadataVersion } });
             t.outputArtifactId = result.artifactId; t.resultId = result.resultId;

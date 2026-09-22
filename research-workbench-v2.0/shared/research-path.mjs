@@ -1,6 +1,16 @@
 // Only recorded input references define ancestry. Recency never invents a path.
 export function parentReference(project, artifact, result = project.researchResults?.[artifact?.draft?.resultId]) {
-  const explicit = result?.inputContext ?? artifact?.lineage;
+  let explicit = result?.inputContext ?? artifact?.lineage;
+  // A new comparison version can depend on its own previous version. Follow
+  // that recorded version to its external parent without making a UI self-loop.
+  const visited = new Set();
+  while (explicit && explicit.artifactId === artifact?.id) {
+    if (!explicit.revisionId || visited.has(explicit.revisionId)) return null;
+    visited.add(explicit.revisionId);
+    const revision = artifact.revisions?.find(r => r.id === explicit.revisionId);
+    result = project.researchResults?.[revision?.resultId];
+    explicit = result?.inputContext;
+  }
   if (explicit?.artifactId && project.artifacts[explicit.artifactId]) return explicit;
   const task = result?.taskId && project.researchTasks?.[result.taskId];
   if (task && task.artifactId !== artifact?.id && project.artifacts[task.artifactId]) {

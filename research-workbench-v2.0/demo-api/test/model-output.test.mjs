@@ -40,3 +40,29 @@ test('research and per-paper validators share envelope parsing while keeping sci
   data.sections[0].items[0].citations = [];
   assert.throws(() => validateResearchOutput(JSON.stringify(data) + '\n``', 'landscape', materials, { requirePaperNotes: true, requireDimensions: true }), e => e.code === 'unsupported_claim');
 });
+
+test('known fields-key quote typo is normalized without changing scientific values or accepting truncated data',async()=>{
+ const {normalizeModelOutput}=await import('../src/model-output.mjs');
+ const material={ref:'R1',accessId:'a1',sourceId:'s1',level:'abstract',text:'Observed evidence.'};
+ const data=dimensionFixture([material]);delete data.sections;
+ data.papers[0].fields.findings.text='字面提及 "fields:{，应原样保留';
+ const valid=JSON.stringify(data),bad=valid.replace('"fields":{','"fields:{');
+ const result=normalizeModelOutput('````json\n'+bad+'\n````');
+ assert.equal(result.operation,'repair_fields_key_quote');assert.equal(result.syntaxEdits.length,1);assert.deepEqual(result.value,data);
+ assert.equal(validatePaperBatchOutput(result.jsonText,planMaterialBatches([material]).batches[0]).papers.length,1);
+ assert.equal(normalizeModelOutput(bad.slice(0,-4)),null);
+ assert.equal(normalizeModelOutput(bad+'\n{}'),null);
+ assert.equal(normalizeModelOutput('{"fields:{"subject":{},"secret":"fabricate"}'),null);
+});
+
+test('batch recovery retains independently valid papers, quarantines malformed and duplicated records',async()=>{
+ const {recoverPaperBatch}=await import('../src/workflows.mjs');
+ const materials=Array.from({length:50},(_,i)=>({ref:`R${i+1}`,accessId:`a${i}`,sourceId:`s${i}`,level:'abstract',text:'Observed evidence.'}));
+ const batch=planMaterialBatches(materials).batches[0],data=dimensionFixture(materials);delete data.sections;
+ data.papers[7].fields.findings.text='INVALID_VALUE_HERE';
+ const raw=JSON.stringify(data,null,2).replace('INVALID_VALUE_HERE','unescaped " quote');
+ const recovered=recoverPaperBatch(raw,batch);
+ assert.equal(recovered.papers.length,49);assert.ok(!recovered.papers.some(p=>p.ref==='R8'));
+ const duplicate={...data,papers:[...data.papers,data.papers[0]]};assert.equal(recoverPaperBatch(JSON.stringify(duplicate),batch).papers.length,49);
+ assert.equal(recoverPaperBatch('untrusted prose prefix'+raw,batch).papers.length,0);
+});

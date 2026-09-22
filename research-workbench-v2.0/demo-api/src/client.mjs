@@ -53,6 +53,8 @@ export function createClient({
     body,
     requestId,
     signal,
+    ifNoneMatch,
+    onVersion,
   } = {}) {
     const url = apiUrl(path);
     const verb = method.toUpperCase();
@@ -64,6 +66,10 @@ export function createClient({
     const headers = new Headers({ Accept: 'application/json' });
     if (writes || body !== undefined) headers.set('Content-Type', 'application/json');
     if (outgoingId !== undefined) headers.set('X-Request-Id', outgoingId);
+    if (ifNoneMatch !== undefined) {
+      if (verb !== 'GET' || typeof ifNoneMatch !== 'string') throw new TypeError('conditional reads require a GET and a string validator');
+      headers.set('If-None-Match', ifNoneMatch);
+    }
 
     // Serialize into a new string: never add transport metadata to caller data.
     const options = { method: verb, headers, signal };
@@ -71,6 +77,10 @@ export function createClient({
 
     // Network and abort errors intentionally propagate unchanged, with no retry.
     const response = await fetchImpl(url.href, options);
+    if (response.status === 304 && ifNoneMatch !== undefined) {
+      onVersion?.(response.headers.get('ETag') ?? ifNoneMatch);
+      return null;
+    }
     const headerId = response.headers.get('X-Request-Id');
     let envelope;
     try {
@@ -109,6 +119,7 @@ export function createClient({
         'The server response is missing its data envelope',
       );
     }
+    onVersion?.(response.headers.get('ETag') ?? undefined);
     return envelope.data;
   }
 
@@ -122,7 +133,7 @@ export function createClient({
     capabilities: () => request('/api/capabilities'),
     listProjects: () => request('/api/projects'),
     createProject: (body) => request('/api/projects', { method: 'POST', body }),
-    workspace: (projectId) => request(projectPath(projectId)),
+    workspace: (projectId, {summary = false} = {}) => request(`${projectPath(projectId)}${summary ? '?view=summary' : ''}`),
     command: (projectId, name, payload, { requestId } = {}) => request(
       `${projectPath(projectId)}/commands/${segment(name)}`,
       { method: 'POST', body: payload, requestId },

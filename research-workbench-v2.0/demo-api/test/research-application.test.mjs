@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { LocalStore } from '../src/store.mjs';
-import { ResearchApplication, RESEARCH_PROMPT_VERSION } from '../src/research-application.mjs';
+import { ResearchApplication, RESEARCH_PROMPT_VERSION, TOPIC_ANALYSIS_PROMPT_VERSION } from '../src/research-application.mjs';
 import { createWorkspace } from '../src/workspace.mjs';
 import { upgradeProject } from '../src/progress.mjs';
 import { executeCommand } from '../src/domain.mjs';
@@ -22,11 +22,11 @@ const defaultGenerate = async input => envelope(input.instruction.includes('ques
   : input.instruction.includes('JSON {items:') || input.instruction.includes('格式 {items:') ? JSON.stringify({ items: [{ text: '当前资料支持进一步了解，不代表采用。', status: 'inference', citations: [{ ref: input.materials[0].ref, passage: 'P1' }] }] })
     : JSON.stringify(dimensionFixture(input.materials)));
 
-async function fixture(t, { generate = defaultGenerate, texts = ['This test record reports an association.'], contextLimits, configured = true, pubmed } = {}) {
+async function fixture(t, { generate = defaultGenerate, texts = ['This test record reports an association.'], contextLimits, configured = true, pubmed, extractionConcurrency = 1 } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'rw2-application-')), store = await new LocalStore(directory).initialize();
   const service = await new ResearchApplication(store, { modelFactory: () => ({ generate }), pubmed: pubmed ?? { search: async () => { throw Error('unexpected retrieval'); } } }).initialize();
   t.after(async () => { await service.close(); await store.close(); });
-  if (configured) await service.settings.save({ baseUrl: 'https://test.invalid/v1', model: 'fixture-model', apiKey: 'isolated-test-key', enabled: true, ...(contextLimits ? { contextLimits } : {}) });
+  if (configured) await service.settings.save({ baseUrl: 'https://test.invalid/v1', model: 'fixture-model', apiKey: 'isolated-test-key', enabled: true, extractionConcurrency, ...(contextLimits ? { contextLimits } : {}) });
   const p = await store.update(s => {
     const p = ensureKernel(upgradeProject(createWorkspace(s, { name: '隔离工程课题', goal: '了解变量关系' }, 'create-fixture'), false));
     const a = Object.values(p.artifacts)[0];
@@ -138,18 +138,58 @@ test('PubMed retrieval lifecycle is independently recorded and no model is neede
   assert.equal(task.toolRuns[0].status, 'completed'); assert.equal(task.toolRuns[0].retrievedCount, 1); assert.equal(task.calls.length, 0);
 });
 
+test('256 papers with unconfigured capacity use complete checkpointed extraction; partial output and synthesis failure resume without re-extracting completed papers', async t => {
+  const seen = [], all = Array.from({ length: 256 }, (_, i) => ({ ref: `R${i + 1}` }));
+  let extractionCalls = 0, synthesisCalls = 0;
+  const f = await fixture(t, { texts: all.map(m => `Observed association for ${m.ref}.`), generate: async input => {
+    if (input.instruction.includes('逐篇完整整理')) {
+      extractionCalls++; seen.push(input.materials.map(m => m.ref));
+      assert.ok(input.materials.length <= 50); assert.doesNotMatch(input.instruction, /selectedMaterialRefs|selectedArtifact/);
+      const papers = dimensionFixture(input.materials).papers;
+      if ([2,3].includes(extractionCalls)) papers.pop();
+      return envelope(JSON.stringify({ framework: LANDSCAPE_FRAMEWORK, papers }));
+    }
+    synthesisCalls++; assert.equal(input.materials.length, 0);
+    const output = dimensionFixture(all); delete output.papers;
+    if (synthesisCalls <= 2) delete output.sections.find(s => s.id === 'history').comparison;
+    return envelope(JSON.stringify(output));
+  } });
+  const first = await done(f, await start(f, 'revise', { text: '重新整理领域简报' }));
+  assert.equal(first.status, 'failed'); assert.equal(first.errorCode, 'incomplete_paper_coverage');
+  assert.deepEqual(first.errorDetails, { expectedPaperCount: 1, returnedPaperCount: 0 });
+  assert.equal(first.paperBatchPlan.providerLimits.maxInputTokens, null);
+  assert.equal(first.paperBatchPlan.coverage.selectedCount, 256); assert.equal(first.paperBatchRecords[0].status, 'completed');
+  assert.equal(synthesisCalls, 0); assert.equal((await f.store.read(s => s.projects[f.p.id])).artifacts[f.a.id].draft.resultId, null);
+  // Exercise the same durable checkpoints after an application service restart.
+  await f.service.close();
+  f.service = await new ResearchApplication(f.store, { modelFactory: f.service.modelFactory }).initialize();
+  t.after(() => f.service.close());
+  const second = await done(f, await start(f, 'revise', { text: '重新整理领域简报', retryTaskId: first.id }));
+  assert.equal(second.status, 'failed'); assert.equal(second.errorCode, 'incomplete_dimensions');
+  assert.equal(seen.filter(refs => refs.includes('R1')).length, 1);
+  assert.deepEqual(new Set(seen.flat()), new Set(all.map(m => m.ref)));
+  const before = extractionCalls;
+  const third = await done(f, await start(f, 'revise', { text: '重新整理领域简报', retryTaskId: second.id }));
+  assert.equal(third.status, 'completed', third.error); assert.equal(extractionCalls, before); assert.equal(synthesisCalls, 3);
+  assert.equal(third.toolRuns.length, 1); assert.equal(third.toolRuns[0].name, 'model.landscape-synthesis');
+  const p = await f.store.read(s => s.projects[f.p.id]), result = p.researchResults[third.resultId];
+  assert.equal(result.paperNotes.length, 256); assert.equal(result.dimensions.length, 7);
+  assert.equal(result.provenance.coverage.complete, true); assert.deepEqual(result.provenance.coverage.excludedAccessIds, []);
+  assert.equal(p.researchTasks[first.id].status, 'failed'); assert.equal(p.researchTasks[second.id].status, 'failed');
+});
+
 test('prompt version and exact input fingerprint are durably recorded before each model dispatch', async t => {
   let recorded;
   const f = await fixture(t, { generate: async input => {
     recorded = await f.store.read(s => s.modelCalls.find(c => c.id === input.requestId));
     assert.equal(recorded.status, 'running'); assert.match(recorded.promptFingerprint, /^[a-f0-9]{64}$/);
-    assert.equal(recorded.promptVersion, `${RESEARCH_PROMPT_VERSION}:compare:model.generate:${RESEARCH_LANGUAGE_VERSION}`);
+    assert.equal(recorded.promptVersion, `${TOPIC_ANALYSIS_PROMPT_VERSION}:compare:model.generate:${RESEARCH_LANGUAGE_VERSION}`);
     assert.match(input.instruction, /不同人群、干预或结局下的不同结果首先属于异质性/);
     assert.match(input.instruction, /只有材料确实说明相关可比条件/);
     return defaultGenerate(input);
   } });
   const task = await done(f, await start(f, 'compare'));
-  assert.equal(task.status, 'completed'); assert.equal(task.promptVersion, `${RESEARCH_PROMPT_VERSION}:compare`);
+  assert.equal(task.status, 'completed'); assert.equal(task.promptVersion, `${TOPIC_ANALYSIS_PROMPT_VERSION}:compare`);
   const saved = await f.store.read(s => s.modelCalls.find(c => c.id === recorded.id));
   assert.equal(saved.provenance.promptFingerprint, recorded.promptFingerprint); assert.equal(task.toolRuns[0].promptVersion, recorded.promptVersion);
   assert.doesNotMatch(JSON.stringify(saved), /isolated-test-key/);
@@ -338,4 +378,130 @@ test('domain query preparation records the review-content strategy and keeps the
   const f = await fixture(t,{generate:async input=>{instruction=input.instruction;return envelope(JSON.stringify({explanation:'按历史综述的内容补充认识',scope:'变量关系的综述',query:'relationship[tiab] AND Review[pt]',questions:[]}));}});
   const task = await done(f,await start(f,'clarify',{text:'从历年综述理解变化',accessIds:[]}));
   assert.equal(task.status,'completed',task.error);assert.match(instruction,/篇数与排序样本不能裁决/);assert.equal(task.artifactId,f.a.id);assert.match(task.proposal.query,/Review\[pt\]/);
+});
+
+test('scoped deep comparison keeps the old candidate and result, binds its revision, and rejects replacement topics',async t=>{
+  let replace=false,lastInput;
+  const f=await fixture(t,{texts:['This test record reports an association.','Unrelated material.'],generate:async input=>{lastInput=input;const data=comparison(input.materials);if(replace)data.questions[0].question='另一个选题？';return envelope(JSON.stringify(data));}});
+  const first=await done(f,await start(f,'compare'));
+  const before=await f.store.read(s=>s.projects[f.p.id]);
+  const item=Object.values(before.researchItems).find(i=>i.kind==='question'),original=structuredClone(item),originalResult=structuredClone(before.researchResults[first.resultId]);
+  const ownAccess=Object.values(before.evidence).find(e=>e.target.itemId===item.id).accessId;
+  const extra={itemId:item.id,itemRevisionId:item.headRevisionId,accessIds:[ownAccess]};
+  const refreshed=await done(f,await start(f,'compare',extra));assert.equal(refreshed.status,'completed',refreshed.error);
+  assert.match(lastInput.instruction,/本次只分析/);assert.equal(lastInput.materials.length,1);assert.equal(lastInput.materials[0].accessId,ownAccess);
+  const after=await f.store.read(s=>s.projects[f.p.id]);assert.deepEqual(after.researchItems[item.id],original);assert.deepEqual(after.researchResults[first.resultId],originalResult);
+  assert.notEqual(refreshed.resultId,first.resultId);assert.equal(after.researchKernel.currentQuestion,null);
+  const candidate=Object.values(after.researchItems).find(i=>i.kind==='question'&&i.id!==item.id);assert.equal(candidate.revisions[0].assessment.analysis.length,8);
+  replace=true;const failed=await done(f,await start(f,'compare',extra));assert.equal(failed.status,'failed');assert.equal(failed.errorCode,'model_structure');
+  const final=await f.store.read(s=>s.projects[f.p.id]);assert.equal(Object.values(final.researchItems).filter(i=>i.kind==='question').length,2);assert.deepEqual(final.researchItems[item.id],original);
+  assert.ok(failed.calls.length>0);assert.ok(!failed.resultId);
+});
+
+test('retired review-writing workflow cannot restart from a stale browser or historical task',async t=>{
+  const f=await fixture(t);const before=await f.store.read(s=>Object.keys(s.projects[f.p.id].researchTasks).length);
+  await assert.rejects(()=>start(f,'compare',{reviewConstraints:{weeks:12,hoursMin:15,hoursMax:20,coreMin:50,coreMax:100,directions:3}}),e=>e.code==='retired_workflow');
+  assert.equal(await f.store.read(s=>Object.keys(s.projects[f.p.id].researchTasks).length),before);
+  const old=await f.store.update(s=>{const p=s.projects[f.p.id];p.researchTasks.oldReview={id:'oldReview',mode:'compare',artifactId:f.a.id,status:'failed',input:{reviewConstraints:{weeks:12}},calls:[]};return p.researchTasks.oldReview;});
+  await assert.rejects(()=>start(f,'compare',{retryTaskId:old.id}),e=>e.code==='retired_workflow');
+  await assert.rejects(()=>f.service.revalidateSavedOutput(f.p.id,old.id,randomUUID()),e=>e.code==='retired_workflow');
+  assert.equal(await f.store.read(s=>s.projects[f.p.id].researchTasks.oldReview.status),'failed');
+});
+
+test('retry migrates 230-paper legacy checkpoints, repairs saved syntax locally, and sends only 50 plus 12 remaining papers',async t=>{
+ const {planMaterialBatches,validatePaperBatchOutput}=await import('../src/workflows.mjs');
+ const all=Array.from({length:230},(_,i)=>({ref:`R${i+1}`})),seen=[];
+ let initiallyFail=true;
+ const f=await fixture(t,{texts:all.map(m=>`Test observation for ${m.ref}.`),generate:async input=>{
+  if(initiallyFail)throw Object.assign(new Error('测试服务中断'),{code:'model_network'});
+  if(input.materials.length){seen.push(input.materials.map(m=>m.ref));return envelope(JSON.stringify({framework:LANDSCAPE_FRAMEWORK,papers:dimensionFixture(input.materials).papers}));}
+  const data=dimensionFixture(all);delete data.papers;return envelope(JSON.stringify(data));
+ }});
+ const first=await done(f,await start(f,'revise',{text:'整理当前领域'}));assert.equal(first.status,'failed');initiallyFail=false;
+ await f.store.update(s=>{
+  const task=s.projects[f.p.id].researchTasks[first.id];
+  const plan=planMaterialBatches(task.input.materials,{processingPolicy:{version:'paper-extraction-v2',maxMaterials:12,maxTextBytes:48000}});
+  task.paperBatchRecords=plan.batches.slice(0,14).map((batch,i)=>({batchId:batch.id,fingerprint:batch.fingerprint,status:i<13?'completed':'failed',segments:batch.segments,attempts:[],toolRuns:[],result:i<13?validatePaperBatchOutput(JSON.stringify(dimensionFixture(batch.materials)),batch):null}));
+  const batch=plan.batches[13],data={framework:LANDSCAPE_FRAMEWORK,papers:dimensionFixture(batch.materials).papers};
+  s.modelCalls.push({id:'saved-legacy-syntax',taskId:first.id,projectId:f.p.id,status:'completed',purpose:'model.paper-extraction',inputRefs:batch.segments,materialRefs:batch.materials,outputText:JSON.stringify(data).replaceAll('"fields":{','"fields:{')});
+ });
+ const before=await f.store.read(s=>structuredClone(s.projects[f.p.id].researchTasks[first.id]));
+ const retried=await done(f,await start(f,'revise',{text:'整理当前领域',retryTaskId:first.id}));
+ assert.equal(retried.status,'completed',retried.error);assert.deepEqual(seen.map(b=>b.length),[50,12]);assert.equal(seen[0][0],'R169');
+ assert.equal(retried.calls.length,3);assert.ok(retried.recoveredExtractionCallIds.includes('saved-legacy-syntax'));
+ const result=await f.store.read(s=>s.projects[f.p.id].researchResults[retried.resultId]);assert.equal(result.paperNotes.length,230);
+ assert.deepEqual(await f.store.read(s=>s.projects[f.p.id].researchTasks[first.id]),before);
+});
+
+test('parallel extraction publishes unique paper progress before synthesis and records stage-specific model settings',async t=>{
+  const gates=Array.from({length:4},()=>{let resolve;const promise=new Promise(r=>{resolve=r;});return {resolve,promise};});
+  t.after(()=>gates.forEach(g=>g.resolve()));
+  let enter;const ready=new Promise(r=>{enter=r;});let count=0;const configs=[];
+  const f=await fixture(t,{texts:['Observed one.','Observed two.','Observed three.','Observed four.'],extractionConcurrency:2,generate:async input=>{
+    if(input.instruction.includes('逐篇完整整理')){
+      const i=count++;if(count===2)enter();await gates[i].promise;return envelope(JSON.stringify(dimensionFixture(input.materials)));
+    }
+    return envelope(JSON.stringify(dimensionFixture([1,2,3,4].map(i=>({ref:`R${i}`})))));
+  }});
+  const factory=f.service.modelFactory;
+  f.service.modelFactory=config=>{configs.push(config.reasoningEffort);return factory(config);};
+  await f.service.settings.save({baseUrl:'https://open.bigmodel.cn/api/paas/v4',model:'GLM-5.3-Flash',apiKey:'test-only',enabled:true,
+    reasoningEffort:'max',paperBatchSize:1,extractionReasoningEffort:'low',extractionConcurrency:2});
+  const started=await start(f,'revise',{text:'整理全部材料'});await ready;assert.equal(count,2);
+  gates[1].resolve();
+  // Let the persisted completion and the next admitted unit become observable.
+  for(let i=0;i<100;i++){
+    const task=await f.store.read(s=>s.projects[f.p.id].researchTasks[started.taskId]);
+    if(task.extractionProgress?.completed===1){assert.match(task.progress,/已保存 1 \/ 4/);break;}
+    if(i===99)assert.fail('completed paper was not published');
+    await new Promise(r=>setTimeout(r,5));
+  }
+  gates.forEach(g=>g.resolve());const task=await done(f,started);assert.equal(task.status,'completed',task.error);
+  assert.deepEqual(configs,['low','low','low','low','max']);assert.equal(task.extractionProgress.completed,4);
+  const calls=await f.store.read(s=>s.modelCalls.filter(c=>c.taskId===task.id));
+  assert.deepEqual(calls.map(c=>c.configuredOptions.reasoningEffort),configs);
+  assert.equal(calls.at(-1).configuredOptions.generationBudget.maxOutputTokens,65536);
+  assert.ok(calls.slice(0,-1).every(c=>c.configuredOptions.generationBudget.maxOutputTokens===32768));
+  assert.equal(task.analysisSettings.reasoningEffort,'max');assert.equal(task.analysisSettings.extraction.reasoningEffort,'low');
+});
+
+test('a valid child is visible while its parent batch still awaits repair',async t=>{
+ let release,entered;const gate=new Promise(r=>{release=r;}),ready=new Promise(r=>{entered=r;});t.after(()=>release());
+ let calls=0;
+ const f=await fixture(t,{texts:['Observed one.','Observed two.','Observed three.'],generate:async input=>{
+  if(input.instruction.includes('逐篇完整整理')){
+   calls++;if(calls===1)return envelope(JSON.stringify(dimensionFixture(input.materials.slice(0,1))));
+   if(calls===2){entered();await gate;}
+   return envelope(JSON.stringify(dimensionFixture(input.materials)));
+  }
+  return envelope(JSON.stringify(dimensionFixture([1,2,3].map(i=>({ref:`R${i}`})))));
+ }});
+ await f.service.settings.save({...f.service.settings.config,apiKey:'',paperBatchSize:2});
+ const started=await start(f,'revise',{text:'完整整理'});await ready;
+ const task=await f.store.read(s=>s.projects[f.p.id].researchTasks[started.taskId]);
+ assert.equal(task.extractionProgress.completed,1);assert.match(task.progress,/已保存 1 \/ 3/);
+ assert.equal(task.paperBatchRecords[0].status,'running');
+ release();assert.equal((await done(f,started)).status,'completed');
+});
+
+test('revising a saved report reuses source facts, clears old relevance and only synthesizes; explicit rereading still works', async t => {
+  let extracted = 0, synthesized = 0;
+  const materials = [1, 2, 3].map(i => ({ ref: `R${i}` }));
+  const f = await fixture(t, { texts: ['Observed one.', 'Observed two.', 'Observed three.'], generate: async input => {
+    if (input.instruction.includes('逐篇完整整理')) { extracted++; return envelope(JSON.stringify(dimensionFixture(input.materials))); }
+    synthesized++; return envelope(JSON.stringify(dimensionFixture(materials)));
+  } });
+  await f.service.settings.save({ ...f.service.settings.config, apiKey: '', paperBatchSize: 2 });
+  const first = await done(f, await start(f, 'revise', { text: '形成领域认识' }));
+  assert.equal(first.status, 'completed', first.error); assert.equal(extracted, 2);
+  const original = JSON.stringify(first.paperBatchRecords);
+  const revision = await done(f, await start(f, 'revise', { text: '补充不同研究之间的比较理由' }));
+  assert.equal(revision.status, 'completed', revision.error); assert.equal(extracted, 2); assert.equal(synthesized, 2);
+  assert.equal(revision.calls.length, 1); assert.equal(revision.extractionReuse.sourceTaskId, first.id);
+  assert.equal(revision.extractionReuse.accessIds.length, 3);
+  const result = await f.store.read(s => s.projects[f.p.id].researchResults[revision.resultId]);
+  assert.ok(result.paperNotes.every(p => p.fields.relevance.status === 'unknown'));
+  assert.equal(JSON.stringify((await f.store.read(s => s.projects[f.p.id].researchTasks[first.id])).paperBatchRecords), original);
+  const reread = await done(f, await start(f, 'revise', { text: '请重新逐篇核对文献' }));
+  assert.equal(reread.status, 'completed', reread.error); assert.equal(extracted, 4); assert.equal(reread.extractionReuse, undefined);
 });

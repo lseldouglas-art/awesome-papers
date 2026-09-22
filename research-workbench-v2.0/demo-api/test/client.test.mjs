@@ -220,3 +220,18 @@ test('malformed success envelopes and non-JSON errors cannot appear successful',
     assert.equal(calls.length, 1);
   }
 });
+
+test('conditional task polling keeps an unchanged response empty, then receives changed state', async () => {
+  let version, n = 0;
+  const { client, calls } = recordingClient(() => {
+    n++;
+    if (n === 2) return new Response(null, { status: 304, headers: { ETag: 'W/"one"' } });
+    return new Response(JSON.stringify({ data: { status: n === 1 ? 'running' : 'completed' } }), { headers: { ETag: n === 1 ? 'W/"one"' : 'W/"two"' } });
+  });
+  const read = () => client.request('/api/projects/p/research-tasks/t', { ifNoneMatch: version, onVersion: value => { version = value; } });
+  assert.equal((await read()).status, 'running');
+  assert.equal(await read(), null);
+  assert.equal(calls[1].options.headers.get('If-None-Match'), 'W/"one"');
+  assert.equal((await read()).status, 'completed'); assert.equal(version, 'W/"two"');
+  await assert.rejects(client.request('/api/projects', { method: 'POST', body: {}, ifNoneMatch: version }), TypeError);
+});

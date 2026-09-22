@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildResearchContext, validateComparisonOutput, resolveMaterialCitation, materialContextLimits, planMaterialBatches,
+import { buildResearchContext, validateComparisonOutput, resolveMaterialCitation, materialContextLimits, planMaterialBatches, planPaperExtractionBatches, paperExtractionContext, PAPER_EXTRACTION_POLICY,
   materialRequestSize, assertMaterialContextFits, perPaperBatchInstructions, validatePaperBatchOutput, combinePaperCoverage,
   landscapeAggregationInstructions, completeLandscapeAggregation, createTaskAttempt, createToolRun, transitionRun, runMaterialBatches, workflowRegistry } from '../src/workflows.mjs';
 import { LANDSCAPE_FRAMEWORK, PAPER_FIELDS } from '../../shared/domain-landscape.mjs';
@@ -14,7 +14,7 @@ const comparison = () => ({ explanation: '比较依据和未知。', next: '你�
   supporting: [{ text: '材料报告关联。', status: 'reported', citations: [{ ref: 'R1', passage: 'P1' }] }], conflicting: [], unknowns: ['因果关系未知'], feasibility: { known: [], unknown: ['资料可得性未知'] } }] });
 
 test('capabilities do not encode a global scientific stage or automatic adoption', () => {
-  assert.deepEqual(Object.keys(workflowRegistry), ['clarify', 'retrieve', 'landscape', 'ask', 'revise', 'compare', 'topic-plan', 'topic-preview', 'topic-collect', 'topic-screen', 'topic-outline', 'topic-review', 'deepen', 'brief']);
+  assert.deepEqual(Object.keys(workflowRegistry), ['clarify', 'retrieve', 'landscape', 'ask', 'revise', 'compare', 'question-investigation', 'topic-plan', 'topic-preview', 'topic-collect', 'topic-screen', 'topic-outline', 'topic-review', 'deepen', 'brief']);
   assert.ok(Object.values(workflowRegistry).every(w => w.adoptsDecision === false));
 });
 
@@ -87,6 +87,33 @@ test('only explicit provider allowance triggers lossless batching and oversized-
   assert.throws(() => planMaterialBatches(selected, { maxInputTokens: 5 }), e => e.code === 'context_capacity');
 });
 
+test('extraction work units bound output work even with unknown or very large provider capacity, without excluding papers', () => {
+  const selected = Array.from({ length: 256 }, (_, i) => material(i + 1));
+  const plan = planPaperExtractionBatches(selected);
+  assert.equal(plan.limits.maxInputTokens, null); assert.equal(plan.limits.basis, 'provider_limit_unknown');
+  assert.equal(plan.processingPolicy.version, 'paper-extraction-v3');
+  assert.deepEqual(plan.batches.map(b=>b.materials.length),[50,50,50,50,50,6]);
+  assert.ok(plan.batches.length > 1); assert.ok(plan.batches.every(b => b.materials.length <= PAPER_EXTRACTION_POLICY.maxMaterials));
+  assert.deepEqual(plan.batches.flatMap(b => b.materials), selected);
+  assert.equal(plan.coverage.selectedCount, 256); assert.deepEqual(plan.coverage.excludedAccessIds, []);
+  assert.deepEqual(planPaperExtractionBatches(selected).batches.map(b => b.fingerprint), plan.batches.map(b => b.fingerprint));
+  assert.equal(planPaperExtractionBatches(selected, { maxInputTokens: 10000000 }).batches.length, plan.batches.length);
+  const long = [material(1, '完整观察😀。'.repeat(12000))], segmented = planPaperExtractionBatches(long);
+  assert.equal(segmented.batches.length, 1); // No unverified byte ceiling.
+  assert.equal(segmented.batches.flatMap(b => b.materials).map(m => m.text).join(''), long[0].text);
+  assert.ok(segmented.batches.every(b => Buffer.byteLength(b.materials[0].text, 'utf8') <= PAPER_EXTRACTION_POLICY.maxTextBytes));
+  const smallProvider = planPaperExtractionBatches(selected, { maxInputTokens: 900, countTokens: s => s.length });
+  assert.ok(smallProvider.batches.every(b => b.estimatedInputTokens <= 900));
+});
+
+test('per-paper context preserves research intent and omits prior reports and the global source list', () => {
+  const context = { goal: '研究意图', conditions: '已知条件', currentQuestion: { text: '已采用问题', revisionId: 'q1' },
+    selectedArtifact: { blocks: [{ text: '旧模型结论' }] }, selectedMaterialRefs: [{ ref: 'R999' }] };
+  const extracted = paperExtractionContext(context);
+  assert.deepEqual(extracted, { goal: context.goal, conditions: context.conditions, currentQuestion: context.currentQuestion });
+  extracted.currentQuestion.text = 'changed'; assert.equal(context.currentQuestion.text, '已采用问题');
+});
+
 test('per-paper validation and combination preserve all segment observations and original offsets', () => {
   const selected = [material(1, 'The original observation. '.repeat(90)), material(2)];
   const plan = planMaterialBatches(selected, { maxInputTokens: 800, countTokens: s => s.length });
@@ -150,3 +177,69 @@ test('late model results after cancellation are not marked complete or retried',
 
 // Import kept explicit so test exceptions exercise the same typed failure path.
 import { DomainError } from '../src/errors.mjs';
+
+const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return {promise, resolve}; };
+test('parallel extraction bounds concurrency, checkpoints first, and returns original order', async () => {
+  const plan = planPaperExtractionBatches([1,2,3,4].map(i=>material(i)), {paperBatchSize:1});
+  const gates=plan.batches.map(deferred), entered=plan.batches.map(deferred), saved=new Map();
+  let active=0, peak=0;
+  const pending=runMaterialBatches({plan,concurrency:2,checkpoint:async r=>saved.set(r.batchId,r),run:async ({batch})=>{
+    const i=plan.batches.findIndex(b=>b.id===batch.id);
+    assert.equal(saved.get(batch.id).status,'running'); peak=Math.max(peak,++active); entered[i].resolve();
+    await gates[i].promise; active--; return validatePaperBatchOutput(papersFor(batch),batch);
+  }});
+  await Promise.all(entered.slice(0,2).map(g=>g.promise));
+  assert.equal(active,2); gates[1].resolve(); await entered[2].promise;
+  gates[2].resolve(); await entered[3].promise; gates[3].resolve(); gates[0].resolve();
+  const result=await pending;
+  assert.equal(peak,2); assert.deepEqual(result.records.map(r=>r.batchId),plan.batches.map(b=>b.id));
+  assert.equal(combinePaperCoverage(result.results,[1,2,3,4].map(i=>material(i))).coverage.complete,true);
+});
+
+test('parallel failure drains useful in-flight work, admits no more calls, and retry reuses it', async () => {
+  const plan=planPaperExtractionBatches([1,2,3].map(i=>material(i)),{paperBatchSize:1});
+  const ready=deferred(), failed=deferred(), finish=deferred(), saved=new Map(), called=[];
+  let settled=false;
+  const pending=runMaterialBatches({plan,concurrency:2,checkpoint:async r=>{
+    saved.set(r.batchId,r); if(r.status==='failed')failed.resolve();
+  },run:async({batch})=>{
+    called.push(batch.id);
+    if(batch.id===plan.batches[0].id){await ready.promise;throw new DomainError('model_rate_limited',502,'limit');}
+    ready.resolve(); await finish.promise; return validatePaperBatchOutput(papersFor(batch),batch);
+  }});
+  pending.then(()=>{settled=true;},()=>{settled=true;});
+  await failed.promise; assert.equal(settled,false); assert.equal(called.length,2);
+  finish.resolve(); await assert.rejects(pending,e=>e.code==='model_rate_limited');
+  assert.equal(saved.get(plan.batches[1].id).status,'completed');
+  const retryCalls=[];
+  const retried=await runMaterialBatches({plan,concurrency:2,previous:[...saved.values()],manualRetry:true,run:async({batch})=>{
+    retryCalls.push(batch.id);return validatePaperBatchOutput(papersFor(batch),batch);
+  }});
+  assert.deepEqual(retried.reusedBatchIds,[plan.batches[1].id]); assert.equal(retryCalls.length,2);
+});
+
+test('parallel cancellation waits for both calls and discards their late outputs',async()=>{
+  const plan=planPaperExtractionBatches([1,2,3].map(i=>material(i)),{paperBatchSize:1});
+  const ready=deferred(), finish=deferred(), controller=new AbortController(), saved=[];
+  let calls=0;
+  const pending=runMaterialBatches({plan,concurrency:2,signal:controller.signal,checkpoint:async r=>saved.push(r),run:async()=>{
+    if(++calls===2)ready.resolve();await finish.promise;return {papers:[]};
+  }});
+  await ready.promise;controller.abort();finish.resolve();
+  await assert.rejects(pending,e=>e.name==='AbortError'); assert.equal(calls,2);
+  assert.equal(saved.filter(r=>r.status==='cancelled').length,2);assert.equal(saved.filter(r=>r.status==='completed').length,0);
+});
+
+test('a quote can be a unique exact subrange of its named passage, never a rewritten or misplaced quote', () => {
+  const m = material(1, 'Background. A controlled study found an association. Limits remain.');
+  const quote = 'A controlled study found an association.';
+  const c = resolveMaterialCitation({ ref: 'R1', passage: 'P1', quote }, [m]);
+  assert.equal(m.text.slice(c.start, c.end), quote);
+  assert.equal(c.locatorAudit.resolvedBy, 'unique_exact_excerpt_within_passage');
+  assert.equal(c.locatorAudit.contentRewritten, false);
+  for (const quote of ['A controlled study proved causation.', ' ', 'association. Limits not reported']) {
+    assert.throws(() => resolveMaterialCitation({ ref: 'R1', passage: 'P1', quote }, [m]), e => e.code === 'invalid_citation');
+  }
+  const long = material(1, 'a'.repeat(600) + 'Unique finding.');
+  assert.throws(() => resolveMaterialCitation({ ref: 'R1', passage: 'P1', quote: 'Unique finding.' }, [long]), e => e.code === 'invalid_citation');
+});

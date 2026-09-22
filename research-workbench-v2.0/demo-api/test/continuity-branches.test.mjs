@@ -102,3 +102,12 @@ test('explicit multi-passage citations expand exact saved passages without accep
   assert.ok(citations.every(c=>c.modelLocator==='P1、P3'));
   for(const citation of [{ref:'R1',passage:'P1、P99'},{ref:'R2',passage:'P1、P2'},{ref:'R1',passage:'P1、P3',quote:'拼接的伪造引文'},{ref:'R1',passage:'P1、任意片段'}])assert.throws(()=>resolveMaterialCitations(citation,materials),e=>e.code==='invalid_citation');
 });
+test('annotated locators retain the explanation separately and resolve only the named original passage',()=>{
+  const materials=[{ref:'R1',sourceId:'s1',accessId:'a1',level:'abstract',text:'Actual source reports an uncertain effect.'}];
+  const input={ref:'R1',passage:'P1: 效果仍不确定，需核查'};
+  const [citation]=resolveMaterialCitations(input,materials);
+  assert.equal(citation.quote,materials[0].text);assert.equal(citation.modelLocator,input.passage);
+  assert.equal(citation.locatorExplanation,'效果仍不确定，需核查');assert.equal(citation.passage,'P1');
+  for(const bad of [{ref:'R1',passage:'P99: 解释'},{ref:'R9',passage:'P1: 解释'},
+    {ref:'R1',passage:'P1: 也可能P2'},{...input,quote:'invented exact quote'}])assert.throws(()=>resolveMaterialCitations(bad,materials));
+});

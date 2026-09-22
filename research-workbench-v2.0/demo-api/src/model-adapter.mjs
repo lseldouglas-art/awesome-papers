@@ -1,5 +1,6 @@
 import { sourcePassages } from '../../shared/material-scope.mjs';
 import { randomUUID } from 'node:crypto';
+import { generationBudget } from '../../shared/model-analysis.mjs';
 
 // Protocol reference: https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create
 // This adapter generates text only. It neither executes research nor adopts its output.
@@ -21,6 +22,8 @@ class AdapterError extends Error {
 
 const failure = (code, status, message) => new AdapterError(code, status, message);
 const invalidInput = () => failure('invalid_input', 400, '模型请求的指令、材料或请求标识不合法。');
+const responseLimit = () => failure('model_response_limit', 502, '模型响应超过传输容量；本次已停止读取，不自动重发。已有完整整理保留，可缩小单步输出后继续。');
+const outputLimit = () => failure('model_output_limit', 502, '模型正文超过单步保存容量；已有材料保留，请拆分输出后继续。');
 const invalidResponse = () => failure('model_invalid_response', 502, '模型服务返回了不合法的响应。');
 const plainObject = (value) => value !== null && typeof value === 'object'
   && [Object.prototype, null].includes(Object.getPrototypeOf(value));
@@ -87,7 +90,7 @@ async function readJson(response) {
   const declaredLength = response.headers?.get?.('content-length');
   if (declaredLength && Number(declaredLength) > MAX_RESPONSE_BYTES) {
     response.body?.cancel?.().catch(() => {});
-    throw invalidResponse();
+    throw responseLimit();
   }
   if (response.body === null) throw failure('model_empty_response', 502, '模型服务未返回文本内容。');
   if (!response.body || typeof response.body.getReader !== 'function') throw invalidResponse();
@@ -102,7 +105,7 @@ async function readJson(response) {
       size += value.byteLength;
       if (size > MAX_RESPONSE_BYTES) {
         reader.cancel().catch(() => {});
-        throw invalidResponse();
+        throw responseLimit();
       }
       text += decoder.decode(value, { stream: true });
     }
@@ -116,7 +119,16 @@ async function readJson(response) {
 
 // A long synthesis must not wait for the entire JSON before the connection carries
 // data. Collect SSE transport privately; only a complete, validated result is saved.
-async function readEvents(response, configuredModel) {
+function responseSnapshot(text, model, usage, finishReason = null) {
+  const counts = {};
+  for (const key of ['prompt_tokens', 'completion_tokens', 'total_tokens'])
+    counts[key] = Number.isSafeInteger(usage?.[key]) && usage[key] >= 0 ? usage[key] : null;
+  return { text, model: typeof model === 'string' && MODEL_PATTERN.test(model) ? model : null,
+    usage: Object.values(counts).some(v => v !== null) ? counts : null, finishReason,
+    outputStatus: 'incomplete_unvalidated_output' };
+}
+
+async function readEvents(response, configuredModel, onSnapshot) {
   if (!response.body?.getReader) throw invalidResponse();
   const reader = response.body.getReader(), decoder = new TextDecoder('utf-8', { fatal: true });
   let buffer = '', content = '', model = configuredModel, usage, finish = null, done = false, bytes = 0;
@@ -134,9 +146,10 @@ async function readEvents(response, configuredModel) {
       const delta = choice.delta;
       if (delta.tool_calls || delta.function_call || delta.refusal) throw failure('model_refused', 502, '模型服务没有提供可用的文本分析。');
       if (delta.content != null) { if (typeof delta.content !== 'string') throw invalidResponse(); content += delta.content; }
-      if (content.length > 200_000) throw invalidResponse();
+      if (content.length > 200_000) throw outputLimit();
       if (choice.finish_reason != null) finish = choice.finish_reason;
     }
+    onSnapshot(responseSnapshot(content, model, usage, finish));
   };
   try {
     while (!done) {
@@ -145,7 +158,7 @@ async function readEvents(response, configuredModel) {
       bytes += chunk.value.byteLength;
       // SSE envelopes can be much larger than the actual answer. This bounds
       // transport overhead, not the input context or number of papers.
-      if (bytes > 16_777_216) throw invalidResponse();
+      if (bytes > 16_777_216) throw responseLimit();
       buffer += decoder.decode(chunk.value, { stream: true });
       let separator;
       while ((separator = /\r?\n\r?\n/.exec(buffer))) {
@@ -176,7 +189,8 @@ function parseResult(body, configuredModel) {
   if (text === null || (typeof text === 'string' && !text.trim())) {
     throw failure('model_empty_response', 502, '模型服务未返回文本内容。');
   }
-  if (typeof text !== 'string' || text.length > 200_000) throw invalidResponse();
+  if (typeof text !== 'string') throw invalidResponse();
+  if (text.length > 200_000) throw outputLimit();
   const model = body.model === undefined ? configuredModel : body.model;
   if (typeof model !== 'string' || !MODEL_PATTERN.test(model)) throw invalidResponse();
   let usage = null;
@@ -203,14 +217,15 @@ export function createModelAdapter(config = {}, { fetchImpl = globalThis.fetch }
   // Provider-scoped profile: the publisher documents max as the GLM-5.3-Flash default.
   // Initial exploration needs a bounded response, not unrestricted deliberation.
   // https://huggingface.co/zai-org/GLM-5.3-Flash-BF16#note
-  const generationOptions = settings.provider === 'open.bigmodel.cn' && /^glm-5\.3-flash$/i.test(settings.model ?? '')
-    ? { reasoning_effort: 'low', max_tokens: 32768, stream: true } : {};
-  // The official model page documents 128K output. Reserve 32K for complete
-  // extraction + seven dimensions; keep smaller tasks free to finish early.
+  const budget = plainObject(config) ? generationBudget(config) : null;
+  if (budget && (!Number.isSafeInteger(budget.maxOutputTokens) || budget.maxOutputTokens < 1 || budget.maxOutputTokens > 131072)) settings.error = 'invalid_configuration';
+  const generationOptions = budget
+    ? { reasoning_effort: ['low', 'high', 'max'].includes(config.reasoningEffort) ? config.reasoningEffort : 'low', max_tokens: budget.maxOutputTokens, stream: true } : {};
+  // Respect an explicit allowance; max-effort synthesis has a larger default.
+  // The official model page documents up to 128K output.
   // https://docs.bigmodel.cn/cn/guide/models/vlm/glm-5.3-flash
-  // Public acceptance measured 13,613 output tokens in 264 seconds for 20 papers.
-  // Allow a full 32K structured response to finish; the user can still stop immediately.
-  const timeoutMs = generationOptions.stream ? 720_000 : TIMEOUT_MS;
+  // A ceiling is not a target: the model may finish earlier, and stop is immediate.
+  const timeoutMs = budget?.timeoutMs ?? TIMEOUT_MS;
   return {
     capabilities() {
       return { configured: !settings.error, enabled: settings.enabled, model: settings.model, protocol: PROTOCOL };
@@ -226,9 +241,10 @@ export function createModelAdapter(config = {}, { fetchImpl = globalThis.fetch }
       // https://docs.bigmodel.cn/cn/guide/capabilities/struct-output
       // Enable provider-supported JSON transport for structured research calls.
       // Semantic, coverage and citation validation still run after generation.
-      const requestOptions = { ...generationOptions, ...(generationOptions.stream && /JSON/i.test(instruction) ? { response_format: { type: 'json_object' } } : {}) };
+      const requestOptions = { ...generationOptions, ...(generationOptions.stream && (input.outputSchema || /JSON/i.test(instruction)) ? { response_format: { type: 'json_object' } } : {}) };
       if (signal?.aborted) throw failure('model_cancelled', 499, '模型请求已取消。');
       const startedAt = new Date().toISOString();
+      let received = null;
       const controller = new AbortController();
       let rejectAbort;
       let stopped = false;
@@ -267,10 +283,13 @@ export function createModelAdapter(config = {}, { fetchImpl = globalThis.fetch }
             throw failure('model_http_error', 502, `模型服务未接受本次请求（HTTP ${status}）。请核对接口地址和模型名。`);
           }
           let body;
-          try { body = response.headers?.get?.('content-type')?.includes('text/event-stream') ? await readEvents(response, settings.model) : await readJson(response); } catch (error) {
+          try { body = response.headers?.get?.('content-type')?.includes('text/event-stream') ? await readEvents(response, settings.model, value => { received = value; }) : await readJson(response); } catch (error) {
             if (error instanceof AdapterError) throw error;
             throw invalidResponse();
           }
+          const message = body?.choices?.[0]?.message;
+          if (typeof message?.content === 'string' && message.content.length <= 200_000 && !message.refusal)
+            received = responseSnapshot(message.content, body.model ?? settings.model, body.usage, body.choices[0].finish_reason ?? null);
           return parseResult(body, settings.model);
         })();
         const result = await Promise.race([operation, aborted]);
@@ -280,8 +299,14 @@ export function createModelAdapter(config = {}, { fetchImpl = globalThis.fetch }
             startedAt, completedAt: new Date().toISOString() },
           usage: result.usage, cost: { status: 'unknown', amount: null } };
       } catch (error) {
-        if (error instanceof AdapterError) throw error;
-        throw failure('model_network_error', 502, '与模型服务的连接中断。已有材料保留；请检查网络后继续，本次不会自动重发。');
+        const errorToThrow = error instanceof AdapterError ? error
+          : failure('model_network_error', 502, '与模型服务的连接中断。已有材料保留；请检查网络后继续，本次不会自动重发。');
+        // Only assistant answer bytes and validated usage, never HTTP error bodies,
+        // credentials or private reasoning. A partial answer is not a result.
+        if (received) errorToThrow.responseSnapshot = { ...received, generationOptions: requestOptions, timeoutMs };
+        if (errorToThrow.code === 'model_incomplete_response' && received?.finishReason === 'length' && !received.text.trim())
+          errorToThrow.message = '本次生成额度已用尽，但模型尚未返回可保存的答案。已完成的文献整理仍保留；可提高输出额度或调整思考档位后接续未完成步骤。';
+        throw errorToThrow;
       } finally {
         controller.abort();
         clearTimeout(timer);

@@ -14,9 +14,10 @@ import { ensureKernel, researchState, registerResearchResult, kernelCommands, ke
 import { randomUUID } from 'node:crypto';
 import {createResearchFiles,RESEARCH_FILE_LIMIT} from './research-files.mjs';
 import {exportContinuity,provenanceManifest} from './continuity.mjs';
+import {readableBatches} from '../../shared/research-continuity.mjs';
 import {itemVersion,resolveResearchRef} from '../../shared/research-continuity.mjs';
 
-const allowedCommands = new Set(['update-project', 'add-annotation', 'resolve-annotation', 'append-message']);
+const allowedCommands = new Set(['save-researcher-intake', 'update-project', 'add-annotation', 'resolve-annotation', 'append-message']);
 const progressCommands = new Set(['save-notes', 'checkpoint', 'capture-current', 'restore-progress', 'attach-material', 'attach-existing-materials', 'annotate-current', 'record-message', 'adopt-result']);
 async function jsonBody(req,limit=1024*1024) {
   requireThat(req.headers['content-type']?.split(';')[0] === 'application/json', 'content_type', '请使用 JSON 请求。', 415);
@@ -62,15 +63,15 @@ export async function startServer({ directory = fileURLToPath(new URL('../.local
       else if(req.method==='GET'&&url.pathname.startsWith('/api/scientific-assets/')) {requireThat(await serveScientificAsset(url.pathname,res),'not_found','没有这项科研素材。',404);return;}
       else if (req.method === 'GET' && url.pathname === '/api/capabilities') data = await research.capabilities();
       else if (req.method === 'GET' && url.pathname === '/api/zotero/status') data = await zotero.status();
-      else if (req.method === 'GET' && url.pathname === '/api/model-calls') data = await store.read(s => s.modelCalls);
+      else if (req.method === 'GET' && url.pathname === '/api/model-calls') data = url.searchParams.get('view')==='summary' && url.searchParams.has('projectId') && url.searchParams.has('taskId') ? await store.callSummaries(url.searchParams.get('projectId'),url.searchParams.get('taskId')) : await store.read(s => s.modelCalls);
       else if (req.method === 'POST' && url.pathname === '/api/model-settings') data = await research.settings.save(await jsonBody(req));
-      else if (url.pathname === '/api/projects' && req.method === 'GET') data = await store.read(s => Object.values(s.projects).map(p => ({ id: p.id, name: p.name, goal: p.goal, example: p.example, updatedAt: p.updatedAt })));
+      else if (url.pathname === '/api/projects' && req.method === 'GET') data = await store.projectList();
       else if (url.pathname === '/api/projects' && req.method === 'POST') {
         const body = await jsonBody(req);
         data = await store.transact(requestId, { operation: 'create-project', body }, s => { const p = ensureKernel(upgradeProject(createWorkspace(s, body, requestId), false)); return { ...p, researchState: researchState(p) }; });
       } else if (parts[1] === 'projects' && parts[2]) {
         const projectId = parts[2];
-        if (parts.length === 3 && req.method === 'GET') data = await store.read(s => { const p = getProject(s, projectId); return { ...p, researchState: researchState(p) }; });
+        if (parts.length === 3 && req.method === 'GET') data = await store.readProject(projectId, p => ({ ...p, researchState: researchState(p) }), {summary:url.searchParams.get('view')==='summary'});
         else if(parts[3]==='provenance'&&parts.length===4&&req.method==='POST') {
           const body=await jsonBody(req);
           data=await store.read(s=>{const p=getProject(s,projectId);requireThat(Array.isArray(body.refs)&&body.refs.every(ref=>ref?.revisionId&&resolveResearchRef(p,ref)),'invalid_reference','请使用当前显示内容对应的已保存版本。');return {format:'research-workbench-export-v1',projectId,items:body.refs.map(ref=>provenanceManifest(p,{ref,accessIds:resolveResearchRef(p,ref).value.sourceAccessIds??[]}))};});
@@ -123,8 +124,15 @@ export async function startServer({ directory = fileURLToPath(new URL('../.local
         else if (parts.length === 4 && parts[3] === 'research-state' && req.method === 'GET') data = await store.read(s => researchState(getProject(s, projectId)));
         else if (parts.length === 4 && parts[3] === 'artifacts' && req.method === 'GET') data = await store.read(s => researchState(getProject(s, projectId)).artifacts);
         else if (parts.length === 5 && parts[3] === 'artifacts' && req.method === 'GET') data = await store.read(s => { const p = getProject(s, projectId); requireThat(Object.hasOwn(p.artifacts, parts[4]), 'not_found', '本课题没有这份成果。', 404); return p.artifacts[parts[4]]; });
+        else if (parts.length === 5 && parts[3] === 'research-requests' && req.method === 'GET') data = await store.requestStatus(projectId,parts[4]);
+        else if (parts.length === 6 && parts[3] === 'research-tasks' && parts[5] === 'batches' && req.method === 'GET') data = readableBatches((await store.taskSnapshot(projectId,parts[4])).task);
         else if (parts.length === 4 && parts[3] === 'research-tasks' && req.method === 'POST') data = await research.start(projectId, await jsonBody(req), requestId);
-        else if (parts[3] === 'research-tasks' && parts.length === 5 && req.method === 'GET') data = await store.read(s => { const p = getProject(s, projectId); requireThat(Object.hasOwn(p.researchTasks, parts[4]), 'not_found', '没有这个任务。', 404); return p.researchTasks[parts[4]]; });
+        else if (parts[3] === 'research-tasks' && parts.length === 5 && req.method === 'GET') {
+          const snapshot = await store.taskSnapshot(projectId, parts[4], req.headers['if-none-match'], {summary:url.searchParams.get('view')==='summary'});
+          res.setHeader('ETag', snapshot.etag);
+          if (!snapshot.task) { res.writeHead(304, { 'Cache-Control': 'private, no-store' }); res.end(); return; }
+          data = snapshot.task;
+        }
         else if (parts[3] === 'research-tasks' && parts.length === 6 && parts[5] === 'stop' && req.method === 'POST') { await jsonBody(req); data = await research.stop(projectId, parts[4], requestId); }
         else if (parts[3] === 'research-tasks' && parts.length === 6 && parts[5] === 'revalidate' && req.method === 'POST') data = await research.revalidateSavedOutput(projectId, parts[4], requestId, await jsonBody(req));
         else if (parts.length === 5 && parts[3] === 'commands' && req.method === 'POST') {
@@ -139,9 +147,9 @@ export async function startServer({ directory = fileURLToPath(new URL('../.local
               return parsed ? { handled: true, ...kernelCommand(s, projectId, parsed.command, parsed.body, requestId) } : { handled: false };
             }
             if (kernelCommands.has(name)) return kernelCommand(s, projectId, name, body, requestId);
-            const previous = { goal: p.goal, conditions: p.conditions, metadataVersion: p.metadataVersion };
+            const previous = { goal: p.goal, conditions: p.conditions, metadataVersion: p.metadataVersion, researcherProfileVersion:p.researcherProfile?.version };
             const output = progressCommands.has(name) ? progressCommand(s, projectId, name, body, requestId) : executeCommand(s, projectId, name, body, requestId);
-            if (['update-project', 'restore-progress'].includes(name)) markProjectContextChange(p, previous, requestId);
+            if ((['update-project', 'restore-progress'].includes(name) || (name === 'save-researcher-intake' && body.confirm))) markProjectContextChange(p, previous, requestId);
             s.events.push({ id: `event_${randomUUID()}`, type: name, actor: 'local_user', projectId, target: { artifactId: body.artifactId ?? null }, inputVersion: body.baseVersion ?? null, operationId: requestId, at: new Date().toISOString(), change: structuredClone(output) });
             return output;
           });

@@ -7,8 +7,8 @@
 - 风格参考：`design-explorations/2026-09-12-domain-brief/revision-2/01-content-understanding.png` 的第三栏双屏插画。未裁切或直接复用该参考中的图像。
 - 工具：内置 `image_gen`，共 2 次调用（一次生成、一次风格修正）；费用未知。
 - 最终尺寸：1774 × 887，2:1，白色背景 PNG，完整双屏单一资产。
-- 最终原始文件：本机生成原件（未公开路径）。
-- 首稿原始文件：本机生成原件（未公开路径）。
+- 最终原始文件：`/Users/lsel/.codex/generated_images/01a095e2-9b9c-7e00-b3cd-fab5d297e225/exec-cdace587-7aa6-4da6-aa1d-8afb725f9be2.png`
+- 首稿原始文件：`/Users/lsel/.codex/generated_images/01a095e2-9b9c-7e00-b3cd-fab5d297e225/exec-b0416a5d-caea-4aa9-bf2f-a7ca74bdb0dc.png`
 - 人工图像检查：两屏完整、颜色对应、无文字/数字/箭头/病灶标注；终稿已将偏写实的首稿改为明显插画风格。
 
 ## 初次生成提示词

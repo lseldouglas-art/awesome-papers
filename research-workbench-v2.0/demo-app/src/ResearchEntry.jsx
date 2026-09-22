@@ -1,17 +1,43 @@
+import { Icon } from './icons.jsx';
 import {readableBatches} from '../../shared/research-continuity.mjs';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { searchTotals } from '../../shared/topic-search.mjs';
 import { taskPurposes } from '../../shared/research-guidance.mjs';
 import { RetrievalScope } from './RetrievalScope.jsx';
+import { api } from './ui.jsx';
 
 export function SavedBatches({task,project,onSource}) {
-  const batches=readableBatches(task);
-  if(!batches.length)return null;
+  const [open,setOpen]=useState(false);
+  const [loaded,setLoaded]=useState(null), [error,setError]=useState('');
+  useEffect(()=>{setLoaded(null);setError('');},[task.id]);
+  useEffect(()=>{
+    if(!open||!task.summaryView)return;
+    let alive=true; const controller=new AbortController();setError('');
+    api.request(`/api/projects/${project.id}/research-tasks/${task.id}/batches`,{signal:controller.signal})
+      .then(value=>{if(alive)setLoaded(value);}).catch(e=>{if(alive)setError(e.message);});
+    return()=>{alive=false;controller.abort();};
+  },[open,task.id,task.savedBatchCount,task.extractionProgress?.completed]);
+  const direct=useMemo(()=>readableBatches(task),[task.paperBatchRecords,task.investigation?.extractionRecords]);
+  const batches=task.summaryView?loaded??[]:direct;
+  if(!batches.length&&!task.savedBatchCount)return null;
+  const count=new Set(batches.flatMap(b=>Array.isArray(b.content)?b.content.map(p=>p.accessId):[])).size;
+  return <details className="readable-batches" open={open} onToggle={e=>{if(e.target===e.currentTarget)setOpen(e.currentTarget.open);}}><summary>{count||task.extractionProgress?.completed||task.savedBatchCount} {count||task.extractionProgress?.completed?'份材料':'批材料'}已有整理，可先阅读</summary>{open&&<>{error?<p role="alert">{error}</p>:task.summaryView&&!loaded?<p>正在读取已保存的整理…</p>:null}<p>这里保留已处理片段的整理；材料处理完成与综合结论完成分别记录。</p>{batches.map((b,i)=><SavedBatch key={b.id} batch={b} index={i} project={project} onSource={onSource}/>)}</>}</details>;
+}
+function SavedBatch({batch:b,index:i,project,onSource}) {
+  const [open,setOpen]=useState(false);
   const labels={subject:'研究对象与问题',methods:'方法概述',findings:'主要发现',relevance:'与课题的关系',unreported:'未报告与局限'};
-  return <details className="readable-batches"><summary>{batches.length} 批材料已保存，可先阅读</summary><p>这里是已处理片段的阶段整理，尚不能代表全部材料的综合结论。</p>{batches.map((b,i)=><details key={b.id}><summary>第 {i+1} 批 · 已完成片段</summary>{Array.isArray(b.content)&&b.content.map((paper,j)=><article key={j}><h4>{project?.sources?.[paper.sourceId]?.title??paper.ref}</h4>{Object.entries(paper.fields??{}).map(([field,v])=><div key={field}><strong>{labels[field]??'材料发现'} · {v.status==='unknown'?'未知':v.status==='inference'?'AI解释':'材料报告'}</strong><p>{v.text}</p>{v.citations?.map((c,n)=><button key={n} onClick={()=>onSource?.(paper.accessId,c)}>查看原文片段 {n+1}</button>)}</div>)}</article>)}</details>)}</details>;
+  return <details open={open} onToggle={e=>{if(e.target===e.currentTarget)setOpen(e.currentTarget.open);}}><summary>第 {i+1} 批 · 已完成片段</summary>{open&&Array.isArray(b.content)&&b.content.map((paper,j)=><article key={j}><h4>{project?.sources?.[paper.sourceId]?.title??paper.ref}</h4>{Object.entries(paper.fields??{}).map(([field,v])=><div key={field}><strong>{labels[field]??'材料发现'} · {v.status==='unknown'?'未知':v.status==='inference'?'AI解释':'材料报告'}</strong><p>{v.text}</p>{v.citations?.map((c,n)=><button key={n} onClick={()=>onSource?.(paper.accessId,c)}>查看原文片段 {n+1}</button>)}</div>)}</article>)}</details>;
+}
+function TaskTiming({task}) {
+  const [now,setNow]=useState(Date.now);
+  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),15000);return()=>clearInterval(timer);},[]);
+  const started=Date.parse(task.startedAt??task.createdAt),call=task.toolRuns?.filter(r=>r.status==='running'&&r.name?.startsWith('model.')).at(-1);
+  const elapsed=at=>`${Math.max(0,Math.floor((now-Date.parse(at))/60000))} 分钟`;
+  if(!Number.isFinite(started))return null;
+  return <small>本轮已运行 {elapsed(task.startedAt??task.createdAt)}{call?.startedAt?` · 当前模型请求已用时 ${elapsed(call.startedAt)}`:''}</small>;
 }
 export function TaskActivity({ task, onStop, project, onSource }) {
-  return <div><div className="task-status" role="status"><span className="activity-dot"/><div><span>{task.progress || taskPurposes[task.mode]}</span><small>已保存内容可继续阅读；停止后保留已完成工作。</small></div><button onClick={onStop}>停止</button></div><SavedBatches task={task} project={project} onSource={onSource}/></div>;
+  return <div><div className="task-status" role="status"><span className="activity-dot"/><div><span>{task.progress || taskPurposes[task.mode]}</span><TaskTiming task={task}/><small>已保存内容可继续阅读；停止后保留已完成工作。</small></div><button onClick={onStop}>停止</button></div><SavedBatches task={task} project={project} onSource={onSource}/></div>;
 }
 
 export function SearchReceipt({ search, previous }) {
@@ -49,7 +75,7 @@ export function TargetedMaterialSearch({ query, onQuery, proposal, search, searc
   </details>;
 }
 
-export function ResearchEntry({ query, onQuery, proposal, search, task, busy, currentResult, configured, configurationPending, recipient, failure, onPrepare, onSearch, onResume, onModel, materialReview, selectedCount, embedded = false, prepareLabel, prepareDisabled = false, retrievalOptions, onRetrievalOptions }) {
+export function ResearchEntry({ analysisSettings, onContinue, query, onQuery, proposal, search, task, busy, currentResult, configured, configurationPending, recipient, failure, onPrepare, onSearch, onResume, onModel, materialReview, selectedCount, embedded = false, prepareLabel, prepareDisabled = false, retrievalOptions, onRetrievalOptions }) {
   const ready = Boolean(query.trim());
   const queryRef = useRef(), wasTyping = useRef(false);
   const [manualOpen, setManualOpen] = useState(false);
@@ -70,7 +96,7 @@ export function ResearchEntry({ query, onQuery, proposal, search, task, busy, cu
       <p>{exactProposal ? proposal.scope : '按下方检索式开展初步扫描，年份、文献类型和语言条件以检索式为准。'}</p>
       {exactProposal && <details className="scope-reason"><summary>检索依据与未决问题</summary><p>{proposal.explanation}</p>{proposal.questions.length > 0 && <><ul>{proposal.questions.map(q => <li key={q}>{q}</li>)}</ul><p className="muted">可以现在交流，也可以先了解整体，无需逐项填写。</p></>}</details>}
       <RetrievalScope query={query} options={retrievalOptions} onChange={onRetrievalOptions} onSearch={onSearch} search={search} disabled={disabled}/>
-      {reusable && <>{materialReview}<div className="start-actions"><button className="primary" disabled={disabled || !selectedCount} onClick={onResume}>{task ? '本步正在进行…' : currentResult ? `用已选 ${selectedCount} 篇更新领域认识` : `用已选 ${selectedCount} 篇生成领域认识`}</button></div></>}
+      {reusable && <>{materialReview}<div className="analysis-options"><p>{task ? `本次已选 ${selectedCount} 篇 · 按实际完成篇数更新进度` : <>每批最多 {analysisSettings?.paperBatchSize??50} 篇 · 同时 {analysisSettings?.extractionConcurrency??2} 批 · 逐篇整理：{analysisSettings?.extractionReasoningEffort&&analysisSettings.extractionReasoningEffort!=='inherit'?analysisSettings.reasoning?.options.find(o=>o.value===analysisSettings.extractionReasoningEffort)?.label:'跟随本次任务'} · 综合：{analysisSettings?.reasoning?.options.find(o=>o.value===analysisSettings.reasoningEffort)?.label??'模型默认'}</>}</p><button className="text-button" disabled={configurationPending} onClick={onModel}>调整分析设置</button></div>{onContinue&&<div className="start-actions"><button className="primary" disabled={disabled} onClick={onContinue}>继续上次未完成的整理<Icon name="arrow"/></button><p className="muted">复用上次已完成的材料，按上次输入继续。</p></div>}<div className="start-actions"><button className="primary" disabled={disabled || !selectedCount} onClick={onResume}>{task ? '本步正在进行…' : currentResult ? `用已选 ${selectedCount} 篇更新领域认识` : `用已选 ${selectedCount} 篇生成领域认识`}</button></div></>}
       <details className="scope-details" open={!exactProposal && !reusable ? true : undefined}><summary>编辑检索式或讨论研究范围</summary>{queryEditor}<button className="text-button" disabled={disabled} onClick={prepare}>根据当前想法重构检索式</button></details>
     </div>}
     {failure && <p className="entry-feedback" role="status">上次尝试：{failure.error || failure.progress}</p>}
